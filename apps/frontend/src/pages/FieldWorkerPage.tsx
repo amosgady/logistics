@@ -1,0 +1,748 @@
+import { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  Box, Typography, Card, CardContent, CardActions,
+  Button, Chip, IconButton, Collapse, Alert, Snackbar,
+  AppBar, Toolbar, LinearProgress, Dialog, DialogTitle,
+  DialogContent, DialogActions, TextField, ToggleButtonGroup,
+  ToggleButton, Divider, Paper, Badge,
+  Table, TableBody, TableCell, TableHead, TableRow,
+} from '@mui/material';
+import { useDateStore } from '../store/dateStore';
+import SignatureCanvas from 'react-signature-canvas';
+import {
+  Phone as PhoneIcon,
+  Navigation as NavIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  CheckCircle as CompleteIcon,
+  Cancel as NotDeliveredIcon,
+  RemoveCircle as PartialIcon,
+  Logout as LogoutIcon,
+  LocalShipping as TruckIcon,
+  Build as InstallerIcon,
+  Schedule as TimeIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  CameraAlt as CameraIcon,
+  Draw as SignatureIcon,
+  Close as CloseIcon,
+  Photo as PhotoIcon,
+  Message as MessageIcon,
+} from '@mui/icons-material';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { driverApi } from '../services/driverApi';
+import { installerFieldApi } from '../services/installerFieldApi';
+import { trackingApi } from '../services/trackingApi';
+import { useAuthStore } from '../store/authStore';
+import { useNavigate } from 'react-router-dom';
+import DeliveryMediaDialog from '../components/common/DeliveryMediaDialog';
+import MessagesDrawer from '../components/tracking/MessagesDrawer';
+
+const DELIVERY_RESULTS = [
+  { value: 'COMPLETE', label: 'הושלם', color: 'success' as const, icon: <CompleteIcon /> },
+  { value: 'PARTIAL', label: 'חלקי', color: 'warning' as const, icon: <PartialIcon /> },
+  { value: 'NOT_DELIVERED', label: 'לא סופק', color: 'error' as const, icon: <NotDeliveredIcon /> },
+];
+
+const TIME_WINDOW_LABELS: Record<string, string> = {
+  MORNING: 'בוקר 8-12',
+  AFTERNOON: 'צהריים 12-16',
+};
+
+function formatTime(dateStr: string) {
+  return new Date(dateStr).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+}
+
+function toDateString(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+const DAY_NAMES = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+
+interface OrderLine {
+  id: number;
+  product: string;
+  description: string | null;
+  quantity: number;
+  weight: string;
+}
+
+interface DeliveryPhoto {
+  id: number;
+  photoUrl: string;
+}
+
+interface Delivery {
+  id: number;
+  result: string;
+  notes: string | null;
+  signatureUrl: string | null;
+  deliveredAt: string | null;
+  photos: DeliveryPhoto[];
+}
+
+interface Order {
+  id: number;
+  orderNumber: string;
+  customerName: string;
+  address: string;
+  city: string;
+  phone: string;
+  phone2: string | null;
+  contactPerson: string | null;
+  floor: number | null;
+  elevator: boolean | null;
+  status: string;
+  timeWindow: string | null;
+  estimatedArrival: string | null;
+  routeSequence: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  coordinationNotes: string | null;
+  orderLines: OrderLine[];
+  delivery: Delivery | null;
+}
+
+interface FieldWorkerPageProps {
+  role: 'DRIVER' | 'INSTALLER';
+}
+
+export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
+  const isDriver = role === 'DRIVER';
+  const apiService = isDriver ? driverApi : installerFieldApi;
+  const queryKey = isDriver ? 'driver-route' : 'installer-route';
+
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { user, logout } = useAuthStore();
+  const { selectedDate: storedDate, setSelectedDate: setStoredDate } = useDateStore();
+  const selectedDate = new Date(storedDate + 'T00:00:00');
+  const setSelectedDate = useCallback((d: Date) => setStoredDate(toDateString(d)), [setStoredDate]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [deliveryDialog, setDeliveryDialog] = useState<{ orderId: number; orderNumber: string; orderLines: OrderLine[] } | null>(null);
+  const [deliveryResult, setDeliveryResult] = useState<string>('');
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [hasSignature, setHasSignature] = useState(false);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [viewMediaDialog, setViewMediaDialog] = useState<{ signatureUrl: string | null; photos: DeliveryPhoto[]; orderNumber: string } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
+  const [messagesOpen, setMessagesOpen] = useState(false);
+  const [messagePopup, setMessagePopup] = useState<{ sender: string; text: string } | null>(null);
+  const prevUnreadRef = useRef<number>(0);
+  const signatureRef = useRef<SignatureCanvas | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // GPS location reporting
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        trackingApi.reportLocation(position.coords.latitude, position.coords.longitude)
+          .catch((err) => console.error('Location report failed:', err));
+      },
+      (error) => console.error('Geolocation error:', error),
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
+
+  // Unread messages count + new message detection
+  const { data: unreadData } = useQuery({
+    queryKey: ['unread-count'],
+    queryFn: () => trackingApi.getUnreadCount(),
+    refetchInterval: 15000,
+  });
+  const unreadCount = unreadData?.data?.count || 0;
+
+  // When unread count increases, fetch latest message and show popup
+  useEffect(() => {
+    if (unreadCount > prevUnreadRef.current && prevUnreadRef.current >= 0) {
+      trackingApi.getMyMessages().then((res) => {
+        const messages = res?.data || [];
+        const latest = messages.find((m: any) => !m.isRead);
+        if (latest) {
+          setMessagePopup({ sender: latest.sender.fullName, text: latest.text });
+        }
+      }).catch(() => {});
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
+
+  const isToday = toDateString(selectedDate) === toDateString(new Date());
+  const isFutureLimit = toDateString(selectedDate) >= toDateString(addDays(new Date(), 7));
+
+  const { data, isLoading } = useQuery({
+    queryKey: [queryKey, toDateString(selectedDate)],
+    queryFn: () => apiService.getMyRoute(toDateString(selectedDate)),
+    refetchInterval: isToday ? 60000 : false,
+  });
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const openNavigation = (order: Order) => {
+    if (order.latitude && order.longitude) {
+      window.open(`https://waze.com/ul?ll=${order.latitude},${order.longitude}&navigate=yes`);
+    } else {
+      const address = encodeURIComponent(`${order.address}, ${order.city}`);
+      window.open(`https://www.google.com/maps/search/?api=1&query=${address}`);
+    }
+  };
+
+  const handleAddPhotos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remaining = 5 - photoFiles.length;
+    const newFiles = files.slice(0, remaining);
+    setPhotoFiles((prev) => [...prev, ...newFiles]);
+    newFiles.forEach((f) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => setPhotoPreviews((prev) => [...prev, ev.target?.result as string]);
+      reader.readAsDataURL(f);
+    });
+    e.target.value = '';
+  };
+
+  const handleRemovePhoto = (idx: number) => {
+    setPhotoFiles((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoPreviews((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleDeliverySubmit = async () => {
+    if (!deliveryDialog) return;
+    setSubmitting(true);
+    try {
+      await apiService.recordDelivery(deliveryDialog.orderId, {
+        result: deliveryResult,
+        notes: deliveryNotes || undefined,
+      });
+
+      if (signatureRef.current && !signatureRef.current.isEmpty()) {
+        const signatureData = signatureRef.current.toDataURL('image/png');
+        await apiService.uploadSignature(deliveryDialog.orderId, signatureData);
+      }
+
+      if (photoFiles.length > 0) {
+        await apiService.uploadPhotos(deliveryDialog.orderId, photoFiles);
+      }
+
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      setDeliveryDialog(null);
+      setDeliveryResult('');
+      setDeliveryNotes('');
+      setHasSignature(false);
+      setPhotoFiles([]);
+      setPhotoPreviews([]);
+      setSnackbar({ message: 'הדיווח נשמר בהצלחה', severity: 'success' });
+    } catch {
+      setSnackbar({ message: 'שגיאה בשמירת הדיווח', severity: 'error' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const routeData = data?.data;
+  const orders: Order[] = routeData?.orders || [];
+  const completedCount = orders.filter((o) => o.status === 'COMPLETED').length;
+  const remainingCount = orders.length - completedCount;
+
+  // Header subtitle - truck name for driver, department/zone for installer
+  const headerSubtitle = isDriver
+    ? (routeData?.truck?.name || 'טוען...')
+    : (routeData?.installer?.name || 'טוען...');
+
+  // Empty state text
+  const emptyIcon = isDriver ? <TruckIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} /> : <InstallerIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />;
+  const hasAssignment = isDriver ? routeData?.truck : routeData?.installer;
+  const emptyText = hasAssignment
+    ? (isToday ? 'אין עבודות להיום' : 'אין עבודות לתאריך זה')
+    : (isToday ? 'לא שויכת למסלול היום' : 'לא שויכת למסלול בתאריך זה');
+
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      {/* App Bar */}
+      <AppBar position="sticky">
+        <Toolbar>
+          {isDriver ? <TruckIcon sx={{ ml: 1 }} /> : <InstallerIcon sx={{ ml: 1 }} />}
+          <Box sx={{ flexGrow: 1, mr: 1 }}>
+            <Typography variant="subtitle1" fontWeight="bold">
+              {user?.fullName}
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.9 }}>
+              {headerSubtitle}
+            </Typography>
+          </Box>
+          <IconButton color="inherit" onClick={() => setMessagesOpen(true)}>
+            <Badge badgeContent={unreadCount} color="error">
+              <MessageIcon />
+            </Badge>
+          </IconButton>
+          <IconButton color="inherit" onClick={handleLogout}>
+            <LogoutIcon />
+          </IconButton>
+        </Toolbar>
+
+        {/* Date navigation strip */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'primary.dark', py: 0.5, gap: 1 }}>
+          <IconButton
+            size="small"
+            color="inherit"
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            disabled={toDateString(selectedDate) <= toDateString(new Date())}
+          >
+            <ChevronRightIcon />
+          </IconButton>
+          <Button
+            color="inherit"
+            size="small"
+            onClick={() => setSelectedDate(new Date())}
+            sx={{ minWidth: 140, textTransform: 'none' }}
+          >
+            <Typography variant="body2" fontWeight="bold">
+              {isToday
+                ? 'היום'
+                : `יום ${DAY_NAMES[selectedDate.getDay()]}`}
+              {' · '}
+              {selectedDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
+            </Typography>
+          </Button>
+          <IconButton
+            size="small"
+            color="inherit"
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            disabled={isFutureLimit}
+          >
+            <ChevronLeftIcon />
+          </IconButton>
+        </Box>
+      </AppBar>
+
+      {isLoading && <LinearProgress />}
+
+      <Box sx={{ p: 2, maxWidth: 600, mx: 'auto' }}>
+        {/* Summary */}
+        {orders.length > 0 && (
+          <Paper sx={{ p: 2, mb: 2, display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+            <Box>
+              <Typography variant="h5" fontWeight="bold">{orders.length}</Typography>
+              <Typography variant="caption" color="text.secondary">עצירות</Typography>
+            </Box>
+            <Divider orientation="vertical" flexItem />
+            <Box>
+              <Typography variant="h5" fontWeight="bold" color="success.main">{completedCount}</Typography>
+              <Typography variant="caption" color="text.secondary">הושלמו</Typography>
+            </Box>
+            <Divider orientation="vertical" flexItem />
+            <Box>
+              <Typography variant="h5" fontWeight="bold" color="warning.main">{remainingCount}</Typography>
+              <Typography variant="caption" color="text.secondary">נותרו</Typography>
+            </Box>
+          </Paper>
+        )}
+
+        {/* Empty state */}
+        {!isLoading && orders.length === 0 && (
+          <Paper sx={{ p: 4, textAlign: 'center' }}>
+            {emptyIcon}
+            <Typography variant="h6" color="text.secondary">
+              {emptyText}
+            </Typography>
+            <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>
+              פנה למתאמת לוגיסטיקה לפרטים
+            </Typography>
+          </Paper>
+        )}
+
+        {/* Delivery cards */}
+        {orders.map((order, idx) => {
+          const isExpanded = expandedId === order.id;
+          const isCompleted = order.status === 'COMPLETED';
+          const deliveryInfo = order.delivery;
+
+          return (
+            <Card
+              key={order.id}
+              sx={{
+                mb: 1.5,
+                border: isCompleted ? '2px solid #4caf50' : undefined,
+                opacity: isCompleted ? 0.8 : 1,
+              }}
+            >
+              {/* Collapsed - always visible */}
+              <CardContent sx={{ pb: 0, cursor: 'pointer' }} onClick={() => setExpandedId(isExpanded ? null : order.id)}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={idx + 1}
+                    size="small"
+                    color={isCompleted ? 'success' : 'primary'}
+                    sx={{ minWidth: 32, fontWeight: 'bold' }}
+                  />
+                  <Box sx={{ flexGrow: 1 }}>
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {order.customerName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {order.address}, {order.city}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 0.5 }}>
+                      <PhoneIcon fontSize="small" color="action" />
+                      <Typography variant="body2" component="a" href={`tel:${order.phone}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{ color: 'primary.main', textDecoration: 'none' }}>
+                        {order.phone}
+                      </Typography>
+                      {order.phone2 && (
+                        <>
+                          <Typography variant="body2" color="text.secondary">|</Typography>
+                          <Typography variant="body2" component="a" href={`tel:${order.phone2}`} onClick={(e: React.MouseEvent) => e.stopPropagation()} sx={{ color: 'primary.main', textDecoration: 'none' }}>
+                            {order.phone2}
+                          </Typography>
+                        </>
+                      )}
+                    </Box>
+                  </Box>
+                  {isCompleted && deliveryInfo && (
+                    <Chip
+                      label={DELIVERY_RESULTS.find((r) => r.value === deliveryInfo.result)?.label || deliveryInfo.result}
+                      size="small"
+                      color={DELIVERY_RESULTS.find((r) => r.value === deliveryInfo.result)?.color || 'default'}
+                    />
+                  )}
+                  <IconButton size="small">
+                    {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                  </IconButton>
+                </Box>
+              </CardContent>
+
+              {/* Expanded details */}
+              <Collapse in={isExpanded}>
+                <CardContent sx={{ pt: 1 }}>
+                  <Divider sx={{ mb: 1.5 }} />
+
+                  <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
+                    הזמנה #{order.orderNumber}
+                  </Typography>
+
+                  {(order.floor != null || order.elevator != null || order.contactPerson) && (
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+                      {order.floor != null && (
+                        <Chip label={`קומה ${order.floor}`} size="small" variant="outlined" />
+                      )}
+                      {order.elevator != null && (
+                        <Chip
+                          label={order.elevator ? 'יש מעלית' : 'אין מעלית'}
+                          size="small"
+                          variant="outlined"
+                          color={order.elevator ? 'success' : 'warning'}
+                        />
+                      )}
+                      {order.contactPerson && (
+                        <Chip label={`איש קשר: ${order.contactPerson}`} size="small" variant="outlined" />
+                      )}
+                    </Box>
+                  )}
+
+                  <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>פריט</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>תיאור</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', width: 50 }}>כמות</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {order.orderLines.map((line) => (
+                        <TableRow key={line.id}>
+                          <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>{line.product}</TableCell>
+                          <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>{line.description || '-'}</TableCell>
+                          <TableCell align="center">{line.quantity}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1.5, flexWrap: 'wrap' }}>
+                    {order.timeWindow && (
+                      <Chip
+                        icon={<TimeIcon />}
+                        label={TIME_WINDOW_LABELS[order.timeWindow] || order.timeWindow}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                    {order.estimatedArrival && (
+                      <Chip
+                        label={`הגעה: ${formatTime(order.estimatedArrival)}`}
+                        size="small"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+
+                  {order.coordinationNotes && (
+                    <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>
+                      {order.coordinationNotes}
+                    </Alert>
+                  )}
+                </CardContent>
+
+                <CardActions sx={{ px: 2, pb: 2, flexDirection: 'column', gap: 1 }}>
+                  <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
+                    <Button
+                      href={`tel:${order.phone}`}
+                      component="a"
+                      startIcon={<PhoneIcon />}
+                      variant="outlined"
+                      fullWidth
+                      size="large"
+                    >
+                      {order.phone}
+                    </Button>
+                    {order.phone2 && (
+                      <Button
+                        href={`tel:${order.phone2}`}
+                        component="a"
+                        startIcon={<PhoneIcon />}
+                        variant="outlined"
+                        fullWidth
+                        size="large"
+                      >
+                        {order.phone2}
+                      </Button>
+                    )}
+                    <Button
+                      startIcon={<NavIcon />}
+                      variant="outlined"
+                      fullWidth
+                      size="large"
+                      onClick={() => openNavigation(order)}
+                    >
+                      נווט
+                    </Button>
+                  </Box>
+                  {!isCompleted && (
+                    <Button
+                      startIcon={<CompleteIcon />}
+                      variant="contained"
+                      fullWidth
+                      size="large"
+                      onClick={() => {
+                        setDeliveryResult('');
+                        setDeliveryNotes('');
+                        setHasSignature(false);
+                        setPhotoFiles([]);
+                        setPhotoPreviews([]);
+                        setDeliveryDialog({ orderId: order.id, orderNumber: order.orderNumber, orderLines: order.orderLines });
+                      }}
+                    >
+                      דווח אספקה
+                    </Button>
+                  )}
+                  {isCompleted && deliveryInfo && (deliveryInfo.signatureUrl || deliveryInfo.photos?.length > 0) && (
+                    <Button
+                      startIcon={<PhotoIcon />}
+                      variant="outlined"
+                      fullWidth
+                      onClick={() => setViewMediaDialog({
+                        signatureUrl: deliveryInfo.signatureUrl,
+                        photos: deliveryInfo.photos || [],
+                        orderNumber: order.orderNumber,
+                      })}
+                    >
+                      צפה בחתימה ותמונות
+                    </Button>
+                  )}
+                </CardActions>
+              </Collapse>
+            </Card>
+          );
+        })}
+      </Box>
+
+      {/* Delivery report dialog */}
+      <Dialog open={!!deliveryDialog} onClose={() => !submitting && setDeliveryDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>דיווח אספקה - {deliveryDialog?.orderNumber}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            {deliveryDialog?.orderLines && deliveryDialog.orderLines.length > 0 && (
+              <Table size="small" sx={{ tableLayout: 'fixed' }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>פריט</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>תיאור</TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 'bold', width: 50 }}>כמות</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {deliveryDialog.orderLines.map((line) => (
+                    <TableRow key={line.id}>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>{line.product}</TableCell>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'normal' }}>{line.description || '-'}</TableCell>
+                      <TableCell align="center">{line.quantity}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SignatureIcon fontSize="small" /> חתימת לקוח
+                </Typography>
+                <Button size="small" onClick={() => { signatureRef.current?.clear(); setHasSignature(false); }}>נקה</Button>
+              </Box>
+              <Box sx={{ border: '1px solid #ccc', borderRadius: 1, bgcolor: '#fff' }}>
+                <SignatureCanvas
+                  ref={signatureRef}
+                  penColor="black"
+                  onEnd={() => setHasSignature(true)}
+                  canvasProps={{ style: { width: '100%', height: 150 } }}
+                />
+              </Box>
+            </Box>
+
+            <Box>
+              <ToggleButtonGroup
+                value={deliveryResult}
+                exclusive
+                onChange={(_, val) => val && setDeliveryResult(val)}
+                fullWidth
+                disabled={!hasSignature || photoFiles.length === 0}
+                sx={{ '& .MuiToggleButton-root': { py: 1.5 } }}
+              >
+                {DELIVERY_RESULTS.map((opt) => (
+                  <ToggleButton key={opt.value} value={opt.value} color={opt.color}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                      {opt.icon}
+                      <Typography variant="caption">{opt.label}</Typography>
+                    </Box>
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+              {(!hasSignature || photoFiles.length === 0) && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+                  {!hasSignature && photoFiles.length === 0
+                    ? 'יש לחתום ולצלם תמונה לפחות כדי לבחור סטטוס'
+                    : !hasSignature
+                    ? 'יש לחתום כדי לבחור סטטוס'
+                    : 'יש לצלם תמונה אחת לפחות כדי לבחור סטטוס'}
+                </Typography>
+              )}
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                <CameraIcon fontSize="small" /> תמונות ({photoFiles.length}/5)
+              </Typography>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                hidden
+                onChange={handleAddPhotos}
+              />
+              {photoPreviews.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                  {photoPreviews.map((src, i) => (
+                    <Box key={i} sx={{ position: 'relative', width: 80, height: 80 }}>
+                      <img src={src} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 4 }} />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleRemovePhoto(i)}
+                        sx={{ position: 'absolute', top: -8, right: -8, bgcolor: 'error.main', color: '#fff', '&:hover': { bgcolor: 'error.dark' }, width: 22, height: 22 }}
+                      >
+                        <CloseIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              {photoFiles.length < 5 && (
+                <Button
+                  variant="outlined"
+                  startIcon={<CameraIcon />}
+                  onClick={() => photoInputRef.current?.click()}
+                  fullWidth
+                >
+                  צלם / בחר תמונה
+                </Button>
+              )}
+            </Box>
+
+            <TextField
+              label="הערות (אופציונלי)"
+              multiline
+              rows={2}
+              value={deliveryNotes}
+              onChange={(e) => setDeliveryNotes(e.target.value)}
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeliveryDialog(null)} disabled={submitting}>ביטול</Button>
+          <Button
+            variant="contained"
+            onClick={handleDeliverySubmit}
+            disabled={submitting || !deliveryResult}
+          >
+            {submitting ? 'שומר...' : 'שמור דיווח'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View signature/photos dialog */}
+      <DeliveryMediaDialog
+        open={!!viewMediaDialog}
+        onClose={() => setViewMediaDialog(null)}
+        orderNumber={viewMediaDialog?.orderNumber || ''}
+        signatureUrl={viewMediaDialog?.signatureUrl || null}
+        photos={viewMediaDialog?.photos || []}
+      />
+
+      <MessagesDrawer open={messagesOpen} onClose={() => setMessagesOpen(false)} />
+
+      {/* New message popup */}
+      <Dialog open={!!messagePopup} onClose={() => setMessagePopup(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <MessageIcon color="primary" />
+          הודעה חדשה מ-{messagePopup?.sender}
+        </DialogTitle>
+        <DialogContent>
+          <Typography sx={{ whiteSpace: 'pre-wrap' }}>{messagePopup?.text}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMessagePopup(null)}>סגור</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setMessagePopup(null);
+              setMessagesOpen(true);
+            }}
+          >
+            כל ההודעות
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar(null)}>
+        {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : undefined}
+      </Snackbar>
+    </Box>
+  );
+}

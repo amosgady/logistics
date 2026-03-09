@@ -1,0 +1,490 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ENUMS ============
+
+enum UserRole {
+  ADMIN
+  COORDINATOR
+  DRIVER
+  INSTALLER
+}
+
+enum OrderStatus {
+  PENDING
+  PLANNING
+  IN_COORDINATION
+  APPROVED
+  SENT_TO_DRIVER
+  COMPLETED
+  CANCELLED
+}
+
+enum TruckSize {
+  SMALL
+  LARGE
+}
+
+enum TimeWindow {
+  MORNING
+  AFTERNOON
+}
+
+enum DeliveryResult {
+  COMPLETE
+  PARTIAL
+  NOT_DELIVERED
+}
+
+enum CoordinationStatus {
+  NOT_STARTED
+  COORDINATED
+}
+
+enum CustomerResponse {
+  PENDING
+  CONFIRMED
+  DECLINED
+}
+
+enum Department {
+  GENERAL_TRANSPORT
+  KITCHEN_TRANSPORT
+  INTERIOR_DOOR_TRANSPORT
+  SHOWER_INSTALLATION
+  INTERIOR_DOOR_INSTALLATION
+  KITCHEN_INSTALLATION
+}
+
+enum ConfirmationMethod {
+  LINK
+  REPLY
+}
+
+enum ReplySessionStatus {
+  ACTIVE
+  RESPONDED
+  EXPIRED
+}
+
+// ============ MODELS ============
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  fullName     String   @map("full_name")
+  role         UserRole
+  department   Department?
+  phone        String?
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Two-Factor Authentication
+  twoFactorEnabled Boolean   @default(false) @map("two_factor_enabled")
+  twoFactorCode    String?   @map("two_factor_code")
+  twoFactorExpiry  DateTime? @map("two_factor_expiry")
+
+  driverProfile    DriverProfile?
+  installerProfile InstallerProfile?
+  auditLogs        AuditLog[]
+  workerLocations  WorkerLocation[]
+  sentMessages     Message[] @relation("MessagesSent")
+  receivedMessages Message[] @relation("MessagesReceived")
+
+  @@map("users")
+}
+
+model DriverProfile {
+  id          Int    @id @default(autoincrement())
+  userId      Int    @unique @map("user_id")
+  licenseType String @map("license_type")
+
+  user            User              @relation(fields: [userId], references: [id])
+  truckAssignment TruckAssignment[]
+
+  @@map("driver_profiles")
+}
+
+model InstallerProfile {
+  id         Int         @id @default(autoincrement())
+  userId     Int         @unique @map("user_id")
+  startTime  String      @map("start_time")
+  endTime    String      @map("end_time")
+  zoneId     Int?        @map("zone_id")
+  department Department?
+
+  user                 User                  @relation(fields: [userId], references: [id])
+  zone                 Zone?                 @relation(fields: [zoneId], references: [id])
+  installerAssignments InstallerAssignment[]
+  routes               Route[]
+
+  @@map("installer_profiles")
+}
+
+model Zone {
+  id     Int    @id @default(autoincrement())
+  name   String @unique
+  nameHe String @map("name_he")
+
+  cities     ZoneCity[]
+  orders     Order[]
+  installers InstallerProfile[]
+
+  @@map("zones")
+}
+
+model ZoneCity {
+  id     Int    @id @default(autoincrement())
+  zoneId Int    @map("zone_id")
+  city   String
+
+  zone Zone @relation(fields: [zoneId], references: [id])
+
+  @@unique([zoneId, city])
+  @@map("zone_cities")
+}
+
+model Order {
+  id            Int          @id @default(autoincrement())
+  orderNumber   String       @map("order_number")
+  orderDate     DateTime     @map("order_date")
+  deliveryDate  DateTime     @map("delivery_date")
+  status        OrderStatus  @default(PENDING)
+  customerName  String       @map("customer_name")
+  address       String
+  city          String
+  phone         String
+  contactPerson String?      @map("contact_person")
+  floor         Int?
+  elevator      Boolean?
+  phone2        String?
+  department    Department?
+
+  // Geocoding
+  latitude     Float?
+  longitude    Float?
+  geocodeValid Boolean? @map("geocode_valid")
+
+  // Zone
+  zoneId       Int?    @map("zone_id")
+  zoneOverride Boolean @default(false) @map("zone_override")
+
+  // Planning
+  routeId          Int?       @map("route_id")
+  routeSequence    Int?       @map("route_sequence")
+  timeWindow       TimeWindow? @map("time_window")
+  estimatedArrival DateTime?  @map("estimated_arrival")
+  waitTimeMinutes  Int?       @map("wait_time_minutes")
+
+  // Coordination
+  coordinationStatus CoordinationStatus @default(NOT_STARTED) @map("coordination_status")
+  coordinationNotes  String?            @map("coordination_notes")
+
+  // Customer confirmation (via SMS link)
+  confirmToken     String?          @unique @map("confirm_token")
+  customerResponse CustomerResponse @default(PENDING) @map("customer_response")
+  customerNotes    String?          @map("customer_notes")
+  respondedAt      DateTime?        @map("responded_at")
+
+  // Pallets
+  palletCount   Int     @default(1) @map("pallet_count")
+
+  // Export flags
+  sentToDriver  Boolean @default(false) @map("sent_to_driver")
+  exportedToCsv Boolean @default(false) @map("exported_to_csv")
+
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  zone          Zone?                @relation(fields: [zoneId], references: [id])
+  route         Route?               @relation(fields: [routeId], references: [id])
+  orderLines    OrderLine[]
+  delivery      Delivery?
+  statusHistory    OrderStatusHistory[]
+  smsLogs          SmsLog[]
+  smsReplySessions SmsReplySession[]
+
+  @@index([status])
+  @@index([deliveryDate])
+  @@index([zoneId])
+  @@index([routeId])
+  @@unique([orderNumber, department])
+  @@index([department])
+  @@map("orders")
+}
+
+model OrderLine {
+  id           Int     @id @default(autoincrement())
+  orderId      Int     @map("order_id")
+  lineNumber   Int     @map("line_number")
+  product      String
+  description  String?
+  quantity     Int
+  price        Decimal  @db.Decimal(10, 2)
+  discount     Decimal? @db.Decimal(10, 2)
+  totalPrice   Decimal? @db.Decimal(10, 2) @map("total_price")
+  weight       Decimal  @db.Decimal(10, 2)
+  currentStock Int     @map("current_stock")
+  palletCount  Int     @default(1) @map("pallet_count")
+
+  department     Department?
+  barcode        String?
+  scannedLoad    Boolean @default(false) @map("scanned_load")
+  scannedDeliver Boolean @default(false) @map("scanned_deliver")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("order_lines")
+}
+
+model Truck {
+  id              Int       @id @default(autoincrement())
+  name            String    @unique
+  licensePlate    String    @unique @map("license_plate")
+  size            TruckSize
+  hasCrane        Boolean   @default(false) @map("has_crane")
+  maxWeightKg     Decimal   @db.Decimal(10, 2) @map("max_weight_kg")
+  maxPallets      Int       @map("max_pallets")
+  workHoursPerDay Decimal   @db.Decimal(4, 2) @map("work_hours_per_day")
+  waitTimePerStop Int       @map("wait_time_per_stop")
+  isActive        Boolean   @default(true) @map("is_active")
+
+  assignments TruckAssignment[]
+  routes      Route[]
+
+  @@map("trucks")
+}
+
+model TruckAssignment {
+  id              Int      @id @default(autoincrement())
+  truckId         Int      @map("truck_id")
+  driverProfileId Int      @map("driver_profile_id")
+  assignmentDate  DateTime @map("assignment_date")
+  isActive        Boolean  @default(true) @map("is_active")
+
+  truck  Truck         @relation(fields: [truckId], references: [id])
+  driver DriverProfile @relation(fields: [driverProfileId], references: [id])
+
+  @@unique([truckId, assignmentDate])
+  @@map("truck_assignments")
+}
+
+model InstallerAssignment {
+  id                 Int      @id @default(autoincrement())
+  installerProfileId Int      @map("installer_profile_id")
+  orderId            Int      @map("order_id")
+  assignmentDate     DateTime @map("assignment_date")
+
+  installer InstallerProfile @relation(fields: [installerProfileId], references: [id])
+
+  @@map("installer_assignments")
+}
+
+model Route {
+  id                 Int      @id @default(autoincrement())
+  truckId            Int?     @map("truck_id")
+  installerProfileId Int?     @map("installer_profile_id")
+  routeDate          DateTime @map("route_date")
+  totalDistanceKm    Decimal? @db.Decimal(10, 2) @map("total_distance_km")
+  totalTimeMinutes   Int?     @map("total_time_minutes")
+  overtimeApproved   Boolean  @default(false) @map("overtime_approved")
+  isOptimized        Boolean  @default(false) @map("is_optimized")
+  isFinalized        Boolean  @default(false) @map("is_finalized")
+  coordinatorName    String?  @map("coordinator_name")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  truck            Truck?            @relation(fields: [truckId], references: [id])
+  installerProfile InstallerProfile? @relation(fields: [installerProfileId], references: [id])
+  orders           Order[]
+
+  @@unique([truckId, routeDate])
+  @@unique([installerProfileId, routeDate])
+  @@map("routes")
+}
+
+model Delivery {
+  id           Int            @id @default(autoincrement())
+  orderId      Int            @unique @map("order_id")
+  result       DeliveryResult
+  notes        String?
+  signatureUrl String?        @map("signature_url")
+  deliveredAt  DateTime?      @map("delivered_at")
+
+  order  Order           @relation(fields: [orderId], references: [id])
+  photos DeliveryPhoto[]
+
+  @@map("deliveries")
+}
+
+model DeliveryPhoto {
+  id         Int    @id @default(autoincrement())
+  deliveryId Int    @map("delivery_id")
+  photoUrl   String @map("photo_url")
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id])
+
+  @@map("delivery_photos")
+}
+
+model WorkerLocation {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  latitude  Float
+  longitude Float
+  timestamp DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, timestamp])
+  @@map("worker_locations")
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  senderId    Int      @map("sender_id")
+  recipientId Int      @map("recipient_id")
+  text        String
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender    User @relation("MessagesSent", fields: [senderId], references: [id])
+  recipient User @relation("MessagesReceived", fields: [recipientId], references: [id])
+
+  @@index([recipientId, isRead])
+  @@index([recipientId, createdAt])
+  @@map("messages")
+}
+
+model OrderStatusHistory {
+  id         Int         @id @default(autoincrement())
+  orderId    Int         @map("order_id")
+  fromStatus OrderStatus @map("from_status")
+  toStatus   OrderStatus @map("to_status")
+  changedBy  Int         @map("changed_by")
+  changedAt  DateTime    @default(now()) @map("changed_at")
+  reason     String?
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("order_status_history")
+}
+
+model DepartmentSettings {
+  id              Int        @id @default(autoincrement())
+  department      Department @unique
+  waitTimeMinutes Int        @default(45) @map("wait_time_minutes")
+
+  @@map("department_settings")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  action    String
+  entity    String
+  entityId  Int      @map("entity_id")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+// ============ SMS ============
+
+enum SmsStatus {
+  SENT
+  FAILED
+  PENDING
+}
+
+enum SmsReminderType {
+  MANUAL
+  PRE_DELIVERY
+  SAME_DAY
+  NEXT_CUSTOMER
+}
+
+model SmsSettings {
+  id                 Int                @id @default(autoincrement())
+  inforuUsername      String             @map("inforu_username")
+  inforuPassword     String             @map("inforu_password")
+  apiToken           String?            @map("api_token")
+  senderName         String             @default("Delivery") @map("sender_name")
+  messageTemplate    String             @map("message_template")
+  isActive           Boolean            @default(true) @map("is_active")
+  confirmationMethod ConfirmationMethod @default(LINK) @map("confirmation_method")
+  replyTemplate      String?            @map("reply_template")
+
+  @@map("sms_settings")
+}
+
+model SmsReminderConfig {
+  id   Int    @id @default(autoincrement())
+
+  // Reminder 1: X days before delivery at a set time
+  preDeliveryEnabled  Boolean @default(false) @map("pre_delivery_enabled")
+  preDeliveryDays     Int     @default(1)     @map("pre_delivery_days")
+  preDeliveryTime     String  @default("09:00") @map("pre_delivery_time")
+  preDeliveryTemplate String  @default("שלום {customerName}, תזכורת: האספקה שלך מתוכננת ליום {deliveryDate}. לבירורים: {companyPhone}") @map("pre_delivery_template")
+
+  // Reminder 2: X hours before time window on delivery day
+  sameDayEnabled      Boolean @default(false) @map("same_day_enabled")
+  sameDayHoursBefore  Int     @default(2)     @map("same_day_hours_before")
+  sameDayTemplate     String  @default("שלום {customerName}, האספקה שלך צפויה להגיע היום בין השעות {timeWindow}. אנא וודאו שמישהו זמין בכתובת. לבירורים: {companyPhone}") @map("same_day_template")
+
+  // Reminder 3: SMS to next customer after delivery completed
+  nextCustomerEnabled  Boolean @default(false) @map("next_customer_enabled")
+  nextCustomerTemplate String  @default("שלום {customerName}, המשלוח שלך בדרך! צפי הגעה בקרוב. לבירורים: {companyPhone}") @map("next_customer_template")
+
+  @@map("sms_reminder_config")
+}
+
+model SmsLog {
+  id           Int              @id @default(autoincrement())
+  orderId      Int?             @map("order_id")
+  phone        String
+  message      String
+  status       SmsStatus        @default(PENDING)
+  reminderType SmsReminderType  @default(MANUAL) @map("reminder_type")
+  providerRef  String?          @map("provider_ref")
+  errorMsg     String?          @map("error_msg")
+  sentBy       Int              @map("sent_by")
+  sentAt       DateTime         @default(now()) @map("sent_at")
+
+  order Order? @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([sentAt])
+  @@index([reminderType, orderId])
+  @@map("sms_logs")
+}
+
+model SmsReplySession {
+  id        Int                @id @default(autoincrement())
+  orderId   Int                @map("order_id")
+  phone     String
+  status    ReplySessionStatus @default(ACTIVE)
+  sentAt    DateTime           @default(now()) @map("sent_at")
+  expiresAt DateTime?          @map("expires_at")
+  repliedAt DateTime?          @map("replied_at")
+  replyBody String?            @map("reply_body")
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([phone, status])
+  @@index([orderId])
+  @@map("sms_reply_sessions")
+}

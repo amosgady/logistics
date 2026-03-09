@@ -1,0 +1,49 @@
+import prisma from '../../utils/prisma';
+
+const DEFAULT_WAIT_TIMES: Record<string, number> = {
+  GENERAL_TRANSPORT: 30,
+  KITCHEN_TRANSPORT: 30,
+  INTERIOR_DOOR_TRANSPORT: 30,
+  SHOWER_INSTALLATION: 45,
+  INTERIOR_DOOR_INSTALLATION: 45,
+  KITCHEN_INSTALLATION: 45,
+};
+
+export class SettingsService {
+  async getDepartmentSettings() {
+    const rows = await prisma.departmentSettings.findMany();
+    // Merge DB settings with defaults
+    const result: { department: string; waitTimeMinutes: number }[] = [];
+    for (const [dept, defaultTime] of Object.entries(DEFAULT_WAIT_TIMES)) {
+      const row = rows.find((r) => r.department === dept);
+      result.push({
+        department: dept,
+        waitTimeMinutes: row ? row.waitTimeMinutes : defaultTime,
+      });
+    }
+    return result;
+  }
+
+  async updateDepartmentSettings(settings: { department: string; waitTimeMinutes: number }[]) {
+    for (const setting of settings) {
+      await prisma.departmentSettings.upsert({
+        where: { department: setting.department as any },
+        update: { waitTimeMinutes: setting.waitTimeMinutes },
+        create: {
+          department: setting.department as any,
+          waitTimeMinutes: setting.waitTimeMinutes,
+        },
+      });
+    }
+    return this.getDepartmentSettings();
+  }
+
+  async getWaitTimeForDepartment(department: string): Promise<number> {
+    const row = await prisma.departmentSettings.findUnique({
+      where: { department: department as any },
+    });
+    return row?.waitTimeMinutes ?? DEFAULT_WAIT_TIMES[department] ?? 45;
+  }
+}
+
+export const settingsService = new SettingsService();

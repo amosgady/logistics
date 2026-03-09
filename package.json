@@ -1,0 +1,22 @@
+{
+  "name": "delivery-system",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run dev -w apps/backend",
+    "dev:frontend": "npm run dev -w apps/frontend",
+    "dev:mobile": "npm run dev -w apps/mobile",
+    "build:shared": "npm run build -w packages/shared",
+    "db:migrate": "npm run migrate -w apps/backend",
+    "db:seed": "npm run seed -w apps/backend",
+    "db:studio": "npm run studio -w apps/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.0"
+  }
+}

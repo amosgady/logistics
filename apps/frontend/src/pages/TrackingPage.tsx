@@ -1,0 +1,134 @@
+import { useState, useMemo } from 'react';
+import {
+  Box, Typography, TextField, ToggleButtonGroup, ToggleButton,
+  Snackbar, Alert, LinearProgress, Paper, Button,
+} from '@mui/material';
+import { DateRange as DateRangeIcon } from '@mui/icons-material';
+import Grid from '@mui/material/Grid2';
+import { useQuery } from '@tanstack/react-query';
+import { useDateStore } from '../store/dateStore';
+
+function getNearDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+import { trackingApi } from '../services/trackingApi';
+import TrackingMap from '../components/tracking/TrackingMap';
+import TrackingWorkerCard from '../components/tracking/TrackingWorkerCard';
+import SendMessageDialog from '../components/tracking/SendMessageDialog';
+
+export default function TrackingPage() {
+  const { selectedDate: planDate, setSelectedDate: setPlanDate } = useDateStore();
+  const [filter, setFilter] = useState<'ALL' | 'DRIVER' | 'INSTALLER'>('ALL');
+  const [selectedWorkerId, setSelectedWorkerId] = useState<number | null>(null);
+  const [messageTarget, setMessageTarget] = useState<{ userId: number; name: string } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['tracking-board', planDate],
+    queryFn: () => trackingApi.getBoard(planDate),
+    refetchInterval: 30000,
+  });
+
+  const allWorkers = data?.data || [];
+
+  const workers = useMemo(() => {
+    if (filter === 'ALL') return allWorkers;
+    return allWorkers.filter((w: any) => w.type === filter);
+  }, [allWorkers, filter]);
+
+  return (
+    <Box>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h5">מעקב שטח</Typography>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <ToggleButtonGroup
+            value={filter}
+            exclusive
+            onChange={(_, v) => v && setFilter(v)}
+            size="small"
+          >
+            <ToggleButton value="ALL">הכל</ToggleButton>
+            <ToggleButton value="DRIVER">נהגים</ToggleButton>
+            <ToggleButton value="INSTALLER">מתקינים</ToggleButton>
+          </ToggleButtonGroup>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DateRangeIcon />}
+            onClick={() => setPlanDate(getNearDate())}
+          >
+            תאריך קרוב
+          </Button>
+          <TextField
+            type="date"
+            label="תאריך"
+            value={planDate}
+            onChange={(e) => setPlanDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+          />
+        </Box>
+      </Box>
+
+      {isLoading ? (
+        <LinearProgress />
+      ) : workers.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {allWorkers.length === 0
+              ? 'אין מסלולים פעילים לתאריך זה'
+              : 'אין תוצאות לפילטר הנבחר'}
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={2}>
+          {/* Workers list */}
+          <Grid size={{ xs: 12, md: 5 }}>
+            <Box sx={{ maxHeight: 'calc(100vh - 200px)', overflow: 'auto', pr: 0.5 }}>
+              {workers.map((worker: any) => (
+                <TrackingWorkerCard
+                  key={worker.userId}
+                  worker={worker}
+                  isExpanded={selectedWorkerId === worker.userId}
+                  onToggle={() =>
+                    setSelectedWorkerId(selectedWorkerId === worker.userId ? null : worker.userId)
+                  }
+                  onLocate={() => setSelectedWorkerId(worker.userId)}
+                  onSendMessage={() =>
+                    setMessageTarget({ userId: worker.userId, name: worker.fullName })
+                  }
+                />
+              ))}
+            </Box>
+          </Grid>
+
+          {/* Map */}
+          <Grid size={{ xs: 12, md: 7 }}>
+            <TrackingMap
+              workers={workers}
+              selectedWorkerId={selectedWorkerId}
+              onWorkerClick={(id) => setSelectedWorkerId(id)}
+              height="calc(100vh - 200px)"
+            />
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Send message dialog */}
+      <SendMessageDialog
+        open={!!messageTarget}
+        onClose={() => setMessageTarget(null)}
+        recipientId={messageTarget?.userId}
+        recipientName={messageTarget?.name}
+        onSuccess={() => setSnackbar({ message: 'ההודעה נשלחה בהצלחה', severity: 'success' })}
+      />
+
+      <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar(null)}>
+        {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : undefined}
+      </Snackbar>
+    </Box>
+  );
+}

@@ -1,0 +1,320 @@
+import prisma from '../../utils/prisma';
+import { AppError } from '../../middleware/errorHandler';
+
+const INSTALLER_DEPARTMENTS = [
+  'SHOWER_INSTALLATION',
+  'INTERIOR_DOOR_INSTALLATION',
+  'KITCHEN_INSTALLATION',
+];
+
+export class PlanningService {
+  async getPlanningBoard(date: string) {
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get all orders in PLANNING/IN_COORDINATION/APPROVED status for this date
+    const orders = await prisma.order.findMany({
+      where: {
+        status: { in: ['PLANNING', 'IN_COORDINATION', 'APPROVED'] },
+        deliveryDate: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      include: {
+        orderLines: true,
+        zone: { select: { id: true, name: true, nameHe: true } },
+      },
+      orderBy: [{ zoneId: 'asc' }, { city: 'asc' }],
+    });
+
+    // Get all routes for this date with their assigned orders
+    const routes = await prisma.route.findMany({
+      where: {
+        routeDate: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+      include: {
+        truck: true,
+        installerProfile: {
+          include: {
+            user: { select: { id: true, fullName: true, phone: true, isActive: true } },
+          },
+        },
+        orders: {
+          include: {
+            orderLines: true,
+            zone: { select: { id: true, name: true, nameHe: true } },
+            delivery: { include: { photos: true } },
+          },
+          orderBy: { routeSequence: 'asc' },
+        },
+      },
+    });
+
+    // Get available trucks
+    const trucks = await prisma.truck.findMany({
+      where: { isActive: true },
+      orderBy: { name: 'asc' },
+    });
+
+    // Get available installers
+    const installers = await prisma.installerProfile.findMany({
+      where: { user: { isActive: true } },
+      include: {
+        user: { select: { id: true, fullName: true, phone: true, isActive: true } },
+        zone: { select: { id: true, name: true, nameHe: true } },
+      },
+      orderBy: { user: { fullName: 'asc' } },
+    });
+
+    return { unassignedOrders: orders.filter((o) => !o.routeId), routes, trucks, installers };
+  }
+
+  async assignOrderToTruck(orderId: number, truckId: number, routeDate: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { orderLines: true },
+    });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    // Guard: installation orders must be assigned to installer
+    if (order.department && INSTALLER_DEPARTMENTS.includes(order.department)) {
+      throw new AppError(400, 'WRONG_ASSIGNMENT', 'הזמנת התקנה חייבת להיות משויכת למתקין');
+    }
+
+    const truck = await prisma.truck.findUnique({ where: { id: truckId } });
+    if (!truck) throw new AppError(404, 'NOT_FOUND', 'משאית לא נמצאה');
+
+    // Find or create route for this truck + date
+    const date = new Date(routeDate);
+    date.setHours(0, 0, 0, 0);
+
+    let route = await prisma.route.findUnique({
+      where: { truckId_routeDate: { truckId, routeDate: date } },
+      include: { orders: { include: { orderLines: true } } },
+    });
+
+    if (!route) {
+      route = await prisma.route.create({
+        data: { truckId, routeDate: date },
+        include: { orders: { include: { orderLines: true } } },
+      });
+    }
+
+    // Calculate current load
+    let currentWeight = 0;
+    let currentPallets = 0;
+    for (const existingOrder of route.orders) {
+      for (const line of existingOrder.orderLines) {
+        currentWeight += Number(line.weight);
+      }
+      currentPallets += existingOrder.palletCount;
+    }
+
+    // Calculate new order weight/pallets
+    let orderWeight = 0;
+    for (const line of order.orderLines) {
+      orderWeight += Number(line.weight);
+    }
+    const orderPallets = order.palletCount;
+
+    const warnings: string[] = [];
+    if (currentWeight + orderWeight > Number(truck.maxWeightKg)) {
+      warnings.push(`חריגה במשקל: ${(currentWeight + orderWeight).toFixed(0)}/${Number(truck.maxWeightKg)} ק"ג`);
+    }
+    if (currentPallets + orderPallets > truck.maxPallets) {
+      warnings.push(`חריגה במשטחים: ${currentPallets + orderPallets}/${truck.maxPallets}`);
+    }
+
+    // Assign order to route
+    const nextSequence = route.orders.length + 1;
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        routeId: route.id,
+        routeSequence: nextSequence,
+      },
+    });
+
+    // Reset optimization flag – route composition changed
+    if (route.isOptimized) {
+      await prisma.route.update({
+        where: { id: route.id },
+        data: { isOptimized: false },
+      });
+    }
+
+    return { routeId: route.id, sequence: nextSequence, warnings };
+  }
+
+  async assignOrderToInstaller(orderId: number, installerProfileId: number, routeDate: string) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+    });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    // Validate department
+    if (!order.department || !INSTALLER_DEPARTMENTS.includes(order.department)) {
+      throw new AppError(400, 'WRONG_ASSIGNMENT', 'רק הזמנות התקנה ניתנות לשיוך למתקין');
+    }
+
+    const installer = await prisma.installerProfile.findUnique({
+      where: { id: installerProfileId },
+      include: { user: true },
+    });
+    if (!installer) throw new AppError(404, 'NOT_FOUND', 'מתקין לא נמצא');
+
+    // Validate installer department matches order department
+    if (installer.department !== order.department) {
+      throw new AppError(400, 'DEPARTMENT_MISMATCH',
+        `המתקין שייך למחלקה אחרת. מחלקת ההזמנה: ${order.department}, מחלקת המתקין: ${installer.department}`,
+      );
+    }
+
+    // Find or create route for this installer + date
+    const date = new Date(routeDate);
+    date.setHours(0, 0, 0, 0);
+
+    let route = await prisma.route.findUnique({
+      where: { installerProfileId_routeDate: { installerProfileId, routeDate: date } },
+      include: { orders: true },
+    });
+
+    if (!route) {
+      route = await prisma.route.create({
+        data: { installerProfileId, routeDate: date },
+        include: { orders: true },
+      });
+    }
+
+    // No weight/pallet capacity check for installers
+    const nextSequence = route.orders.length + 1;
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        routeId: route.id,
+        routeSequence: nextSequence,
+      },
+    });
+
+    return { routeId: route.id, sequence: nextSequence, warnings: [] as string[] };
+  }
+
+  async removeOrderFromTruck(orderId: number) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+    if (!order.routeId) throw new AppError(400, 'NOT_ASSIGNED', 'הזמנה לא משויכת למסלול');
+    if (order.coordinationStatus === 'COORDINATED') {
+      throw new AppError(400, 'COORDINATED', 'לא ניתן להסיר הזמנה מתואמת. יש לבטל את התיאום תחילה');
+    }
+
+    const routeId = order.routeId!;
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        routeId: null,
+        routeSequence: null,
+        timeWindow: null,
+        estimatedArrival: null,
+        status: 'PLANNING',
+        coordinationStatus: 'NOT_STARTED',
+      },
+    });
+
+    // Reset optimization flag – route composition changed
+    await prisma.route.update({
+      where: { id: routeId },
+      data: { isOptimized: false },
+    });
+
+    // Re-sequence remaining orders in route
+    const remainingOrders = await prisma.order.findMany({
+      where: { routeId },
+      orderBy: { routeSequence: 'asc' },
+    });
+
+    for (let i = 0; i < remainingOrders.length; i++) {
+      await prisma.order.update({
+        where: { id: remainingOrders[i].id },
+        data: { routeSequence: i + 1 },
+      });
+    }
+  }
+
+  async reorderRoute(routeId: number, orderIds: number[]) {
+    for (let i = 0; i < orderIds.length; i++) {
+      await prisma.order.update({
+        where: { id: orderIds[i] },
+        data: { routeSequence: i + 1 },
+      });
+    }
+
+    // Reset optimization flag – order sequence changed manually
+    await prisma.route.update({
+      where: { id: routeId },
+      data: { isOptimized: false },
+    });
+  }
+
+  async assignTimeWindows(routeId: number) {
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: {
+        orders: { orderBy: { routeSequence: 'asc' } },
+        truck: true,
+      },
+    });
+
+    if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    const totalOrders = route.orders.length;
+    const midpoint = Math.ceil(totalOrders / 2);
+
+    for (let i = 0; i < route.orders.length; i++) {
+      await prisma.order.update({
+        where: { id: route.orders[i].id },
+        data: {
+          timeWindow: i < midpoint ? 'MORNING' : 'AFTERNOON',
+        },
+      });
+    }
+
+    return { updated: totalOrders };
+  }
+
+  async sendToCoordination(routeId: number) {
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: { orders: true },
+    });
+
+    if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+    if (route.orders.length === 0) throw new AppError(400, 'EMPTY_ROUTE', 'אין הזמנות במסלול');
+
+    // For multi-order routes, require optimization first
+    if (route.orders.length > 1 && !route.isOptimized) {
+      throw new AppError(400, 'NOT_OPTIMIZED', 'יש לבצע אופטימיזציה למסלול לפני העברה לתיאום');
+    }
+
+    let movedCount = 0;
+    for (const order of route.orders) {
+      if (order.status === 'PLANNING') {
+        await prisma.order.update({
+          where: { id: order.id },
+          data: { status: 'IN_COORDINATION' },
+        });
+        movedCount++;
+      }
+    }
+
+    return { movedCount, totalOrders: route.orders.length };
+  }
+}
+
+export const planningService = new PlanningService();
