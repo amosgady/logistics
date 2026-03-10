@@ -106,7 +106,7 @@ export default function DeliveryMediaDialog({
             </Typography>
             <Box sx={{ border: '1px solid #eee', borderRadius: 1, p: 1, bgcolor: '#fff', textAlign: 'center' }}>
               <img
-                src={`http://localhost:3001${signatureUrl}`}
+                src={signatureUrl}
                 alt="חתימה"
                 style={{ maxWidth: '100%', maxHeight: 200 }}
               />
@@ -125,10 +125,10 @@ export default function DeliveryMediaDialog({
                 <Box
                   key={photo.id}
                   sx={{ cursor: 'pointer' }}
-                  onClick={() => window.open(`http://localhost:3001${photo.photoUrl}`, '_blank')}
+                  onClick={() => window.open(photo.photoUrl, '_blank')}
                 >
                   <img
-                    src={`http://localhost:3001${photo.photoUrl}`}
+                    src={photo.photoUrl}
                     alt=""
                     style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 8 }}
                   />
