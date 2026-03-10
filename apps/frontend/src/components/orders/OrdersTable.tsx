@@ -22,6 +22,7 @@ import {
   KeyboardArrowUp as CollapseIcon,
   Edit as EditIcon,
   Photo as PhotoIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -80,6 +81,8 @@ interface Order {
   coordinationStatus: string;
   sentToDriver: boolean;
   exportedToCsv: boolean;
+  deliveryNoteUrl: string | null;
+  signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -345,6 +348,25 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         <TableCell align="center">{order.orderLines?.length || 0}</TableCell>
         <TableCell align="center"><EditablePalletCount order={order} /></TableCell>
         <TableCell align="center">
+          {order.deliveryNoteUrl ? (
+            order.signedDeliveryNoteUrl ? (
+              <Tooltip title="צפה בתעודה חתומה">
+                <IconButton size="small" color="success" onClick={() => window.open(order.signedDeliveryNoteUrl!, '_blank')}>
+                  <PdfIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title="צפה בתעודת משלוח">
+                <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
+                  <PdfIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )
+          ) : (
+            <Typography variant="caption" color="text.disabled">-</Typography>
+          )}
+        </TableCell>
+        <TableCell align="center">
           {hasMedia ? (
             <Tooltip title="צפה בחתימה ותמונות">
               <IconButton size="small" color="primary" onClick={() => setMediaDialogOpen(true)}>
@@ -357,7 +379,7 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={14} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
+        <TableCell colSpan={15} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <OrderLineDetails orderLines={order.orderLines} />
           </Collapse>
@@ -427,13 +449,14 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
               <SortableTableCell label="תיאום" sortKey="coordinationStatus" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="פריטים" sortKey="orderLines.length" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="משטחים" sortKey="palletCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
+              <TableCell align="center">תעודה</TableCell>
               <TableCell align="center">מדיה</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={14} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={15} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">אין הזמנות</Typography>
                 </TableCell>
               </TableRow>
