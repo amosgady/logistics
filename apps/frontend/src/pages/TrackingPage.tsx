@@ -7,6 +7,7 @@ import { DateRange as DateRangeIcon } from '@mui/icons-material';
 import Grid from '@mui/material/Grid2';
 import { useQuery } from '@tanstack/react-query';
 import { useDateStore } from '../store/dateStore';
+import DateNavigator from '../components/common/DateNavigator';
 
 function getNearDate(): string {
   const d = new Date();
@@ -62,6 +63,7 @@ export default function TrackingPage() {
           >
             תאריך קרוב
           </Button>
+          <DateNavigator date={planDate} onDateChange={setPlanDate} />
           <TextField
             type="date"
             label="תאריך"

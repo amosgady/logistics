@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { useDateStore } from '../store/dateStore';
+import DateNavigator from '../components/common/DateNavigator';
 import {
   Box, Typography, TextField, Button, Card, CardContent,
   Chip, Alert, Snackbar, Divider,
@@ -554,6 +555,7 @@ export default function CoordinationPage() {
           >
             תאריך קרוב
           </Button>
+          <DateNavigator date={planDate} onDateChange={setPlanDate} />
           <TextField
             type="date"
             label="תאריך"

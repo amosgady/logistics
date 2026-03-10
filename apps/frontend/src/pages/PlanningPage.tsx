@@ -32,6 +32,7 @@ import { planningApi } from '../services/planningApi';
 import { zoneApi } from '../services/zoneApi';
 import { INSTALLER_DEPARTMENTS, INSTALLER_DEPARTMENT_LABELS } from '../constants/departments';
 import { useDateStore } from '../store/dateStore';
+import DateNavigator from '../components/common/DateNavigator';
 
 const RouteMap = lazy(() => import('../components/planning/RouteMap'));
 
@@ -611,6 +612,7 @@ export default function PlanningPage() {
           >
             תאריך קרוב
           </Button>
+          <DateNavigator date={planDate} onDateChange={setPlanDate} />
           <TextField
             type="date"
             label="תאריך תכנון"

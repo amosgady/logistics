@@ -6,6 +6,7 @@ import {
 import { Search as SearchIcon, DateRange as DateRangeIcon } from '@mui/icons-material';
 import { useOrderStore } from '../../store/orderStore';
 import { DEPARTMENT_OPTIONS } from '../../constants/departments';
+import DateNavigator from '../common/DateNavigator';
 
 function getNearDate(): string {
   const d = new Date();
@@ -101,6 +102,10 @@ export default function OrderFilters() {
           ))}
         </Select>
       </FormControl>
+      <DateNavigator
+        date={filters.deliveryDateFrom || filters.deliveryDateTo || new Date().toISOString().slice(0, 10)}
+        onDateChange={(d) => setFilters({ deliveryDateFrom: d, deliveryDateTo: d, page: 1 })}
+      />
       <TextField
         type="date"
         label="מתאריך אספקה"
