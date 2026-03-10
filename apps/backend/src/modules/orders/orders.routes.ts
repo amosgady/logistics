@@ -1,9 +1,28 @@
 import { Router } from 'express';
 import multer from 'multer';
+import path from 'path';
 import { ordersController } from './orders.controller';
 import { authMiddleware, requireRole } from '../../middleware/auth';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+// PDF upload storage for delivery notes
+const pdfStorage = multer.diskStorage({
+  destination: path.join(__dirname, '..', '..', '..', 'uploads', 'delivery-notes'),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.pdf';
+    cb(null, `dn_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
+  },
+});
+const uploadPdf = multer({
+  storage: pdfStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('רק קבצי PDF מותרים'));
+  },
+});
+
 const router = Router();
 
 router.use(authMiddleware);
@@ -20,5 +39,7 @@ router.patch('/:id/delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersCo
 router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateZone);
 router.patch('/:id/coordination', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordination);
 router.patch('/:id/pallet-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePalletCount);
+router.post('/:id/delivery-note', requireRole('COORDINATOR', 'ADMIN'), uploadPdf.single('file'), ordersController.uploadDeliveryNote);
+router.delete('/:id/delivery-note', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteDeliveryNote);
 
 export default router;

@@ -59,4 +59,15 @@ export const orderApi = {
 
   updatePalletCount: (orderId: number, palletCount: number) =>
     api.patch(`/orders/${orderId}/pallet-count`, { palletCount }).then((r) => r.data),
+
+  uploadDeliveryNote: (orderId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/orders/${orderId}/delivery-note`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data);
+  },
+
+  deleteDeliveryNote: (orderId: number) =>
+    api.delete(`/orders/${orderId}/delivery-note`).then((r) => r.data),
 };

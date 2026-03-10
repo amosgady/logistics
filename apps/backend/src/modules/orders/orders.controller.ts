@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { ordersService } from './orders.service';
 import { csvImportService } from './csv-import.service';
 import { AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { AppError } from '../../middleware/errorHandler';
+import prisma from '../../utils/prisma';
 
 export const ordersController = {
   getOrders: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -120,5 +123,48 @@ export const ordersController = {
     const { palletCount } = req.body;
     const order = await ordersService.updatePalletCount(orderId, palletCount);
     res.json({ success: true, data: order });
+  }),
+
+  uploadDeliveryNote: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+    if (!req.file) {
+      throw new AppError(400, 'NO_FILE', 'לא הועלה קובץ');
+    }
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    // Delete old file if exists
+    if (order.deliveryNoteUrl) {
+      const oldPath = path.join(__dirname, '..', '..', '..', order.deliveryNoteUrl);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const deliveryNoteUrl = `/uploads/delivery-notes/${req.file.filename}`;
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { deliveryNoteUrl },
+    });
+
+    res.json({ success: true, data: { deliveryNoteUrl: updated.deliveryNoteUrl } });
+  }),
+
+  deleteDeliveryNote: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    if (order.deliveryNoteUrl) {
+      const filePath = path.join(__dirname, '..', '..', '..', order.deliveryNoteUrl);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    }
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { deliveryNoteUrl: null },
+    });
+
+    res.json({ success: true });
   }),
 };

@@ -103,11 +103,23 @@ interface NewLine {
   description: string | null;
   quantity: number;
 }
+const STATUS_LABELS: Record<string, string> = {
+  PENDING: 'ממתינה',
+  PLANNING: 'בתכנון',
+  IN_COORDINATION: 'בתיאום',
+  APPROVED: 'מאושרת',
+  SENT_TO_DRIVER: 'נשלחה לנהג',
+  COMPLETED: 'הושלמה',
+  CANCELLED: 'בוטלה',
+};
+
 interface ConflictOrder {
   orderNumber: string;
   department: string | null;
   existingOrderId: number;
   customerName: string;
+  status: string;
+  orderChanges: FieldChange[];
   modifiedLines: ModifiedLine[];
   newLines: NewLine[];
   identicalLines: number[];
@@ -125,6 +137,7 @@ interface AnalysisResult {
 }
 
 interface DecisionState {
+  updateOrderFields: boolean;
   overwriteLineNumbers: Set<number>;
   addNewLines: boolean;
 }
@@ -217,6 +230,7 @@ export default function CsvImportDialog({ open, onClose }: Props) {
         const newDecisions = new Map<string, DecisionState>();
         for (const conflict of data.conflicts) {
           newDecisions.set(conflictKey(conflict), {
+            updateOrderFields: conflict.orderChanges.length > 0,
             overwriteLineNumbers: new Set(conflict.modifiedLines.map((l) => l.lineNumber)),
             addNewLines: conflict.newLines.length > 0,
           });
@@ -239,6 +253,7 @@ export default function CsvImportDialog({ open, onClose }: Props) {
         return {
           orderNumber,
           department: dept === 'null' ? null : dept,
+          updateOrderFields: state.updateOrderFields,
           overwriteLineNumbers: Array.from(state.overwriteLineNumbers),
           addNewLines: state.addNewLines,
         };
@@ -269,6 +284,16 @@ export default function CsvImportDialog({ open, onClose }: Props) {
     });
   }, []);
 
+  const toggleUpdateOrderFields = useCallback((cKey: string) => {
+    setDecisions((prev) => {
+      const next = new Map(prev);
+      const state = next.get(cKey);
+      if (!state) return prev;
+      next.set(cKey, { ...state, updateOrderFields: !state.updateOrderFields });
+      return next;
+    });
+  }, []);
+
   const toggleAddNewLines = useCallback((cKey: string) => {
     setDecisions((prev) => {
       const next = new Map(prev);
@@ -284,6 +309,7 @@ export default function CsvImportDialog({ open, onClose }: Props) {
     const newDecisions = new Map<string, DecisionState>();
     for (const conflict of analysis.conflicts) {
       newDecisions.set(conflictKey(conflict), {
+        updateOrderFields: conflict.orderChanges.length > 0,
         overwriteLineNumbers: new Set(conflict.modifiedLines.map((l) => l.lineNumber)),
         addNewLines: conflict.newLines.length > 0,
       });
@@ -296,6 +322,7 @@ export default function CsvImportDialog({ open, onClose }: Props) {
     const newDecisions = new Map<string, DecisionState>();
     for (const conflict of analysis.conflicts) {
       newDecisions.set(conflictKey(conflict), {
+        updateOrderFields: false,
         overwriteLineNumbers: new Set(),
         addNewLines: false,
       });
@@ -441,6 +468,7 @@ export default function CsvImportDialog({ open, onClose }: Props) {
             {analysis.conflicts.map((conflict) => {
               const cKey = conflictKey(conflict);
               const state = decisions.get(cKey);
+              const isPending = conflict.status === 'PENDING';
 
               return (
                 <Accordion key={cKey} defaultExpanded={analysis.conflicts.length <= 3}>
@@ -449,8 +477,14 @@ export default function CsvImportDialog({ open, onClose }: Props) {
                       הזמנה {conflict.orderNumber} — {conflict.customerName}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+                      {!isPending && (
+                        <Chip label={STATUS_LABELS[conflict.status] || conflict.status} color="error" size="small" />
+                      )}
+                      {conflict.orderChanges.length > 0 && (
+                        <Chip label={`${conflict.orderChanges.length} שדות הזמנה`} color="secondary" size="small" />
+                      )}
                       {conflict.modifiedLines.length > 0 && (
-                        <Chip label={`${conflict.modifiedLines.length} שונות`} color="warning" size="small" />
+                        <Chip label={`${conflict.modifiedLines.length} שורות שונות`} color="warning" size="small" />
                       )}
                       {conflict.newLines.length > 0 && (
                         <Chip label={`${conflict.newLines.length} חדשות`} color="info" size="small" />
@@ -458,6 +492,52 @@ export default function CsvImportDialog({ open, onClose }: Props) {
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails>
+                    {!isPending && (
+                      <Alert severity="error" sx={{ mb: 2 }}>
+                        לא ניתן לעדכן הזמנה זו — הסטטוס הנוכחי: {STATUS_LABELS[conflict.status] || conflict.status}. ניתן לעדכן רק הזמנות בסטטוס "ממתינה".
+                      </Alert>
+                    )}
+                    {/* Order-level changes */}
+                    {conflict.orderChanges.length > 0 && (
+                      <Box sx={{ mb: 2 }}>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={isPending && (state?.updateOrderFields ?? false)}
+                              onChange={() => toggleUpdateOrderFields(cKey)}
+                              disabled={!isPending}
+                            />
+                          }
+                          label={<Typography variant="subtitle2">עדכן פרטי הזמנה</Typography>}
+                        />
+                        <TableContainer component={Paper} variant="outlined" sx={{ ml: 4 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 'bold', width: 100 }}>שדה</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>ערך קיים</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>ערך חדש</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {conflict.orderChanges.map((change) => (
+                                <TableRow key={change.field}>
+                                  <TableCell>{change.fieldLabel}</TableCell>
+                                  <TableCell sx={{ color: 'error.main', textDecoration: 'line-through' }}>
+                                    {change.oldValue}
+                                  </TableCell>
+                                  <TableCell sx={{ color: 'success.main', fontWeight: 'bold' }}>
+                                    {change.newValue}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                        <Divider sx={{ my: 2 }} />
+                      </Box>
+                    )}
+
                     {/* Identical lines info */}
                     {conflict.identicalLines.length > 0 && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -471,8 +551,9 @@ export default function CsvImportDialog({ open, onClose }: Props) {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={state?.overwriteLineNumbers.has(line.lineNumber) ?? false}
+                              checked={isPending && (state?.overwriteLineNumbers.has(line.lineNumber) ?? false)}
                               onChange={() => toggleLineOverwrite(cKey, line.lineNumber)}
+                              disabled={!isPending}
                             />
                           }
                           label={<Typography variant="subtitle2">עדכן שורה {line.lineNumber}</Typography>}
@@ -511,8 +592,9 @@ export default function CsvImportDialog({ open, onClose }: Props) {
                         <FormControlLabel
                           control={
                             <Checkbox
-                              checked={state?.addNewLines ?? false}
+                              checked={isPending && (state?.addNewLines ?? false)}
                               onChange={() => toggleAddNewLines(cKey)}
+                              disabled={!isPending}
                             />
                           }
                           label={

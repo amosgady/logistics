@@ -85,6 +85,92 @@ const FIELD_LABELS: Record<string, string> = {
   currentStock: 'מלאי',
 };
 
+const ORDER_FIELD_LABELS: Record<string, string> = {
+  customerName: 'שם לקוח',
+  address: 'כתובת',
+  city: 'עיר',
+  phone: 'טלפון',
+  phone2: 'טלפון 2',
+  contactPerson: 'איש קשר',
+  floor: 'קומה',
+  elevator: 'מעלית',
+  deliveryDate: 'תאריך אספקה',
+  orderDate: 'תאריך הזמנה',
+};
+
+/** Compare order-level fields between existing DB order and CSV row */
+function compareOrderFields(existingOrder: any, csvLine: Record<string, string>): FieldChange[] {
+  const changes: FieldChange[] = [];
+
+  const stringFields = ['customerName', 'address', 'city', 'phone', 'phone2', 'contactPerson'];
+  for (const field of stringFields) {
+    const csvVal = csvLine[field];
+    if (csvVal === undefined || csvVal === '') continue; // skip if not in CSV
+    const oldVal = (existingOrder[field] || '').toString().trim();
+    const newVal = csvVal.trim();
+    if (oldVal !== newVal) {
+      changes.push({
+        field,
+        fieldLabel: ORDER_FIELD_LABELS[field] || field,
+        oldValue: oldVal || '(ריק)',
+        newValue: newVal || '(ריק)',
+      });
+    }
+  }
+
+  // Floor (integer)
+  if (csvLine.floor !== undefined && csvLine.floor !== '') {
+    const oldFloor = existingOrder.floor;
+    const newFloor = parseIntOrNull(csvLine.floor);
+    const oldStr = oldFloor !== null && oldFloor !== undefined ? oldFloor.toString() : '';
+    const newStr = newFloor !== null ? newFloor.toString() : '';
+    if (oldStr !== newStr) {
+      changes.push({
+        field: 'floor',
+        fieldLabel: ORDER_FIELD_LABELS.floor,
+        oldValue: oldStr || '(ריק)',
+        newValue: newStr || '(ריק)',
+      });
+    }
+  }
+
+  // Elevator (boolean)
+  if (csvLine.elevator !== undefined && csvLine.elevator !== '') {
+    const oldElevator = existingOrder.elevator;
+    const newElevator = parseBoolean(csvLine.elevator);
+    if (newElevator !== null && oldElevator !== newElevator) {
+      changes.push({
+        field: 'elevator',
+        fieldLabel: ORDER_FIELD_LABELS.elevator,
+        oldValue: oldElevator === true ? 'כן' : oldElevator === false ? 'לא' : '(ריק)',
+        newValue: newElevator ? 'כן' : 'לא',
+      });
+    }
+  }
+
+  // Dates
+  for (const dateField of ['deliveryDate', 'orderDate']) {
+    if (csvLine[dateField] !== undefined && csvLine[dateField] !== '') {
+      const oldDate = existingOrder[dateField];
+      const newDate = parseDate(csvLine[dateField]);
+      if (newDate) {
+        const oldStr = oldDate ? new Date(oldDate).toLocaleDateString('he-IL') : '';
+        const newStr = newDate.toLocaleDateString('he-IL');
+        if (oldStr !== newStr) {
+          changes.push({
+            field: dateField,
+            fieldLabel: ORDER_FIELD_LABELS[dateField] || dateField,
+            oldValue: oldStr || '(ריק)',
+            newValue: newStr,
+          });
+        }
+      }
+    }
+  }
+
+  return changes;
+}
+
 // ────────── Interfaces ──────────
 
 export interface FieldChange {
@@ -112,6 +198,8 @@ export interface ConflictOrder {
   department: string | null;
   existingOrderId: number;
   customerName: string;
+  status: string;
+  orderChanges: FieldChange[];
   modifiedLines: ModifiedLine[];
   newLines: NewLine[];
   identicalLines: number[];
@@ -136,6 +224,7 @@ export interface ImportDecision {
   department: string | null;
   overwriteLineNumbers: number[];
   addNewLines: boolean;
+  updateOrderFields: boolean;
 }
 
 export interface ImportDecisions {
@@ -334,6 +423,9 @@ export class CsvImportService {
           continue;
         }
 
+        // Compare order-level fields
+        const orderChanges = compareOrderFields(existing, deptLines[0]);
+
         // Build map of existing lines by lineNumber
         const existingLinesMap = new Map<number, any>();
         for (const el of existing.orderLines) {
@@ -372,12 +464,14 @@ export class CsvImportService {
         }
 
         // Only add as conflict if there's something to decide on
-        if (modifiedLines.length > 0 || newLines.length > 0) {
+        if (orderChanges.length > 0 || modifiedLines.length > 0 || newLines.length > 0) {
           conflicts.push({
             orderNumber,
             department,
             existingOrderId: existing.id,
             customerName: existing.customerName,
+            status: existing.status,
+            orderChanges,
             modifiedLines,
             newLines,
             identicalLines,
@@ -430,6 +524,11 @@ export class CsvImportService {
 
           if (existing) {
             // ── Handle existing order ──
+            if (existing.status !== 'PENDING') {
+              results.skipped++;
+              continue;
+            }
+
             if (!decisions) {
               results.skipped++;
               continue;
@@ -447,6 +546,42 @@ export class CsvImportService {
             let didUpdate = false;
 
             await prisma.$transaction(async (tx) => {
+              // Update order-level fields
+              if (decision.updateOrderFields) {
+                const csvLine = deptLines[0];
+                const updateData: any = {};
+
+                const stringFields = ['customerName', 'address', 'city', 'phone', 'phone2', 'contactPerson'];
+                for (const field of stringFields) {
+                  if (csvLine[field] !== undefined && csvLine[field] !== '') {
+                    updateData[field] = csvLine[field].trim();
+                  }
+                }
+                if (csvLine.floor !== undefined && csvLine.floor !== '') {
+                  updateData.floor = parseIntOrNull(csvLine.floor);
+                }
+                if (csvLine.elevator !== undefined && csvLine.elevator !== '') {
+                  const val = parseBoolean(csvLine.elevator);
+                  if (val !== null) updateData.elevator = val;
+                }
+                if (csvLine.deliveryDate !== undefined && csvLine.deliveryDate !== '') {
+                  const val = parseDate(csvLine.deliveryDate);
+                  if (val) updateData.deliveryDate = val;
+                }
+                if (csvLine.orderDate !== undefined && csvLine.orderDate !== '') {
+                  const val = parseDate(csvLine.orderDate);
+                  if (val) updateData.orderDate = val;
+                }
+
+                if (Object.keys(updateData).length > 0) {
+                  await tx.order.update({
+                    where: { id: existing.id },
+                    data: updateData,
+                  });
+                  didUpdate = true;
+                }
+              }
+
               // Overwrite modified lines
               if (decision.overwriteLineNumbers.length > 0) {
                 for (const lineNum of decision.overwriteLineNumbers) {

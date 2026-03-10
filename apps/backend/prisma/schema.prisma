@@ -197,6 +197,9 @@ model Order {
   // Pallets
   palletCount   Int     @default(1) @map("pallet_count")
 
+  // Delivery note PDF
+  deliveryNoteUrl String? @map("delivery_note_url")
+
   // Export flags
   sentToDriver  Boolean @default(false) @map("sent_to_driver")
   exportedToCsv Boolean @default(false) @map("exported_to_csv")

@@ -28,6 +28,7 @@ import {
   Close as CloseIcon,
   Photo as PhotoIcon,
   Message as MessageIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { driverApi } from '../services/driverApi';
@@ -108,6 +109,7 @@ interface Order {
   latitude: number | null;
   longitude: number | null;
   coordinationNotes: string | null;
+  deliveryNoteUrl: string | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -531,6 +533,18 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                     >
                       נווט
                     </Button>
+                    {order.deliveryNoteUrl && (
+                      <Button
+                        startIcon={<PdfIcon />}
+                        variant="outlined"
+                        color="error"
+                        fullWidth
+                        size="large"
+                        onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}
+                      >
+                        תעודת משלוח
+                      </Button>
+                    )}
                   </Box>
                   {!isCompleted && (
                     <Button

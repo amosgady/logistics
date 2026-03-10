@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useDateStore } from '../store/dateStore';
 import {
   Box, Typography, TextField, Button, Card, CardContent,
@@ -22,6 +22,7 @@ import {
   Sms as SmsIcon,
   DateRange as DateRangeIcon,
   Comment as CommentIcon,
+  PictureAsPdf as PdfIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -66,6 +67,7 @@ interface Order {
   respondedAt: string | null;
   sentToDriver: boolean;
   exportedToCsv: boolean;
+  deliveryNoteUrl: string | null;
   orderLines: { id: number; product: string; quantity: number; weight: string }[];
   delivery: Delivery | null;
 }
@@ -101,16 +103,20 @@ function CoordinationStatusChip({ status }: { status: string }) {
   return <Chip icon={<PhoneIcon />} label="לא תואם" size="small" color="default" />;
 }
 
-function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onViewMedia, sendSmsPending, unsendPending }: {
+function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onViewMedia, onUploadPdf, onDeletePdf, sendSmsPending, unsendPending }: {
   orders: Order[];
   onToggleCoordination: (order: Order) => void;
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
   onSendSms: (orderId: number, phone?: string) => void;
   onViewMedia: (order: Order) => void;
+  onUploadPdf: (orderId: number, file: File) => void;
+  onDeletePdf: (orderId: number) => void;
   sendSmsPending: boolean;
   unsendPending: boolean;
 }) {
+  const pdfInputRef = useRef<HTMLInputElement | null>(null);
+  const [pdfUploadOrderId, setPdfUploadOrderId] = useState<number | null>(null);
   const { sortedItems, sortConfig, handleSort } = useSortable(orders);
   const [smsMenuAnchor, setSmsMenuAnchor] = useState<null | HTMLElement>(null);
   const [smsMenuOrder, setSmsMenuOrder] = useState<Order | null>(null);
@@ -152,6 +158,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
             <TableCell>הערות</TableCell>
             <SortableTableCell label="נשלח" sortKey="sentToDriver" sortConfig={sortConfig} onSort={handleSort} />
             <TableCell>CSV</TableCell>
+            <TableCell>ת. משלוח</TableCell>
             <TableCell>מדיה</TableCell>
           </TableRow>
         </TableHead>
@@ -250,6 +257,28 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                 )}
               </TableCell>
               <TableCell>
+                {order.deliveryNoteUrl ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Tooltip title="צפה בתעודת משלוח">
+                      <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
+                        <PdfIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="החלף תעודת משלוח">
+                      <IconButton size="small" onClick={() => { setPdfUploadOrderId(order.id); pdfInputRef.current?.click(); }}>
+                        <EditIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                ) : (
+                  <Tooltip title="העלה תעודת משלוח PDF">
+                    <IconButton size="small" color="default" onClick={() => { setPdfUploadOrderId(order.id); pdfInputRef.current?.click(); }}>
+                      <PdfIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </TableCell>
+              <TableCell>
                 {order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0) ? (
                   <Tooltip title="צפה בחתימה ותמונות">
                     <IconButton size="small" color="primary" onClick={() => onViewMedia(order)}>
@@ -283,6 +312,22 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
         </MenuItem>
       )}
     </Menu>
+
+    {/* Hidden file input for PDF upload */}
+    <input
+      ref={pdfInputRef}
+      type="file"
+      accept="application/pdf"
+      style={{ display: 'none' }}
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file && pdfUploadOrderId) {
+          onUploadPdf(pdfUploadOrderId, file);
+          setPdfUploadOrderId(null);
+        }
+        e.target.value = '';
+      }}
+    />
     </>
   );
 }
@@ -423,6 +468,25 @@ export default function CoordinationPage() {
     },
   });
 
+  const uploadPdfMutation = useMutation({
+    mutationFn: ({ orderId, file }: { orderId: number; file: File }) =>
+      orderApi.uploadDeliveryNote(orderId, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: 'תעודת משלוח הועלתה בהצלחה', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בהעלאת תעודת משלוח', severity: 'error' }),
+  });
+
+  const deletePdfMutation = useMutation({
+    mutationFn: (orderId: number) => orderApi.deleteDeliveryNote(orderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: 'תעודת משלוח נמחקה', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה במחיקת תעודת משלוח', severity: 'error' }),
+  });
+
   const sendRouteSmsMutation = useMutation({
     mutationFn: smsApi.sendRouteSms,
     onSuccess: (result) => {
@@ -548,6 +612,8 @@ export default function CoordinationPage() {
                   onUnsendOrder={(orderId) => unsendOrderMutation.mutate(orderId)}
                   onSendSms={(orderId, phone?) => sendOrderSmsMutation.mutate({ orderId, phone })}
                   onViewMedia={(order) => setMediaDialog({ order })}
+                  onUploadPdf={(orderId, file) => uploadPdfMutation.mutate({ orderId, file })}
+                  onDeletePdf={(orderId) => deletePdfMutation.mutate(orderId)}
                   sendSmsPending={sendOrderSmsMutation.isPending}
                   unsendPending={unsendOrderMutation.isPending}
                 />
