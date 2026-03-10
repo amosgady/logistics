@@ -17,4 +17,7 @@ export const driverApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data);
   },
+
+  signDeliveryNote: (orderId: number, signature: string) =>
+    api.post(`/driver/orders/${orderId}/sign-delivery-note`, { signature }).then((r) => r.data),
 };

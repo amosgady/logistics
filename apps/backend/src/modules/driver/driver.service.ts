@@ -1,6 +1,7 @@
 import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 import { smsScheduler } from '../../services/smsScheduler.service';
+import { PDFDocument } from 'pdf-lib';
 import fs from 'fs';
 import path from 'path';
 
@@ -196,6 +197,62 @@ export class DriverService {
     );
 
     return photos;
+  }
+
+  async signDeliveryNote(userId: number, orderId: number, signatureBase64: string) {
+    const driverProfile = await prisma.driverProfile.findUnique({ where: { userId } });
+    if (!driverProfile) throw new AppError(403, 'FORBIDDEN', 'אין לך הרשאה לפעולה זו');
+
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+    if (!order.deliveryNoteUrl) throw new AppError(400, 'NO_PDF', 'אין תעודת משלוח להזמנה זו');
+
+    // Read original PDF
+    const pdfPath = path.join(__dirname, '..', '..', '..', order.deliveryNoteUrl);
+    if (!fs.existsSync(pdfPath)) throw new AppError(404, 'FILE_NOT_FOUND', 'קובץ PDF לא נמצא');
+    const pdfBytes = fs.readFileSync(pdfPath);
+
+    // Decode signature from base64
+    const base64Data = signatureBase64.replace(/^data:image\/\w+;base64,/, '');
+    const sigBuffer = Buffer.from(base64Data, 'base64');
+
+    // Embed signature on PDF using pdf-lib
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const sigImage = await pdfDoc.embedPng(sigBuffer);
+
+    // Place signature at the bottom of the last page
+    const lastPage = pdfDoc.getPages()[pdfDoc.getPageCount() - 1];
+    const { width: pageWidth, height: _pageHeight } = lastPage.getSize();
+    const sigWidth = 200;
+    const sigHeight = (sigImage.height / sigImage.width) * sigWidth;
+
+    lastPage.drawImage(sigImage, {
+      x: pageWidth - sigWidth - 40,
+      y: 30,
+      width: sigWidth,
+      height: sigHeight,
+    });
+
+    // Save signed PDF
+    const signedBytes = await pdfDoc.save();
+    const signedDir = path.join(__dirname, '..', '..', '..', 'uploads', 'delivery-notes', 'signed');
+    fs.mkdirSync(signedDir, { recursive: true });
+    const signedFilename = `signed_${orderId}_${Date.now()}.pdf`;
+    fs.writeFileSync(path.join(signedDir, signedFilename), signedBytes);
+
+    // Delete old signed PDF if exists
+    if (order.signedDeliveryNoteUrl) {
+      const oldSignedPath = path.join(__dirname, '..', '..', '..', order.signedDeliveryNoteUrl);
+      if (fs.existsSync(oldSignedPath)) fs.unlinkSync(oldSignedPath);
+    }
+
+    const signedDeliveryNoteUrl = `/uploads/delivery-notes/signed/${signedFilename}`;
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: { signedDeliveryNoteUrl },
+    });
+
+    return { signedDeliveryNoteUrl: updated.signedDeliveryNoteUrl };
   }
 }
 

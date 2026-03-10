@@ -34,4 +34,11 @@ export const driverController = {
     const photos = await driverService.uploadPhotos(req.user!.userId, orderId, files);
     res.json({ success: true, data: photos });
   }),
+
+  signDeliveryNote: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const { signature } = req.body;
+    const result = await driverService.signDeliveryNote(req.user!.userId, orderId, signature);
+    res.json({ success: true, data: result });
+  }),
 };

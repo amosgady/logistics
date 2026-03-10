@@ -68,6 +68,7 @@ interface Order {
   sentToDriver: boolean;
   exportedToCsv: boolean;
   deliveryNoteUrl: string | null;
+  signedDeliveryNoteUrl: string | null;
   orderLines: { id: number; product: string; quantity: number; weight: string }[];
   delivery: Delivery | null;
 }
@@ -259,11 +260,19 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
               <TableCell>
                 {order.deliveryNoteUrl ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Tooltip title="צפה בתעודת משלוח">
-                      <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
-                        <PdfIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                    {order.signedDeliveryNoteUrl ? (
+                      <Tooltip title="צפה בתעודה חתומה">
+                        <IconButton size="small" color="success" onClick={() => window.open(order.signedDeliveryNoteUrl!, '_blank')}>
+                          <PdfIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip title="צפה בתעודת משלוח">
+                        <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
+                          <PdfIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="החלף תעודת משלוח">
                       <IconButton size="small" onClick={() => { setPdfUploadOrderId(order.id); pdfInputRef.current?.click(); }}>
                         <EditIcon sx={{ fontSize: 14 }} />

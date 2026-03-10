@@ -110,6 +110,7 @@ interface Order {
   longitude: number | null;
   coordinationNotes: string | null;
   deliveryNoteUrl: string | null;
+  signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -141,8 +142,12 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [messagePopup, setMessagePopup] = useState<{ sender: string; text: string } | null>(null);
+  const [signNoteDialog, setSignNoteDialog] = useState<{ orderId: number; orderNumber: string; deliveryNoteUrl: string; signedDeliveryNoteUrl: string | null } | null>(null);
+  const [signNoteHasSig, setSignNoteHasSig] = useState(false);
+  const [signingNote, setSigningNote] = useState(false);
   const prevUnreadRef = useRef<number>(0);
   const signatureRef = useRef<SignatureCanvas | null>(null);
+  const signNoteRef = useRef<SignatureCanvas | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   // GPS location reporting
@@ -254,6 +259,23 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       setSnackbar({ message: 'שגיאה בשמירת הדיווח', severity: 'error' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSignDeliveryNote = async () => {
+    if (!signNoteDialog || !signNoteRef.current || signNoteRef.current.isEmpty()) return;
+    setSigningNote(true);
+    try {
+      const signatureData = signNoteRef.current.toDataURL('image/png');
+      await driverApi.signDeliveryNote(signNoteDialog.orderId, signatureData);
+      queryClient.invalidateQueries({ queryKey: [queryKey] });
+      setSignNoteDialog(null);
+      setSignNoteHasSig(false);
+      setSnackbar({ message: 'החתימה נשמרה בהצלחה על תעודת המשלוח', severity: 'success' });
+    } catch {
+      setSnackbar({ message: 'שגיאה בשמירת החתימה', severity: 'error' });
+    } finally {
+      setSigningNote(false);
     }
   };
 
@@ -537,12 +559,17 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                       <Button
                         startIcon={<PdfIcon />}
                         variant="outlined"
-                        color="error"
+                        color={order.signedDeliveryNoteUrl ? 'success' : 'error'}
                         fullWidth
                         size="large"
-                        onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}
+                        onClick={() => setSignNoteDialog({
+                          orderId: order.id,
+                          orderNumber: order.orderNumber,
+                          deliveryNoteUrl: order.deliveryNoteUrl!,
+                          signedDeliveryNoteUrl: order.signedDeliveryNoteUrl,
+                        })}
                       >
-                        תעודת משלוח
+                        {order.signedDeliveryNoteUrl ? 'תעודה חתומה ✓' : 'תעודת משלוח'}
                       </Button>
                     )}
                   </Box>
@@ -750,6 +777,70 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
             }}
           >
             כל ההודעות
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Sign delivery note dialog */}
+      <Dialog open={!!signNoteDialog} onClose={() => !signingNote && setSignNoteDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PdfIcon color="error" />
+          תעודת משלוח - {signNoteDialog?.orderNumber}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button
+                variant="outlined"
+                startIcon={<PdfIcon />}
+                fullWidth
+                onClick={() => window.open(signNoteDialog?.deliveryNoteUrl, '_blank')}
+              >
+                צפה בתעודה
+              </Button>
+              {signNoteDialog?.signedDeliveryNoteUrl && (
+                <Button
+                  variant="outlined"
+                  color="success"
+                  startIcon={<PdfIcon />}
+                  fullWidth
+                  onClick={() => window.open(signNoteDialog?.signedDeliveryNoteUrl!, '_blank')}
+                >
+                  צפה בתעודה חתומה
+                </Button>
+              )}
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SignatureIcon fontSize="small" /> חתימת לקוח על תעודת משלוח
+                </Typography>
+                <Button size="small" onClick={() => { signNoteRef.current?.clear(); setSignNoteHasSig(false); }}>נקה</Button>
+              </Box>
+              <Box sx={{ border: '1px solid #ccc', borderRadius: 1, bgcolor: '#fff' }}>
+                <SignatureCanvas
+                  ref={signNoteRef}
+                  penColor="black"
+                  onEnd={() => setSignNoteHasSig(true)}
+                  canvasProps={{ style: { width: '100%', height: 200 } }}
+                />
+              </Box>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSignNoteDialog(null)} disabled={signingNote}>סגור</Button>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={handleSignDeliveryNote}
+            disabled={signingNote || !signNoteHasSig}
+            startIcon={<SignatureIcon />}
+          >
+            {signingNote ? 'שומר חתימה...' : 'שמור חתימה על PDF'}
           </Button>
         </DialogActions>
       </Dialog>
