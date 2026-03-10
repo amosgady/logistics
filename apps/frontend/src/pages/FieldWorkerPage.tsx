@@ -255,8 +255,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       setPhotoFiles([]);
       setPhotoPreviews([]);
       setSnackbar({ message: 'הדיווח נשמר בהצלחה', severity: 'success' });
-    } catch {
-      setSnackbar({ message: 'שגיאה בשמירת הדיווח', severity: 'error' });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'שגיאה בשמירת הדיווח';
+      setSnackbar({ message: msg, severity: 'error' });
     } finally {
       setSubmitting(false);
     }
