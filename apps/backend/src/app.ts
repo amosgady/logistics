@@ -21,6 +21,9 @@ import smsWebhookRoutes from './modules/sms-webhook/sms-webhook.routes';
 
 const app = express();
 
+// Trust reverse proxy (Nginx) – required for correct IP and protocol detection
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174'],

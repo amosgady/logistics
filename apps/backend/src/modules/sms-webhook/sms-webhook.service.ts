@@ -13,6 +13,10 @@ export class SmsWebhookService {
       cleaned = '0' + cleaned.slice(3);
     }
     cleaned = cleaned.replace(/^\+/, '');
+    // Ensure leading zero for Israeli mobile numbers (5xxxxxxxx → 05xxxxxxxx)
+    if (/^5\d{8}$/.test(cleaned)) {
+      cleaned = '0' + cleaned;
+    }
     return cleaned;
   }
 

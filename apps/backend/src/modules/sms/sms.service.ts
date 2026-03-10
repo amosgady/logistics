@@ -56,8 +56,18 @@ export class SmsModuleService {
         .replace(/{deliveryDate}/g, deliveryDateStr)
         .replace(/{orderNumber}/g, order.orderNumber || '');
 
-      // Normalize phone for session matching
-      const normalizedPhone = phoneToUse.replace(/[^0-9]/g, '');
+      // Normalize phone for session matching (must match sms-webhook normalizePhone)
+      let normalizedPhone = phoneToUse.replace(/[^0-9+]/g, '');
+      if (normalizedPhone.startsWith('+972')) {
+        normalizedPhone = '0' + normalizedPhone.slice(4);
+      } else if (normalizedPhone.startsWith('972')) {
+        normalizedPhone = '0' + normalizedPhone.slice(3);
+      }
+      normalizedPhone = normalizedPhone.replace(/^\+/, '');
+      // Ensure leading zero for Israeli mobile numbers (5xxxxxxxx → 05xxxxxxxx)
+      if (/^5\d{8}$/.test(normalizedPhone)) {
+        normalizedPhone = '0' + normalizedPhone;
+      }
 
       // Expire any previous active sessions for this phone+order
       await prisma.smsReplySession.updateMany({
