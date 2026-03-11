@@ -60,6 +60,9 @@ export const orderApi = {
   updatePalletCount: (orderId: number, palletCount: number) =>
     api.patch(`/orders/${orderId}/pallet-count`, { palletCount }).then((r) => r.data),
 
+  updateAddress: (orderId: number, address: string) =>
+    api.patch(`/orders/${orderId}/address`, { address }).then((r) => r.data),
+
   uploadDeliveryNote: (orderId: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);

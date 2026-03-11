@@ -150,6 +150,74 @@ function EditablePalletCount({ order }: { order: Order }) {
   );
 }
 
+function EditableAddress({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(order.address);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: (address: string) => orderApi.updateAddress(order.id, address),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== order.address) {
+      mutation.mutate(trimmed);
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Box>
+        <TextField
+          inputRef={inputRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          size="small"
+          variant="standard"
+          fullWidth
+          inputProps={{ style: { fontSize: 14 } }}
+        />
+        <Typography variant="caption" color="text.secondary">{order.city}</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{ cursor: 'pointer', '&:hover .edit-icon': { opacity: 1 } }}
+      onClick={() => { setValue(order.address); setEditing(true); }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <span>{order.address}, {order.city}</span>
+        <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
+      </Box>
+      {(order.floor != null || order.elevator != null) && (
+        <Typography variant="caption" color="text.secondary" display="block">
+          {order.floor != null && `קומה ${order.floor}`}
+          {order.floor != null && order.elevator != null && ' · '}
+          {order.elevator != null && (order.elevator ? 'מעלית' : 'ללא מעלית')}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 function OrderLineDetails({ orderLines }: { orderLines: OrderLine[] }) {
   if (!orderLines || orderLines.length === 0) {
     return <Typography variant="body2" sx={{ p: 2 }}>אין שורות הזמנה</Typography>;
@@ -322,14 +390,7 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
           )}
         </TableCell>
         <TableCell>
-          {order.address}, {order.city}
-          {(order.floor != null || order.elevator != null) && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              {order.floor != null && `קומה ${order.floor}`}
-              {order.floor != null && order.elevator != null && ' · '}
-              {order.elevator != null && (order.elevator ? 'מעלית' : 'ללא מעלית')}
-            </Typography>
-          )}
+          <EditableAddress order={order} />
         </TableCell>
         <TableCell>
           {order.phone}

@@ -271,6 +271,24 @@ export class OrdersService {
       data: { palletCount },
     });
   }
+
+  async updateAddress(orderId: number, address: string) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+    if (!address || !address.trim()) throw new AppError(400, 'INVALID', 'כתובת לא יכולה להיות ריקה');
+
+    // Reset geocoding so it will be re-geocoded on next optimization
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        address: address.trim(),
+        latitude: null,
+        longitude: null,
+        geocodeValid: null,
+        geocodedAddress: null,
+      },
+    });
+  }
 }
 
 export const ordersService = new OrdersService();
