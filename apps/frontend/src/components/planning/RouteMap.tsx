@@ -18,6 +18,7 @@ interface Stop {
   orderId: number;
   orderNumber: string;
   customerName: string;
+  address?: string;
   city: string;
   sequence: number;
   latitude: number | null;
@@ -139,7 +140,7 @@ export default function RouteMap({ stops, warehouse, height = 350 }: RouteMapPro
             <br />
             {stop.customerName}
             <br />
-            {stop.city}
+            {stop.address ? `${stop.address}, ${stop.city}` : stop.city}
             <br />
             הזמנה: {stop.orderNumber}
           </Popup>

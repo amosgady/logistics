@@ -20,10 +20,13 @@ interface OptimizedStop {
   orderId: number;
   orderNumber: string;
   customerName: string;
+  address: string;
   city: string;
+  geocodedAddress: string | null;
   sequence: number;
   latitude: number | null;
   longitude: number | null;
+  geocodeValid: boolean;
   estimatedArrivalMinutes: number;
   cumulativeTravelMinutes: number;
   legDistanceKm: number;
@@ -77,10 +80,18 @@ export class RouteOptimizerService {
       return this.fallbackOptimize(route, waitTimePerStop, maxWorkMinutes);
     }
 
-    // Auto-geocode orders that are missing coordinates
-    const missingCoords = route.orders.filter((o) => !o.latitude || !o.longitude);
-    if (missingCoords.length > 0) {
-      await geocodingService.batchGeocodeOrders(missingCoords.map((o) => o.id));
+    // Auto-geocode orders that are missing coordinates OR missing geocodedAddress
+    const needsGeocode = route.orders.filter((o: any) => !o.latitude || !o.longitude || !o.geocodedAddress);
+    if (needsGeocode.length > 0) {
+      // Reset lat/lng for orders missing geocodedAddress so batchGeocodeOrders will re-process them
+      const missingGeocodedAddr = needsGeocode.filter((o: any) => o.latitude && o.longitude && !o.geocodedAddress);
+      if (missingGeocodedAddr.length > 0) {
+        await prisma.order.updateMany({
+          where: { id: { in: missingGeocodedAddr.map((o) => o.id) } },
+          data: { latitude: null, longitude: null },
+        });
+      }
+      await geocodingService.batchGeocodeOrders(needsGeocode.map((o) => o.id));
       // Re-fetch orders with updated coordinates
       const updated = await prisma.route.findUnique({
         where: { id: routeId },
@@ -96,15 +107,25 @@ export class RouteOptimizerService {
       }
     }
 
-    // Build waypoints from orders that have coordinates
+    // Build waypoints from orders that have coordinates (include inaccurate ones too)
     const ordersWithCoords = route.orders.filter((o) => o.latitude && o.longitude);
+    const ordersWithInvalidGeocode = route.orders.filter((o) => o.latitude && o.longitude && o.geocodeValid === false);
     const ordersWithoutCoords = route.orders.filter((o) => !o.latitude || !o.longitude);
 
-    const suspiciousAddresses = ordersWithoutCoords.map((o) => ({
-      orderId: o.id,
-      orderNumber: o.orderNumber,
-      address: `${o.address}, ${o.city}`,
-    }));
+    const suspiciousAddresses = [
+      ...ordersWithoutCoords.map((o) => ({
+        orderId: o.id,
+        orderNumber: o.orderNumber,
+        address: `${o.address}, ${o.city}`,
+        reason: 'לא נמצאו קואורדינטות',
+      })),
+      ...ordersWithInvalidGeocode.map((o) => ({
+        orderId: o.id,
+        orderNumber: o.orderNumber,
+        address: `${o.address}, ${o.city}`,
+        reason: 'כתובת לא מדויקת (ברמת עיר בלבד)',
+      })),
+    ];
 
     if (ordersWithCoords.length < 2) {
       return this.fallbackOptimize(route, waitTimePerStop, maxWorkMinutes, suspiciousAddresses);
@@ -152,10 +173,13 @@ export class RouteOptimizerService {
           orderId: order.id,
           orderNumber: order.orderNumber,
           customerName: order.customerName,
+          address: order.address || '',
           city: order.city,
+          geocodedAddress: (order as any).geocodedAddress || null,
           sequence: seqIdx + 1,
           latitude: order.latitude ? Number(order.latitude) : null,
           longitude: order.longitude ? Number(order.longitude) : null,
+          geocodeValid: order.geocodeValid !== false,
           estimatedArrivalMinutes: Math.round(elapsedMinutes),
           cumulativeTravelMinutes: Math.round(cumulativeTravelMinutes),
           legDistanceKm,
@@ -247,10 +271,13 @@ export class RouteOptimizerService {
         orderId: order.id,
         orderNumber: order.orderNumber,
         customerName: order.customerName,
+        address: order.address || '',
         city: order.city,
+        geocodedAddress: (order as any).geocodedAddress || null,
         sequence: i + 1,
         latitude: order.latitude ? Number(order.latitude) : null,
         longitude: order.longitude ? Number(order.longitude) : null,
+        geocodeValid: order.geocodeValid !== false,
         estimatedArrivalMinutes: Math.round(elapsedMinutes),
         cumulativeTravelMinutes: Math.round(cumulativeTravelMinutes),
         legDistanceKm: 0,

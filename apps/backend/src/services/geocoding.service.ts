@@ -73,6 +73,7 @@ export class GeocodingService {
           latitude: geo.lat,
           longitude: geo.lng,
           geocodeValid: geo.valid,
+          geocodedAddress: geo.formattedAddress,
         },
       });
 

@@ -889,7 +889,8 @@ export default function PlanningPage() {
                           <th style={{ padding: '8px 4px' }}>#</th>
                           <th style={{ padding: '8px 4px' }}>הזמנה</th>
                           <th style={{ padding: '8px 4px' }}>לקוח</th>
-                          <th style={{ padding: '8px 4px' }}>עיר</th>
+                          <th style={{ padding: '8px 4px' }}>כתובת</th>
+                          <th style={{ padding: '8px 4px' }}>כתובת גוגל</th>
                           <th style={{ padding: '8px 4px' }}>מרחק קטע</th>
                           <th style={{ padding: '8px 4px' }}>זמן נסיעה</th>
                           <th style={{ padding: '8px 4px' }}>זמן מצטבר</th>
@@ -898,7 +899,7 @@ export default function PlanningPage() {
                       </thead>
                       <tbody>
                         {(manualStops || optimizeResult.optimizedStops).map((stop: any, index: number) => (
-                          <tr key={stop.orderId} style={{ borderBottom: '1px solid #eee' }}>
+                          <tr key={stop.orderId} style={{ borderBottom: '1px solid #eee', background: stop.geocodeValid === false ? '#fff3e0' : undefined }}>
                             <td style={{ padding: '2px 4px' }}>
                               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                                 <IconButton
@@ -922,7 +923,13 @@ export default function PlanningPage() {
                             <td style={{ padding: '6px 4px', fontWeight: 'bold' }}>{index + 1}</td>
                             <td style={{ padding: '6px 4px' }}>{stop.orderNumber}</td>
                             <td style={{ padding: '6px 4px' }}>{stop.customerName}</td>
-                            <td style={{ padding: '6px 4px' }}>{stop.city}</td>
+                            <td style={{ padding: '6px 4px' }}>
+                              {stop.address ? `${stop.address}, ${stop.city}` : stop.city}
+                            </td>
+                            <td style={{ padding: '6px 4px', fontSize: '0.85em', color: stop.geocodedAddress && !stop.geocodedAddress.includes(stop.address) ? '#e65100' : '#666' }}>
+                              {stop.geocodedAddress || '-'}
+                              {stop.geocodedAddress && !stop.geocodedAddress.includes(stop.address) && <span title="הכתובת שגוגל מצא שונה מהמקורית"> ⚠</span>}
+                            </td>
                             <td style={{ padding: '6px 4px' }}>{stop.legDistanceKm > 0 ? `${stop.legDistanceKm} ק"מ` : '-'}</td>
                             <td style={{ padding: '6px 4px' }}>{formatMinutes(stop.legDurationMinutes)}</td>
                             <td style={{ padding: '6px 4px' }}>{formatMinutes(stop.cumulativeTravelMinutes)}</td>
@@ -941,13 +948,13 @@ export default function PlanningPage() {
                 )}
 
                 {optimizeResult.suspiciousAddresses?.length > 0 && (
-                  <Alert severity="info" sx={{ mt: 1.5 }}>
+                  <Alert severity="warning" sx={{ mt: 1.5 }}>
                     <Typography variant="body2" fontWeight="bold" sx={{ mb: 0.5 }}>
-                      כתובות ללא קואורדינטות ({optimizeResult.suspiciousAddresses.length}):
+                      ⚠️ כתובות בעייתיות ({optimizeResult.suspiciousAddresses.length}):
                     </Typography>
                     {optimizeResult.suspiciousAddresses.map((addr: any) => (
                       <Typography key={addr.orderId} variant="caption" display="block">
-                        {addr.orderNumber}: {addr.address}
+                        {addr.orderNumber}: {addr.address} — {addr.reason || 'לא נמצאו קואורדינטות'}
                       </Typography>
                     ))}
                   </Alert>

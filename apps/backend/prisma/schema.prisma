@@ -170,9 +170,10 @@ model Order {
   department    Department?
 
   // Geocoding
-  latitude     Float?
-  longitude    Float?
-  geocodeValid Boolean? @map("geocode_valid")
+  latitude           Float?
+  longitude          Float?
+  geocodeValid       Boolean? @map("geocode_valid")
+  geocodedAddress    String?  @map("geocoded_address")
 
   // Zone
   zoneId       Int?    @map("zone_id")
