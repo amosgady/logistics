@@ -67,6 +67,10 @@ export class RouteOptimizerService {
       throw new AppError(400, 'INVALID_ROUTE', 'מסלול חייב להיות משויך למשאית או למתקין');
     }
 
+    // Determine final address (end point) for this route
+    const finalAddress = route.truck?.finalAddress || route.installerProfile?.finalAddress || null;
+    const hasFinalAddress = !!finalAddress;
+
     // Check if Google Maps API key is available
     if (!env.GOOGLE_MAPS_API_KEY) {
       // Fallback: keep current order, estimate times
@@ -108,11 +112,12 @@ export class RouteOptimizerService {
 
     try {
       const waypoints = ordersWithCoords.map((o) => `${o.latitude},${o.longitude}`);
+      const destination = hasFinalAddress ? finalAddress! : WAREHOUSE_ADDRESS;
 
       const response = await mapsClient.directions({
         params: {
           origin: WAREHOUSE_ADDRESS,
-          destination: WAREHOUSE_ADDRESS,
+          destination: destination,
           waypoints: waypoints,
           optimize: true,
           region: 'il',
@@ -161,11 +166,14 @@ export class RouteOptimizerService {
         elapsedMinutes += waitTimePerStop; // wait at stop
       }
 
-      // Add return leg
-      const returnLeg = legs[legs.length - 1];
-      elapsedMinutes += returnLeg.duration.value / 60;
-
-      const totalDistanceKm = legs.reduce((sum: number, leg: any) => sum + leg.distance.value / 1000, 0);
+      // If finalAddress is set, include the last leg (to final destination)
+      // If no finalAddress, exclude the last leg (return to warehouse)
+      const countedLegs = hasFinalAddress ? legs : legs.slice(0, -1);
+      const totalDistanceKm = countedLegs.reduce((sum: number, leg: any) => sum + leg.distance.value / 1000, 0);
+      if (hasFinalAddress) {
+        const finalLeg = legs[legs.length - 1];
+        elapsedMinutes += finalLeg.duration.value / 60;
+      }
       const exceedsWorkHours = elapsedMinutes > maxWorkMinutes;
 
       // Update database
@@ -196,10 +204,12 @@ export class RouteOptimizerService {
         },
       });
 
+      const lastStop = optimizedStops[optimizedStops.length - 1];
       return {
         optimizedStops,
         warehouseAddress: WAREHOUSE_ADDRESS,
         warehouse: { address: WAREHOUSE_ADDRESS, ...WAREHOUSE_COORDINATES },
+        endAddress: hasFinalAddress ? finalAddress! : (lastStop ? `${lastStop.customerName}, ${lastStop.city}` : WAREHOUSE_ADDRESS),
         totalDistanceKm: parseFloat(totalDistanceKm.toFixed(1)),
         totalTimeMinutes: Math.round(elapsedMinutes),
         exceedsWorkHours,
@@ -266,7 +276,7 @@ export class RouteOptimizerService {
       });
     }
 
-    const totalMinutes = elapsedMinutes + estimatedTravelPerStop; // return trip
+    const totalMinutes = elapsedMinutes; // route ends at last stop, no return trip
     const exceedsWorkHours = totalMinutes > maxWorkMinutes;
 
     await prisma.route.update({

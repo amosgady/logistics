@@ -6,6 +6,7 @@ export interface InstallerRecord {
   startTime: string;
   endTime: string;
   department: string | null;
+  finalAddress: string | null;
   user: {
     id: number;
     fullName: string;
@@ -23,6 +24,7 @@ export const installerApi = {
   create: (data: {
     email: string; password: string; fullName: string; phone?: string;
     department: string; zoneId?: number; startTime: string; endTime: string;
+    finalAddress?: string;
   }) =>
     api.post('/installers', data).then((r) => r.data),
 

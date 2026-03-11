@@ -28,6 +28,7 @@ const emptyForm = {
   zoneId: '' as string | number,
   startTime: '08:00',
   endTime: '17:00',
+  finalAddress: '',
 };
 
 export default function InstallersPage() {
@@ -84,6 +85,7 @@ export default function InstallersPage() {
         zoneId: installer.zone?.id || '',
         startTime: installer.startTime,
         endTime: installer.endTime,
+        finalAddress: installer.finalAddress || '',
       });
     } else {
       setEditingInstaller(null);
@@ -107,6 +109,7 @@ export default function InstallersPage() {
         zoneId: form.zoneId ? Number(form.zoneId) : null,
         startTime: form.startTime,
         endTime: form.endTime,
+        finalAddress: form.finalAddress || null,
       };
       if (form.password) updateData.password = form.password;
       updateMutation.mutate({ id: editingInstaller.id, data: updateData });
@@ -120,6 +123,7 @@ export default function InstallersPage() {
         zoneId: form.zoneId ? Number(form.zoneId) : undefined,
         startTime: form.startTime,
         endTime: form.endTime,
+        finalAddress: form.finalAddress || undefined,
       });
     }
   };
@@ -273,6 +277,12 @@ export default function InstallersPage() {
               value={form.endTime}
               onChange={(e) => setForm({ ...form, endTime: e.target.value })}
               InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="כתובת סיום"
+              value={form.finalAddress}
+              onChange={(e) => setForm({ ...form, finalAddress: e.target.value })}
+              placeholder="השאר ריק אם אין כתובת סיום קבועה"
             />
           </Box>
         </DialogContent>

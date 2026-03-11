@@ -118,8 +118,9 @@ model InstallerProfile {
   userId     Int         @unique @map("user_id")
   startTime  String      @map("start_time")
   endTime    String      @map("end_time")
-  zoneId     Int?        @map("zone_id")
-  department Department?
+  zoneId       Int?        @map("zone_id")
+  department   Department?
+  finalAddress String?     @map("final_address")
 
   user                 User                  @relation(fields: [userId], references: [id])
   zone                 Zone?                 @relation(fields: [zoneId], references: [id])
@@ -262,6 +263,7 @@ model Truck {
   workHoursPerDay Decimal   @db.Decimal(4, 2) @map("work_hours_per_day")
   waitTimePerStop Int       @map("wait_time_per_stop")
   isActive        Boolean   @default(true) @map("is_active")
+  finalAddress    String?   @map("final_address")
 
   assignments TruckAssignment[]
   routes      Route[]

@@ -22,6 +22,7 @@ interface Truck {
   workHoursPerDay: string;
   waitTimePerStop: number;
   isActive: boolean;
+  finalAddress: string | null;
 }
 
 const emptyTruck = {
@@ -33,6 +34,7 @@ const emptyTruck = {
   maxPallets: 16,
   workHoursPerDay: 10,
   waitTimePerStop: 15,
+  finalAddress: '',
 };
 
 export default function TrucksPage() {
@@ -84,6 +86,7 @@ export default function TrucksPage() {
         maxPallets: truck.maxPallets,
         workHoursPerDay: Number(truck.workHoursPerDay),
         waitTimePerStop: truck.waitTimePerStop,
+        finalAddress: truck.finalAddress || '',
       });
     } else {
       setEditingTruck(null);
@@ -183,6 +186,12 @@ export default function TrucksPage() {
             <TextField label="כמות משטחים מקסימלית" type="number" value={form.maxPallets} onChange={(e) => setForm({ ...form, maxPallets: Number(e.target.value) })} />
             <TextField label="שעות עבודה ביום" type="number" value={form.workHoursPerDay} onChange={(e) => setForm({ ...form, workHoursPerDay: Number(e.target.value) })} />
             <TextField label="זמן המתנה בנקודה (דקות)" type="number" value={form.waitTimePerStop} onChange={(e) => setForm({ ...form, waitTimePerStop: Number(e.target.value) })} />
+            <TextField
+              label="כתובת סיום"
+              value={form.finalAddress}
+              onChange={(e) => setForm({ ...form, finalAddress: e.target.value })}
+              placeholder="השאר ריק אם אין כתובת סיום קבועה"
+            />
           </Box>
         </DialogContent>
         <DialogActions>

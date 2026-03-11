@@ -18,6 +18,7 @@ export class InstallersService {
   async create(data: {
     email: string; password: string; fullName: string; phone?: string;
     department: string; zoneId?: number; startTime: string; endTime: string;
+    finalAddress?: string;
   }) {
     const existing = await prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new AppError(400, 'EMAIL_EXISTS', 'כתובת אימייל כבר קיימת במערכת');
@@ -42,6 +43,7 @@ export class InstallersService {
           endTime: data.endTime,
           zoneId: data.zoneId || null,
           department: data.department as any,
+          finalAddress: data.finalAddress || null,
         },
       });
 
@@ -52,6 +54,7 @@ export class InstallersService {
   async update(profileId: number, data: {
     fullName?: string; phone?: string; department?: string;
     zoneId?: number | null; startTime?: string; endTime?: string; isActive?: boolean;
+    finalAddress?: string | null;
   }) {
     const profile = await prisma.installerProfile.findUnique({
       where: { id: profileId },
@@ -75,6 +78,7 @@ export class InstallersService {
       if (data.endTime) profileUpdate.endTime = data.endTime;
       if ('zoneId' in data) profileUpdate.zoneId = data.zoneId || null;
       if (data.department) profileUpdate.department = data.department as any;
+      if ('finalAddress' in data) profileUpdate.finalAddress = data.finalAddress || null;
 
       if (Object.keys(profileUpdate).length > 0) {
         await tx.installerProfile.update({ where: { id: profileId }, data: profileUpdate });
