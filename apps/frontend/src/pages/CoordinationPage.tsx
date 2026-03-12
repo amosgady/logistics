@@ -24,6 +24,7 @@ import {
   DateRange as DateRangeIcon,
   Comment as CommentIcon,
   PictureAsPdf as PdfIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -70,7 +71,8 @@ interface Order {
   exportedToCsv: boolean;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
-  orderLines: { id: number; product: string; quantity: number; weight: string }[];
+  department: string | null;
+  orderLines: { id: number; product: string; description: string | null; quantity: number; weight: string }[];
   delivery: Delivery | null;
 }
 
@@ -391,10 +393,8 @@ export default function CoordinationPage() {
   const board = data?.data;
   const routes: Route[] = board?.routes || [];
 
-  // Filter routes that have orders in coordination flow
-  const routesWithOrders = routes.filter((r) =>
-    r.orders.some((o) => o.status === 'IN_COORDINATION' || o.status === 'APPROVED' || o.status === 'SENT_TO_DRIVER')
-  );
+  // Show all routes that have orders (don't filter by status so orders remain visible after sending)
+  const routesWithOrders = routes.filter((r) => r.orders.length > 0);
 
   const coordinationMutation = useMutation({
     mutationFn: ({ orderId, coordinationStatus, coordinationNotes }: {
@@ -537,6 +537,83 @@ export default function CoordinationPage() {
     );
   };
 
+  const handlePrintSentOrders = () => {
+    const sentOrders = routes.flatMap((r) =>
+      r.orders.filter((o) => o.status === 'SENT_TO_DRIVER')
+    );
+    if (sentOrders.length === 0) {
+      setSnackbar({ message: 'אין הזמנות בסטטוס "נשלח"', severity: 'warning' });
+      return;
+    }
+
+    const formatDate = (d: string) => {
+      const date = new Date(d);
+      return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
+    };
+
+    const deptLabels: Record<string, string> = {
+      GENERAL_TRANSPORT: 'הובלה כללית',
+      SHOWER_INSTALLATION: 'התקנת מקלחונים',
+      PERGOLA_INSTALLATION: 'התקנת פרגולות',
+    };
+
+    const printContent = sentOrders.map((order) => `
+      <div class="page">
+        <h2>הזמנה: ${order.orderNumber}</h2>
+        <table class="header-table">
+          <tr><td><strong>לקוח:</strong> ${order.customerName}</td></tr>
+          <tr><td><strong>כתובת:</strong> ${order.address}, ${order.city}</td></tr>
+          <tr><td><strong>תאריך אספקה:</strong> ${formatDate(order.deliveryDate)}</td></tr>
+          <tr><td><strong>מחלקה:</strong> ${order.department ? (deptLabels[order.department] || order.department) : '-'}</td></tr>
+        </table>
+        <table class="lines-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>פריט</th>
+              <th>תיאור</th>
+              <th>כמות</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${order.orderLines.map((line, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${line.product}</td>
+                <td>${line.description || '-'}</td>
+                <td>${line.quantity}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `).join('');
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <html dir="rtl">
+      <head>
+        <title>הדפסת הזמנות</title>
+        <style>
+          @media print { .page { page-break-after: always; } .page:last-child { page-break-after: avoid; } }
+          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+          .page { padding: 20px; }
+          h2 { margin-bottom: 10px; border-bottom: 2px solid #333; padding-bottom: 8px; }
+          .header-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
+          .header-table td { padding: 4px 0; font-size: 16px; }
+          .lines-table { width: 100%; border-collapse: collapse; }
+          .lines-table th, .lines-table td { border: 1px solid #ccc; padding: 8px; text-align: right; }
+          .lines-table th { background: #f0f0f0; font-weight: bold; }
+        </style>
+      </head>
+      <body>${printContent}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const getRouteCoordinationProgress = (route: Route) => {
     const coordinated = route.orders.filter((o) => o.coordinationStatus === 'COORDINATED').length;
     return { coordinated, total: route.orders.length };
@@ -547,6 +624,14 @@ export default function CoordinationPage() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">תיאום אספקות</Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PrintIcon />}
+            onClick={handlePrintSentOrders}
+          >
+            הדפסה לבודקים
+          </Button>
           <Button
             variant="outlined"
             size="small"
