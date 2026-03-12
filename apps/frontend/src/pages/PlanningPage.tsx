@@ -840,7 +840,7 @@ export default function PlanningPage() {
 
       {/* Optimization result dialog */}
       <Dialog open={!!optimizeResult} onClose={handleCloseOptimizeDialog} fullScreen>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
           תוצאות אופטימיזציה
           <IconButton onClick={handleCloseOptimizeDialog}>
             <CloseIcon />
@@ -850,14 +850,14 @@ export default function PlanningPage() {
           {optimizeResult && (
             <>
               {/* Fixed top section: Map + summary chips */}
-              <Box sx={{ flexShrink: 0, px: 3, pt: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Box sx={{ flexShrink: 0, px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
-                  <Suspense fallback={<Skeleton variant="rectangular" height="40vh" sx={{ borderRadius: 1 }} />}>
+                  <Suspense fallback={<Skeleton variant="rectangular" height="50vh" sx={{ borderRadius: 1 }} />}>
                     <RouteMap
                       stops={manualStops || optimizeResult.optimizedStops}
                       warehouse={optimizeResult.warehouse}
-                      height="40vh"
+                      height="50vh"
                     />
                   </Suspense>
                 )}
