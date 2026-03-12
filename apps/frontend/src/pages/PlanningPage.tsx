@@ -872,20 +872,22 @@ export default function PlanningPage() {
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {optimizeResult && (
             <>
-              {/* Fixed top section: Map + summary chips */}
-              <Box sx={{ flexShrink: 0, px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {/* Map section */}
+              <Box sx={{ flex: mapExpanded ? '0 0 60%' : '0 0 35%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, transition: 'flex 0.3s ease' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
-                  <Suspense fallback={<Skeleton variant="rectangular" height={mapExpanded ? '55vh' : '30vh'} sx={{ borderRadius: 1 }} />}>
-                    <RouteMap
-                      stops={manualStops || optimizeResult.optimizedStops}
-                      warehouse={optimizeResult.warehouse}
-                      height={mapExpanded ? '55vh' : '30vh'}
-                    />
-                  </Suspense>
+                  <Box sx={{ flex: 1, minHeight: 0 }}>
+                    <Suspense fallback={<Skeleton variant="rectangular" height="100%" sx={{ borderRadius: 1 }} />}>
+                      <RouteMap
+                        stops={manualStops || optimizeResult.optimizedStops}
+                        warehouse={optimizeResult.warehouse}
+                        height="100%"
+                      />
+                    </Suspense>
+                  </Box>
                 )}
 
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
                   <Chip icon={<ClockIcon />} label={`זמן כולל: ${formatMinutes(optimizeResult.totalTimeMinutes)}`} />
                   {optimizeResult.totalDistanceKm > 0 && (
                     <Chip icon={<PlaceIcon />} label={`מרחק: ${optimizeResult.totalDistanceKm} ק"מ`} />
@@ -894,14 +896,14 @@ export default function PlanningPage() {
                 </Box>
 
                 {optimizeResult.exceedsWorkHours && (
-                  <Alert severity="warning">
+                  <Alert severity="warning" sx={{ flexShrink: 0 }}>
                     המסלול חורג ב-{formatMinutes(optimizeResult.overtimeMinutes)} מזמן העבודה המקסימלי ({formatMinutes(optimizeResult.maxWorkMinutes)})
                   </Alert>
                 )}
               </Box>
 
-              {/* Scrollable bottom section: Table + alerts */}
-              <Box sx={{ flexGrow: 1, overflow: 'auto', px: 3, pb: 2 }}>
+              {/* List section */}
+              <Box sx={{ flex: mapExpanded ? '0 0 40%' : '0 0 65%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease' }}>
                 {/* Per-stop details table */}
                 {(manualStops || optimizeResult.optimizedStops)?.length > 0 && (
                   <Box sx={{ overflowX: 'auto' }}>
