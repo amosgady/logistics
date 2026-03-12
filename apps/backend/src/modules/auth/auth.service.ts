@@ -7,20 +7,32 @@ import { AppError } from '../../middleware/errorHandler';
 import { emailService } from '../../services/email.service';
 
 export class AuthService {
-  async login(email: string, password: string) {
-    const user = await prisma.user.findUnique({ where: { email } });
+  async login(username: string, password: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username },
+          { email: username },
+        ],
+        isActive: true,
+      },
+    });
 
-    if (!user || !user.isActive) {
-      throw new AppError(401, 'INVALID_CREDENTIALS', 'אימייל או סיסמה שגויים');
+    if (!user) {
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'שם משתמש או סיסמה שגויים');
     }
 
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
-      throw new AppError(401, 'INVALID_CREDENTIALS', 'אימייל או סיסמה שגויים');
+      throw new AppError(401, 'INVALID_CREDENTIALS', 'שם משתמש או סיסמה שגויים');
     }
 
     // Check if 2FA is enabled for this user
     if (user.twoFactorEnabled) {
+      if (!user.email) {
+        throw new AppError(400, 'NO_EMAIL', 'לא ניתן לבצע אימות דו-שלבי ללא כתובת אימייל');
+      }
+
       // Generate 6-digit code
       const code = crypto.randomInt(100000, 999999).toString();
       const codeHash = await bcrypt.hash(code, 10);
@@ -151,6 +163,9 @@ export class AuthService {
     if (!user || !user.isActive) {
       throw new AppError(401, 'INVALID_TOKEN', 'משתמש לא נמצא');
     }
+    if (!user.email) {
+      throw new AppError(400, 'NO_EMAIL', 'לא ניתן לשלוח קוד ללא כתובת אימייל');
+    }
 
     // Generate new code
     const code = crypto.randomInt(100000, 999999).toString();
@@ -244,6 +259,7 @@ export class AuthService {
       where: { id: userId },
       select: {
         id: true,
+        username: true,
         email: true,
         fullName: true,
         role: true,

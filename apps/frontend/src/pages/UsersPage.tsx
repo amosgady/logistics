@@ -20,6 +20,7 @@ const ROLE_OPTIONS = [
 ];
 
 const emptyForm = {
+  username: '',
   email: '',
   password: '',
   fullName: '',
@@ -73,7 +74,8 @@ export default function UsersPage() {
     if (user) {
       setEditingUser(user);
       setForm({
-        email: user.email,
+        username: user.username || '',
+        email: user.email || '',
         password: '',
         fullName: user.fullName,
         role: user.role,
@@ -100,13 +102,15 @@ export default function UsersPage() {
         role: form.role,
         department: form.department || null,
         phone: form.phone || null,
+        email: form.email || null,
       };
-      if (form.email !== editingUser.email) updateData.email = form.email;
+      if (form.username !== editingUser.username) updateData.username = form.username;
       if (form.password) updateData.password = form.password;
       updateMutation.mutate({ id: editingUser.id, data: updateData });
     } else {
       createMutation.mutate({
-        email: form.email,
+        username: form.username,
+        email: form.email || undefined,
         password: form.password,
         fullName: form.fullName,
         role: form.role,
@@ -136,6 +140,7 @@ export default function UsersPage() {
           <TableHead>
             <TableRow>
               <SortableTableCell label="שם" sortKey="fullName" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="שם משתמש" sortKey="username" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="אימייל" sortKey="email" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="תפקיד" sortKey="role" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
@@ -148,7 +153,8 @@ export default function UsersPage() {
             {sortedUsers.map((user) => (
               <TableRow key={user.id} hover>
                 <TableCell>{user.fullName}</TableCell>
-                <TableCell>{user.email}</TableCell>
+                <TableCell>{user.username}</TableCell>
+                <TableCell>{user.email || '-'}</TableCell>
                 <TableCell>
                   <Chip
                     label={ROLE_LABELS[user.role] || user.role}
@@ -176,7 +182,7 @@ export default function UsersPage() {
               </TableRow>
             ))}
             {users.length === 0 && (
-              <TableRow><TableCell colSpan={7} align="center">אין משתמשים</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} align="center">אין משתמשים</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -193,11 +199,18 @@ export default function UsersPage() {
               required
             />
             <TextField
+              label="שם משתמש"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              required
+              helperText="שם המשתמש לכניסה למערכת"
+            />
+            <TextField
               label="אימייל"
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
+              helperText="לא חובה"
             />
             <TextField
               label={editingUser ? 'סיסמה חדשה (השאר ריק לללא שינוי)' : 'סיסמה'}
@@ -250,7 +263,7 @@ export default function UsersPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!form.fullName || !form.email || (!editingUser && !form.password)}
+            disabled={!form.fullName || !form.username || (!editingUser && !form.password)}
           >
             {editingUser ? 'עדכן' : 'הוסף'}
           </Button>

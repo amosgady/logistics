@@ -5,8 +5,8 @@ import { asyncHandler } from '../../utils/asyncHandler';
 
 export const authController = {
   login: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    const { username, password } = req.body;
+    const result = await authService.login(username, password);
     res.json({ success: true, data: result });
   }),
 

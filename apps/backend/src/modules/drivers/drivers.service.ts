@@ -7,7 +7,7 @@ export class DriversService {
     return prisma.driverProfile.findMany({
       include: {
         user: {
-          select: { id: true, fullName: true, phone: true, email: true, isActive: true, department: true },
+          select: { id: true, username: true, fullName: true, phone: true, email: true, isActive: true, department: true },
         },
         truckAssignment: {
           where: { isActive: true },
@@ -21,17 +21,18 @@ export class DriversService {
   }
 
   async create(data: {
-    email: string; password: string; fullName: string; phone?: string;
+    username: string; email?: string; password: string; fullName: string; phone?: string;
     licenseType: string; truckId?: number; department?: string;
   }) {
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new AppError(400, 'EMAIL_EXISTS', 'כתובת אימייל כבר קיימת במערכת');
+    const existing = await prisma.user.findUnique({ where: { username: data.username } });
+    if (existing) throw new AppError(400, 'USERNAME_EXISTS', 'שם משתמש כבר קיים במערכת');
 
     return prisma.$transaction(async (tx) => {
       const passwordHash = await bcrypt.hash(data.password, 12);
       const user = await tx.user.create({
         data: {
-          email: data.email,
+          username: data.username,
+          email: data.email || null,
           passwordHash,
           fullName: data.fullName,
           role: 'DRIVER',
@@ -115,7 +116,7 @@ export class DriversService {
       return tx.driverProfile.findUnique({
         where: { id: profileId },
         include: {
-          user: { select: { id: true, fullName: true, phone: true, email: true, isActive: true, department: true } },
+          user: { select: { id: true, username: true, fullName: true, phone: true, email: true, isActive: true, department: true } },
           truckAssignment: {
             where: { isActive: true },
             include: { truck: { select: { id: true, name: true, licensePlate: true } } },

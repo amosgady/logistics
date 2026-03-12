@@ -20,7 +20,7 @@ import api from '../services/api';
 import { useAuthStore } from '../store/authStore';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { username, password });
       const result = data.data;
 
       if (result.requiresTwoFactor) {
@@ -159,10 +159,9 @@ export default function LoginPage() {
             <Box component="form" onSubmit={handleLogin}>
               <TextField
                 fullWidth
-                label="אימייל"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                label="שם משתמש"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 margin="normal"
                 required
                 autoFocus

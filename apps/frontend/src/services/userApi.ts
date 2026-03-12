@@ -2,7 +2,8 @@ import api from './api';
 
 export interface UserRecord {
   id: number;
-  email: string;
+  username: string;
+  email: string | null;
   fullName: string;
   role: string;
   department: string | null;
@@ -16,7 +17,7 @@ export const userApi = {
     api.get('/users').then((r) => r.data),
 
   create: (data: {
-    email: string; password: string; fullName: string;
+    username: string; email?: string; password: string; fullName: string;
     role: string; department?: string; phone?: string;
   }) =>
     api.post('/users', data).then((r) => r.data),

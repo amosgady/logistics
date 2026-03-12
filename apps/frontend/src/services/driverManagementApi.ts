@@ -6,9 +6,10 @@ export interface DriverRecord {
   licenseType: string;
   user: {
     id: number;
+    username?: string;
     fullName: string;
     phone: string | null;
-    email: string;
+    email: string | null;
     isActive: boolean;
     department: string | null;
   };
@@ -24,7 +25,7 @@ export const driverManagementApi = {
     api.get('/drivers').then((r) => r.data),
 
   create: (data: {
-    email: string; password: string; fullName: string;
+    username: string; email?: string; password: string; fullName: string;
     phone?: string; licenseType: string; truckId?: number; department?: string;
   }) =>
     api.post('/drivers', data).then((r) => r.data),

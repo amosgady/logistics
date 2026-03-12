@@ -20,6 +20,7 @@ const INSTALLER_DEPT_OPTIONS = [
 ];
 
 const emptyForm = {
+  username: '',
   email: '',
   password: '',
   fullName: '',
@@ -77,7 +78,8 @@ export default function InstallersPage() {
     if (installer) {
       setEditingInstaller(installer);
       setForm({
-        email: installer.user.email,
+        username: installer.user.username || '',
+        email: installer.user.email || '',
         password: '',
         fullName: installer.user.fullName,
         phone: installer.user.phone || '',
@@ -115,7 +117,8 @@ export default function InstallersPage() {
       updateMutation.mutate({ id: editingInstaller.id, data: updateData });
     } else {
       createMutation.mutate({
-        email: form.email,
+        username: form.username,
+        email: form.email || undefined,
         password: form.password,
         fullName: form.fullName,
         phone: form.phone || undefined,
@@ -146,7 +149,7 @@ export default function InstallersPage() {
           <TableHead>
             <TableRow>
               <SortableTableCell label="שם מתקין" sortKey="user.fullName" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="אימייל" sortKey="user.email" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="שם משתמש" sortKey="user.username" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="טלפון" sortKey="user.phone" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="אזור" sortKey="zone.nameHe" sortConfig={sortConfig} onSort={handleSort} />
@@ -159,7 +162,7 @@ export default function InstallersPage() {
             {sortedInstallers.map((installer) => (
               <TableRow key={installer.id} hover>
                 <TableCell>{installer.user.fullName}</TableCell>
-                <TableCell>{installer.user.email}</TableCell>
+                <TableCell>{installer.user.username}</TableCell>
                 <TableCell>{installer.user.phone || '-'}</TableCell>
                 <TableCell>
                   <Chip
@@ -223,10 +226,9 @@ export default function InstallersPage() {
               required
             />
             <TextField
-              label="אימייל"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              label="שם משתמש"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
               disabled={!!editingInstaller}
             />
@@ -291,7 +293,7 @@ export default function InstallersPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!form.fullName || !form.email || (!editingInstaller && !form.password) || !form.department}
+            disabled={!form.fullName || !form.username || (!editingInstaller && !form.password) || !form.department}
           >
             {editingInstaller ? 'עדכן' : 'הוסף'}
           </Button>

@@ -7,7 +7,7 @@ export class InstallersService {
     return prisma.installerProfile.findMany({
       include: {
         user: {
-          select: { id: true, fullName: true, phone: true, email: true, isActive: true },
+          select: { id: true, username: true, fullName: true, phone: true, email: true, isActive: true },
         },
         zone: { select: { id: true, name: true, nameHe: true } },
       },
@@ -16,18 +16,19 @@ export class InstallersService {
   }
 
   async create(data: {
-    email: string; password: string; fullName: string; phone?: string;
+    username: string; email?: string; password: string; fullName: string; phone?: string;
     department: string; zoneId?: number; startTime: string; endTime: string;
     finalAddress?: string;
   }) {
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new AppError(400, 'EMAIL_EXISTS', 'כתובת אימייל כבר קיימת במערכת');
+    const existing = await prisma.user.findUnique({ where: { username: data.username } });
+    if (existing) throw new AppError(400, 'USERNAME_EXISTS', 'שם משתמש כבר קיים במערכת');
 
     return prisma.$transaction(async (tx) => {
       const passwordHash = await bcrypt.hash(data.password, 12);
       const user = await tx.user.create({
         data: {
-          email: data.email,
+          username: data.username,
+          email: data.email || null,
           passwordHash,
           fullName: data.fullName,
           role: 'INSTALLER',
@@ -87,7 +88,7 @@ export class InstallersService {
       return tx.installerProfile.findUnique({
         where: { id: profileId },
         include: {
-          user: { select: { id: true, fullName: true, phone: true, email: true, isActive: true } },
+          user: { select: { id: true, username: true, fullName: true, phone: true, email: true, isActive: true } },
           zone: { select: { id: true, name: true, nameHe: true } },
         },
       });

@@ -6,21 +6,22 @@ export class UsersService {
   async getAll() {
     return prisma.user.findMany({
       select: {
-        id: true, email: true, fullName: true, role: true, department: true,
+        id: true, username: true, email: true, fullName: true, role: true, department: true,
         phone: true, isActive: true, createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async create(data: { email: string; password: string; fullName: string; role: string; department?: string; phone?: string }) {
-    const existing = await prisma.user.findUnique({ where: { email: data.email } });
-    if (existing) throw new AppError(400, 'EMAIL_EXISTS', 'כתובת אימייל כבר קיימת במערכת');
+  async create(data: { username: string; email?: string; password: string; fullName: string; role: string; department?: string; phone?: string }) {
+    const existing = await prisma.user.findUnique({ where: { username: data.username } });
+    if (existing) throw new AppError(400, 'USERNAME_EXISTS', 'שם משתמש כבר קיים במערכת');
 
     const passwordHash = await bcrypt.hash(data.password, 12);
     return prisma.user.create({
       data: {
-        email: data.email,
+        username: data.username,
+        email: data.email || null,
         passwordHash,
         fullName: data.fullName,
         role: data.role as any,
@@ -28,15 +29,20 @@ export class UsersService {
         phone: data.phone || null,
       },
       select: {
-        id: true, email: true, fullName: true, role: true, department: true,
+        id: true, username: true, email: true, fullName: true, role: true, department: true,
         phone: true, isActive: true, createdAt: true,
       },
     });
   }
 
-  async update(id: number, data: { email?: string; password?: string; fullName?: string; role?: string; department?: string | null; phone?: string; isActive?: boolean }) {
+  async update(id: number, data: { username?: string; email?: string; password?: string; fullName?: string; role?: string; department?: string | null; phone?: string; isActive?: boolean }) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'משתמש לא נמצא');
+
+    if (data.username && data.username !== user.username) {
+      const existing = await prisma.user.findUnique({ where: { username: data.username } });
+      if (existing) throw new AppError(400, 'USERNAME_EXISTS', 'שם משתמש כבר קיים במערכת');
+    }
 
     const updateData: any = { ...data };
     delete updateData.password;
@@ -50,7 +56,7 @@ export class UsersService {
       where: { id },
       data: updateData,
       select: {
-        id: true, email: true, fullName: true, role: true, department: true,
+        id: true, username: true, email: true, fullName: true, role: true, department: true,
         phone: true, isActive: true, createdAt: true,
       },
     });

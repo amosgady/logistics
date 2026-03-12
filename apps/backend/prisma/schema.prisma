@@ -77,7 +77,8 @@ enum ReplySessionStatus {
 
 model User {
   id           Int      @id @default(autoincrement())
-  email        String   @unique
+  username     String?  @unique
+  email        String?
   passwordHash String   @map("password_hash")
   fullName     String   @map("full_name")
   role         UserRole

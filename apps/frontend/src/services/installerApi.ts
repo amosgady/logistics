@@ -9,9 +9,10 @@ export interface InstallerRecord {
   finalAddress: string | null;
   user: {
     id: number;
+    username?: string;
     fullName: string;
     phone: string | null;
-    email: string;
+    email: string | null;
     isActive: boolean;
   };
   zone: { id: number; name: string; nameHe: string } | null;
@@ -22,7 +23,7 @@ export const installerApi = {
     api.get('/installers').then((r) => r.data),
 
   create: (data: {
-    email: string; password: string; fullName: string; phone?: string;
+    username: string; email?: string; password: string; fullName: string; phone?: string;
     department: string; zoneId?: number; startTime: string; endTime: string;
     finalAddress?: string;
   }) =>

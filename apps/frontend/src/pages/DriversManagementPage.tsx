@@ -13,6 +13,7 @@ import SortableTableCell from '../components/common/SortableTableCell';
 import { useSortable } from '../hooks/useSortable';
 
 const emptyForm = {
+  username: '',
   email: '',
   password: '',
   fullName: '',
@@ -69,7 +70,8 @@ export default function DriversManagementPage() {
       setEditingDriver(driver);
       const activeAssignment = driver.truckAssignment?.[0];
       setForm({
-        email: driver.user.email,
+        username: driver.user.username || '',
+        email: driver.user.email || '',
         password: '',
         fullName: driver.user.fullName,
         phone: driver.user.phone || '',
@@ -101,7 +103,8 @@ export default function DriversManagementPage() {
       updateMutation.mutate({ id: editingDriver.id, data: updateData });
     } else {
       createMutation.mutate({
-        email: form.email,
+        username: form.username,
+        email: form.email || undefined,
         password: form.password,
         fullName: form.fullName,
         phone: form.phone || undefined,
@@ -129,7 +132,7 @@ export default function DriversManagementPage() {
           <TableHead>
             <TableRow>
               <SortableTableCell label="שם נהג" sortKey="user.fullName" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="אימייל" sortKey="user.email" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="שם משתמש" sortKey="user.username" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="טלפון" sortKey="user.phone" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="סוג רישיון" sortKey="licenseType" sortConfig={sortConfig} onSort={handleSort} />
               <TableCell>משאית משויכת</TableCell>
@@ -143,7 +146,7 @@ export default function DriversManagementPage() {
               return (
                 <TableRow key={driver.id} hover>
                   <TableCell>{driver.user.fullName}</TableCell>
-                  <TableCell>{driver.user.email}</TableCell>
+                  <TableCell>{driver.user.username}</TableCell>
                   <TableCell>{driver.user.phone || '-'}</TableCell>
                   <TableCell>{driver.licenseType}</TableCell>
                   <TableCell>
@@ -193,10 +196,9 @@ export default function DriversManagementPage() {
               required
             />
             <TextField
-              label="אימייל"
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              label="שם משתמש"
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
               required
               disabled={!!editingDriver}
             />
@@ -243,7 +245,7 @@ export default function DriversManagementPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={!form.fullName || !form.email || (!editingDriver && !form.password)}
+            disabled={!form.fullName || !form.username || (!editingDriver && !form.password)}
           >
             {editingDriver ? 'עדכן' : 'הוסף'}
           </Button>
