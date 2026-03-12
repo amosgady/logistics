@@ -26,6 +26,8 @@ import {
   Build as InstallerIcon,
   DateRange as DateRangeIcon,
   Send as SendIcon,
+  Map as MapIcon,
+  ViewList as ListIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -377,6 +379,7 @@ export default function PlanningPage() {
   const [selectedInstallerByDept, setSelectedInstallerByDept] = useState<Record<string, number | ''>>({});
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
+  const [mapExpanded, setMapExpanded] = useState(true); // true = 60% map, false = 40% map
   const [optimizingRouteId, setOptimizingRouteId] = useState<number | null>(null);
   const [optimizedRouteId, setOptimizedRouteId] = useState<number | null>(null);
   const [manualStops, setManualStops] = useState<any[] | null>(null);
@@ -841,7 +844,27 @@ export default function PlanningPage() {
       {/* Optimization result dialog */}
       <Dialog open={!!optimizeResult} onClose={handleCloseOptimizeDialog} fullScreen>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-          תוצאות אופטימיזציה
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            תוצאות אופטימיזציה
+            <Button
+              size="small"
+              variant={mapExpanded ? 'contained' : 'outlined'}
+              startIcon={<MapIcon />}
+              onClick={() => setMapExpanded(true)}
+              sx={{ minWidth: 'auto', fontSize: '0.75rem' }}
+            >
+              הגדל מפה
+            </Button>
+            <Button
+              size="small"
+              variant={!mapExpanded ? 'contained' : 'outlined'}
+              startIcon={<ListIcon />}
+              onClick={() => setMapExpanded(false)}
+              sx={{ minWidth: 'auto', fontSize: '0.75rem' }}
+            >
+              הגדל רשימה
+            </Button>
+          </Box>
           <IconButton onClick={handleCloseOptimizeDialog}>
             <CloseIcon />
           </IconButton>
@@ -853,11 +876,11 @@ export default function PlanningPage() {
               <Box sx={{ flexShrink: 0, px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
-                  <Suspense fallback={<Skeleton variant="rectangular" height="50vh" sx={{ borderRadius: 1 }} />}>
+                  <Suspense fallback={<Skeleton variant="rectangular" height={mapExpanded ? '55vh' : '30vh'} sx={{ borderRadius: 1 }} />}>
                     <RouteMap
                       stops={manualStops || optimizeResult.optimizedStops}
                       warehouse={optimizeResult.warehouse}
-                      height="50vh"
+                      height={mapExpanded ? '55vh' : '30vh'}
                     />
                   </Suspense>
                 )}
