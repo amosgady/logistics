@@ -64,9 +64,11 @@ export default function CheckerPage() {
   const [hasTorch, setHasTorch] = useState(false);
   const [scannerDebug, setScannerDebug] = useState('');
   const [capturing, setCapturing] = useState(false);
+  const [scanCount, setScanCount] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<any>(null);
+  const scanIntervalRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
@@ -87,6 +89,10 @@ export default function CheckerPage() {
 
   // Stop scanner
   const stopScanner = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
     try { controlsRef.current?.stop(); } catch { /* */ }
     controlsRef.current = null;
     if (streamRef.current) {
@@ -97,14 +103,14 @@ export default function CheckerPage() {
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
-    // Don't clear scannerDebug so it remains visible on main page
     setCapturing(false);
   }, []);
 
-  // Start scanner - just open camera, no continuous decode
+  // Start scanner with CONTINUOUS scanning (like Cognex)
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     setScannerDebug('מפעיל מצלמה...');
+    setScanCount(0);
 
     await new Promise((r) => setTimeout(r, 400));
 
@@ -136,12 +142,90 @@ export default function CheckerPage() {
       } catch { /* */ }
 
       const s = track.getSettings();
-      setScannerDebug(`${s.width}x${s.height} | כוון ולחץ צילום`);
+      const resolution = `${s.width}x${s.height}`;
+
+      // Start continuous scanning every 300ms
+      let count = 0;
+      let scanning = false;
+      scanIntervalRef.current = window.setInterval(async () => {
+        const video = videoRef.current;
+        if (!video || video.readyState < 2 || scanning) return;
+        scanning = true;
+        count++;
+
+        try {
+          const vw = video.videoWidth;
+          const vh = video.videoHeight;
+
+          // Try native BarcodeDetector directly on video element (fastest)
+          if ('BarcodeDetector' in window) {
+            try {
+              const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] });
+              const barcodes = await nativeBD.detect(video);
+              if (barcodes.length > 0) {
+                const code = barcodes[0].rawValue;
+                setScannerDebug(`${resolution} | #${count} NAT: "${code}"`);
+                // Stop scanning and handle result
+                if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+                scanIntervalRef.current = null;
+                stopScanner();
+                handleBarcodeDetected(code);
+                return;
+              }
+            } catch { /* */ }
+          }
+
+          // Try WASM detector on video element
+          try {
+            const barcodes = await wasmDetectorAll.detect(video);
+            if (barcodes.length > 0) {
+              const code = barcodes[0].rawValue;
+              setScannerDebug(`${resolution} | #${count} WASM: "${code}"`);
+              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+              scanIntervalRef.current = null;
+              stopScanner();
+              handleBarcodeDetected(code);
+              return;
+            }
+          } catch { /* */ }
+
+          // Try WASM on center-cropped canvas
+          const cropCanvas = document.createElement('canvas');
+          const cropW = vw;
+          const cropH = Math.floor(vh * 0.3);
+          cropCanvas.width = cropW;
+          cropCanvas.height = cropH;
+          cropCanvas.getContext('2d')!.drawImage(
+            video,
+            0, Math.floor((vh - cropH) / 2), cropW, cropH,
+            0, 0, cropW, cropH,
+          );
+          try {
+            const barcodes = await wasmDetectorAll.detect(cropCanvas);
+            if (barcodes.length > 0) {
+              const code = barcodes[0].rawValue;
+              setScannerDebug(`${resolution} | #${count} WASM-crop: "${code}"`);
+              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+              scanIntervalRef.current = null;
+              stopScanner();
+              handleBarcodeDetected(code);
+              return;
+            }
+          } catch { /* */ }
+
+          setScannerDebug(`${resolution} | סורק... #${count}`);
+          setScanCount(count);
+        } catch { /* */ }
+
+        scanning = false;
+      }, 300);
+
+      setScannerDebug(`${resolution} | סריקה רציפה...`);
     } catch (err: any) {
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
-  }, []);
+  }, [stopScanner, handleBarcodeDetected]);
 
   // Helper: downscale image to max width for better decode performance
   const downscaleCanvas = (source: HTMLCanvasElement | HTMLImageElement, maxWidth: number): HTMLCanvasElement => {
@@ -407,6 +491,7 @@ export default function CheckerPage() {
   // Cleanup
   useEffect(() => {
     return () => {
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
       try { controlsRef.current?.stop(); } catch { /* */ }
       if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
@@ -610,7 +695,7 @@ export default function CheckerPage() {
           }}>
             <IconButton onClick={stopScanner} sx={{ color: 'white' }}><CloseIcon /></IconButton>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד ולחץ על הכפתור</Typography>
+              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למסגרת — סריקה אוטומטית</Typography>
               {scannerDebug && <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>}
             </Box>
             {hasTorch ? (
@@ -637,26 +722,24 @@ export default function CheckerPage() {
             }} />
           </Box>
 
-          {/* Big capture button at bottom */}
+          {/* Scan status at bottom */}
           <Box sx={{
             position: 'absolute', bottom: 40, left: 0, right: 0, zIndex: 10,
-            display: 'flex', justifyContent: 'center',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
           }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.6)', px: 2, py: 1, borderRadius: 2 }}>
+              <CircularProgress size={20} sx={{ color: '#4caf50' }} />
+              <Typography color="white" fontSize={14}>סורק... #{scanCount}</Typography>
+            </Box>
             <IconButton
               onClick={captureAndDecode}
-              disabled={capturing}
               sx={{
-                width: 80, height: 80,
-                bgcolor: 'rgba(255,255,255,0.9)',
-                '&:hover': { bgcolor: 'white' },
+                width: 64, height: 64,
+                bgcolor: 'rgba(255,255,255,0.7)',
                 '&:active': { transform: 'scale(0.9)' },
-                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
               }}
             >
-              {capturing
-                ? <CircularProgress size={40} />
-                : <CameraIcon sx={{ fontSize: 40, color: '#333' }} />
-              }
+              <CameraIcon sx={{ fontSize: 32, color: '#333' }} />
             </IconButton>
           </Box>
         </Box>
