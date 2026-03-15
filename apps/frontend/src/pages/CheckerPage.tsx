@@ -127,6 +127,14 @@ export default function CheckerPage() {
         Quagga.start();
         quaggaRunning.current = true;
 
+        // Ensure video plays on mobile (playsinline attribute)
+        const videoEl = target.querySelector('video');
+        if (videoEl) {
+          videoEl.setAttribute('playsinline', 'true');
+          videoEl.setAttribute('webkit-playsinline', 'true');
+          videoEl.play().catch(() => {});
+        }
+
         // Check if torch is available
         const track = Quagga.CameraAccess.getActiveTrack();
         if (track) {
@@ -493,16 +501,25 @@ export default function CheckerPage() {
             width: '100%',
             height: '100%',
             overflow: 'hidden',
+            // Quagga wraps video in div.viewport
+            '& .viewport': {
+              position: 'absolute !important',
+              top: '0 !important',
+              left: '0 !important',
+              width: '100% !important',
+              height: '100% !important',
+              overflow: 'hidden',
+            },
             '& video': {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
+              position: 'absolute !important',
+              top: '0 !important',
+              left: '0 !important',
+              width: '100% !important',
+              height: '100% !important',
+              objectFit: 'cover !important',
             },
             '& canvas': {
-              display: 'none',
+              display: 'none !important',
             },
           }}
         />
