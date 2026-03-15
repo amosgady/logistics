@@ -16,6 +16,7 @@ import {
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
 } from '@mui/icons-material';
+import { BarcodeDetector } from 'barcode-detector/pure';
 import Quagga from '@ericblade/quagga2';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
@@ -116,61 +117,46 @@ export default function CheckerPage() {
         const caps = track?.getCapabilities?.() as any;
         if (caps?.torch) setHasTorch(true);
 
-        // Start scanning frames with Quagga decodeSingle
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d')!;
-        const recentReads: string[] = [];
-        const REQUIRED_CONSISTENT = 2; // Need 2 identical reads
+        // Use BarcodeDetector (ZXing WASM) for fast, accurate live scanning
+        const detector = new BarcodeDetector({
+          formats: ['code_128', 'code_39', 'ean_13', 'ean_8'],
+        });
         let decoding = false;
+        const recentReads: string[] = [];
 
-        scanIntervalRef.current = window.setInterval(() => {
+        scanIntervalRef.current = window.setInterval(async () => {
           const video = videoRef.current;
           if (!video || video.readyState < 2 || decoding) return;
           decoding = true;
 
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-          // Try two patch sizes per frame for better detection
-          const tryDecode = (patchSize: string, halfSample: boolean) => {
-            return new Promise<string | null>((resolve) => {
-              Quagga.decodeSingle(
-                {
-                  src: dataUrl,
-                  numOfWorkers: 0,
-                  inputStream: { size: 1600 },
-                  decoder: { readers: ['code_128_reader'] },
-                  locate: true,
-                  locator: { patchSize, halfSample },
-                },
-                (res: any) => resolve(res?.codeResult?.code || null),
-              );
-            });
-          };
-
-          (async () => {
-            let code = await tryDecode('medium', false);
-            if (!code) code = await tryDecode('large', false);
-            if (!code) code = await tryDecode('small', true);
+          try {
+            const barcodes = await detector.detect(video);
             decoding = false;
 
-            if (!code) return;
-            // Accept T-XXXXX-X format or any numeric barcode
-            if (!/^T-\d+-\d+$/.test(code) && !/^\d{6,}$/.test(code)) return;
+            for (const barcode of barcodes) {
+              const code = barcode.rawValue;
+              if (!code) continue;
 
-            recentReads.push(code);
-            if (recentReads.length > 10) recentReads.shift();
+              // Accept T-XXXXX-X format or any 6+ digit numeric barcode
+              if (!/^T-\d+-\d+$/.test(code) && !/^\d{6,}$/.test(code)) continue;
 
-            // Check if last N reads are identical
-            const last = recentReads.slice(-REQUIRED_CONSISTENT);
-            if (last.length === REQUIRED_CONSISTENT && last.every((r) => r === last[0])) {
-              stopScanner();
-              handleBarcodeDetected(last[0]);
+              recentReads.push(code);
+              if (recentReads.length > 10) recentReads.shift();
+
+              // Need 2 identical consecutive reads
+              if (recentReads.length >= 2) {
+                const last2 = recentReads.slice(-2);
+                if (last2[0] === last2[1]) {
+                  stopScanner();
+                  handleBarcodeDetected(last2[0]);
+                  return;
+                }
+              }
             }
-          })();
-        }, 200); // Scan every 200ms
+          } catch {
+            decoding = false;
+          }
+        }, 150); // Scan every 150ms
       }, 300);
     } catch {
       // Camera not available - fall back to file input
