@@ -16,7 +16,7 @@ import {
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
 } from '@mui/icons-material';
-import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
 import { useAuthStore } from '../store/authStore';
@@ -57,8 +57,8 @@ export default function CheckerPage() {
   const [hasTorch, setHasTorch] = useState(false);
   const [scannerDebug, setScannerDebug] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const controlsRef = useRef<IScannerControls | null>(null);
+  const controlsRef = useRef<any>(null);
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -78,95 +78,89 @@ export default function CheckerPage() {
 
   // Stop scanner
   const stopScanner = useCallback(() => {
-    if (controlsRef.current) {
-      controlsRef.current.stop();
-      controlsRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
+    try {
+      if (controlsRef.current) {
+        controlsRef.current.stop();
+        controlsRef.current = null;
+      }
+    } catch { /* ignore */ }
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
     setScannerDebug('');
   }, []);
 
-  // Start scanner - using ZXing BrowserMultiFormatReader (proven approach)
+  // Start scanner - let ZXing handle EVERYTHING (camera + stream + decode)
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     setScannerDebug('מפעיל מצלמה...');
 
-    // Wait for video element to be in DOM
-    await new Promise((r) => setTimeout(r, 400));
+    // Wait for video element to mount
+    await new Promise((r) => setTimeout(r, 500));
 
-    if (!videoRef.current) {
+    const video = videoRef.current;
+    if (!video) {
       setScannerOpen(false);
+      setSnackbar({ message: 'שגיאה: אלמנט וידאו לא נמצא', severity: 'error' });
       return;
     }
 
     try {
-      // First get the camera stream manually for high-res + autofocus
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      });
+      if (!readerRef.current) {
+        readerRef.current = new BrowserMultiFormatReader();
+      }
+      const reader = readerRef.current;
 
-      streamRef.current = stream;
-      videoRef.current.srcObject = stream;
-
-      // Try to enable continuous autofocus + check torch
-      const track = stream.getVideoTracks()[0];
-      try {
-        const caps = track?.getCapabilities?.() as any;
-        if (caps?.focusMode?.includes('continuous')) {
-          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
-        }
-        if (caps?.torch) {
-          setHasTorch(true);
-        }
-      } catch { /* ignore */ }
-
-      const settings = track.getSettings();
-      setScannerDebug(`${settings.width}x${settings.height} | ZXing continuous`);
-
-      // Use ZXing BrowserMultiFormatReader with continuous decode from video
-      const reader = new BrowserMultiFormatReader();
-
-      const controls = await reader.decodeFromVideoElement(
-        videoRef.current,
+      // Let ZXing select the back camera and start streaming + decoding
+      const controls = await reader.decodeFromVideoDevice(
+        undefined, // undefined = let ZXing pick back camera
+        video,
         (result, error) => {
           if (result) {
             const code = result.getText();
-            // DEBUG: show what was detected
-            setScannerDebug(`זוהה: "${code}"`);
+            const format = result.getBarcodeFormat();
+            setScannerDebug(`זוהה: "${code}" (format: ${format})`);
 
-            // Accept any barcode (no filter for now)
+            // Accept any barcode
             stopScanner();
             handleBarcodeDetected(code);
           }
-          // error is normal when no barcode found in frame - ignore
+          // When no barcode found, error is NotFoundException - normal, ignore
         },
       );
 
       controlsRef.current = controls;
+
+      // Check video dimensions after it starts playing
+      video.addEventListener('playing', () => {
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        setScannerDebug(`${w}x${h} | סורק...`);
+
+        // Check torch support from the active stream
+        const stream = video.srcObject as MediaStream;
+        if (stream) {
+          const track = stream.getVideoTracks()[0];
+          try {
+            const caps = track?.getCapabilities?.() as any;
+            if (caps?.torch) setHasTorch(true);
+          } catch { /* ignore */ }
+        }
+      }, { once: true });
+
     } catch (err: any) {
-      console.error('Scanner error:', err);
+      console.error('Scanner start error:', err);
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
   }, [stopScanner, handleBarcodeDetected]);
 
-  // Toggle torch/flashlight
+  // Toggle torch
   const toggleTorch = useCallback(() => {
-    const track = streamRef.current?.getVideoTracks()[0];
+    const video = videoRef.current;
+    if (!video) return;
+    const stream = video.srcObject as MediaStream;
+    const track = stream?.getVideoTracks()[0];
     if (track) {
       const newState = !torchOn;
       (track as any).applyConstraints({ advanced: [{ torch: newState }] });
@@ -177,8 +171,9 @@ export default function CheckerPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (controlsRef.current) controlsRef.current.stop();
-      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
+      try {
+        if (controlsRef.current) controlsRef.current.stop();
+      } catch { /* ignore */ }
     };
   }, []);
 
@@ -303,8 +298,7 @@ export default function CheckerPage() {
           <Card
             key={order.id}
             sx={{
-              mb: 1.5,
-              cursor: 'pointer',
+              mb: 1.5, cursor: 'pointer',
               border: order.isFullyChecked ? '2px solid #4caf50' : '1px solid #e0e0e0',
               bgcolor: order.isFullyChecked ? '#f1f8e9' : 'white',
               '&:active': { transform: 'scale(0.98)' },
@@ -313,15 +307,10 @@ export default function CheckerPage() {
           >
             <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
-                  {order.orderNumber}
-                </Typography>
-                <Chip
-                  size="small"
-                  label={order.isFullyChecked ? 'נבדק' : 'לא נבדק'}
+                <Typography variant="subtitle1" fontWeight="bold">{order.orderNumber}</Typography>
+                <Chip size="small" label={order.isFullyChecked ? 'נבדק' : 'לא נבדק'}
                   color={order.isFullyChecked ? 'success' : 'default'}
-                  variant={order.isFullyChecked ? 'filled' : 'outlined'}
-                />
+                  variant={order.isFullyChecked ? 'filled' : 'outlined'} />
               </Box>
               <Typography variant="body2">{order.customerName}</Typography>
               <Typography variant="body2" color="text.secondary">
@@ -329,12 +318,10 @@ export default function CheckerPage() {
                 {order.department ? ` | ${DEPT_LABELS[order.department] || order.department}` : ''}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                <LinearProgress
-                  variant="determinate"
+                <LinearProgress variant="determinate"
                   value={order.totalLines > 0 ? (order.checkedLines / order.totalLines) * 100 : 0}
                   sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
-                  color={order.isFullyChecked ? 'success' : 'primary'}
-                />
+                  color={order.isFullyChecked ? 'success' : 'primary'} />
                 <Typography variant="caption" fontWeight="bold" sx={{ minWidth: 50, textAlign: 'left' }}>
                   {order.checkedLines}/{order.totalLines}
                 </Typography>
@@ -343,19 +330,13 @@ export default function CheckerPage() {
           </Card>
         ))}
         {!ordersLoading && orders.length === 0 && (
-          <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>
-            לא נמצאו הזמנות
-          </Typography>
+          <Typography color="text.secondary" textAlign="center" sx={{ mt: 4 }}>לא נמצאו הזמנות</Typography>
         )}
       </Box>
 
       {/* Order Lines Dialog */}
-      <Dialog
-        open={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-        fullScreen
-        PaperProps={{ sx: { bgcolor: '#f5f5f5' } }}
-      >
+      <Dialog open={!!selectedOrder} onClose={() => setSelectedOrder(null)} fullScreen
+        PaperProps={{ sx: { bgcolor: '#f5f5f5' } }}>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
           <IconButton color="inherit" onClick={() => setSelectedOrder(null)} edge="start">
             <ArrowBackIcon />
@@ -369,16 +350,11 @@ export default function CheckerPage() {
             )}
           </Box>
         </DialogTitle>
-
         <DialogContent sx={{ p: 2 }}>
           {linesLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 4 }} />}
-
           {allChecked && orderDetail && orderDetail.orderLines.length > 0 && (
-            <Alert severity="success" sx={{ mb: 2, fontSize: 16 }} icon={<CheckCircleIcon />}>
-              כל השורות נבדקו!
-            </Alert>
+            <Alert severity="success" sx={{ mb: 2, fontSize: 16 }} icon={<CheckCircleIcon />}>כל השורות נבדקו!</Alert>
           )}
-
           {orderDetail && (
             <Box sx={{ mb: 2, p: 1.5, bgcolor: 'white', borderRadius: 1 }}>
               <Typography variant="body2"><strong>כתובת:</strong> {orderDetail.address}, {orderDetail.city}</Typography>
@@ -386,18 +362,13 @@ export default function CheckerPage() {
               <Typography variant="body2"><strong>תאריך:</strong> {formatDate(orderDetail.deliveryDate)}</Typography>
             </Box>
           )}
-
           <Divider sx={{ mb: 2 }} />
-
           {orderDetail?.orderLines.map((line) => (
-            <Card
-              key={line.id}
-              sx={{
-                mb: 1,
-                border: line.checkedByInspector ? '2px solid #4caf50' : '1px solid #e0e0e0',
-                bgcolor: line.checkedByInspector ? '#f1f8e9' : 'white',
-              }}
-            >
+            <Card key={line.id} sx={{
+              mb: 1,
+              border: line.checkedByInspector ? '2px solid #4caf50' : '1px solid #e0e0e0',
+              bgcolor: line.checkedByInspector ? '#f1f8e9' : 'white',
+            }}>
               <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 }, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Checkbox
                   checked={line.checkedByInspector}
@@ -407,13 +378,9 @@ export default function CheckerPage() {
                   checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />}
                 />
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="body1" fontWeight="bold" noWrap>
-                    {line.product}
-                  </Typography>
+                  <Typography variant="body1" fontWeight="bold" noWrap>{line.product}</Typography>
                   {line.description && (
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {line.description}
-                    </Typography>
+                    <Typography variant="body2" color="text.secondary" noWrap>{line.description}</Typography>
                   )}
                   <Typography variant="body2" color="text.secondary">
                     כמות: {line.quantity} | משקל: {line.weight} ק"ג
@@ -428,72 +395,69 @@ export default function CheckerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Live Scanner Dialog */}
-      <Dialog
-        open={scannerOpen}
-        onClose={stopScanner}
-        fullScreen
-        PaperProps={{ sx: { bgcolor: 'black', overflow: 'hidden' } }}
-      >
-        {/* Video element - ZXing reads from this */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
-        />
-
-        {/* Scanner header */}
+      {/* Scanner - Full screen overlay (NOT Dialog - to avoid DOM issues) */}
+      {scannerOpen && (
         <Box sx={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          p: 1, bgcolor: 'rgba(0,0,0,0.6)',
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          zIndex: 9999, bgcolor: 'black',
         }}>
-          <IconButton onClick={stopScanner} sx={{ color: 'white' }}>
-            <CloseIcon />
-          </IconButton>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למסגרת</Typography>
-            {scannerDebug && (
-              <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>
-            )}
-          </Box>
-          {hasTorch ? (
-            <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
-              {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
-            </IconButton>
-          ) : <Box sx={{ width: 48 }} />}
-        </Box>
+          {/* Video - ZXing controls this completely */}
+          <video
+            ref={videoRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
 
-        {/* Scan guide overlay */}
-        <Box sx={{
-          position: 'absolute', top: '50%', left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '85%', height: 140, zIndex: 10,
-          border: '3px solid rgba(255,50,50,0.8)',
-          borderRadius: 2,
-          pointerEvents: 'none',
-          boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
-        }}>
+          {/* Header */}
           <Box sx={{
-            position: 'absolute', top: '50%', left: 8, right: 8,
-            height: 2, bgcolor: '#ff1744',
-            animation: 'scanline 2s ease-in-out infinite',
-            '@keyframes scanline': {
-              '0%, 100%': { transform: 'translateY(-30px)', opacity: 0.7 },
-              '50%': { transform: 'translateY(30px)', opacity: 1 },
-            },
-          }} />
+            position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            p: 1, bgcolor: 'rgba(0,0,0,0.6)',
+          }}>
+            <IconButton onClick={stopScanner} sx={{ color: 'white' }}>
+              <CloseIcon />
+            </IconButton>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למרכז</Typography>
+              {scannerDebug && (
+                <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>
+              )}
+            </Box>
+            {hasTorch ? (
+              <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
+                {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
+              </IconButton>
+            ) : <Box sx={{ width: 48 }} />}
+          </Box>
+
+          {/* Scan guide */}
+          <Box sx={{
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '85%', height: 140, zIndex: 10,
+            border: '3px solid rgba(255,50,50,0.8)',
+            borderRadius: 2,
+            pointerEvents: 'none',
+            boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+          }}>
+            <Box sx={{
+              position: 'absolute', top: '50%', left: 8, right: 8,
+              height: 2, bgcolor: '#ff1744',
+              animation: 'scanline 2s ease-in-out infinite',
+              '@keyframes scanline': {
+                '0%, 100%': { transform: 'translateY(-30px)', opacity: 0.7 },
+                '50%': { transform: 'translateY(30px)', opacity: 1 },
+              },
+            }} />
+          </Box>
         </Box>
-      </Dialog>
+      )}
 
       {/* Snackbar */}
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar(null)}>
