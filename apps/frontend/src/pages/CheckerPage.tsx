@@ -119,6 +119,8 @@ export default function CheckerPage() {
         // Start scanning frames with Quagga decodeSingle
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
+        const recentReads: string[] = [];
+        const REQUIRED_CONSISTENT = 3; // Need 3 identical reads
 
         scanIntervalRef.current = window.setInterval(() => {
           const video = videoRef.current;
@@ -127,25 +129,36 @@ export default function CheckerPage() {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           ctx.drawImage(video, 0, 0);
-          const dataUrl = canvas.toDataURL('image/png');
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
 
           Quagga.decodeSingle(
             {
               src: dataUrl,
               numOfWorkers: 0,
               inputStream: { size: 1280 },
-              decoder: { readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'] },
+              decoder: { readers: ['code_128_reader'] },
               locate: true,
               locator: { patchSize: 'medium', halfSample: true },
             },
             (res: any) => {
-              if (res?.codeResult?.code) {
+              const code = res?.codeResult?.code;
+              if (!code) return;
+
+              // Only accept T-XXXXX-X format barcodes
+              if (!/^T-\d+-\d+$/.test(code)) return;
+
+              recentReads.push(code);
+              if (recentReads.length > 10) recentReads.shift();
+
+              // Check if last N reads are identical
+              const last = recentReads.slice(-REQUIRED_CONSISTENT);
+              if (last.length === REQUIRED_CONSISTENT && last.every((r) => r === last[0])) {
                 stopScanner();
-                handleBarcodeDetected(res.codeResult.code);
+                handleBarcodeDetected(last[0]);
               }
             },
           );
-        }, 500); // Scan every 500ms
+        }, 300); // Scan every 300ms
       }, 300);
     } catch {
       // Camera not available - fall back to file input
