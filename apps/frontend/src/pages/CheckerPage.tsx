@@ -15,6 +15,7 @@ import {
   Close as CloseIcon,
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
+  CameraAlt as CameraIcon,
 } from '@mui/icons-material';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -41,6 +42,9 @@ function getTodayDate() {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
+// Singleton reader for reuse
+const zxingReader = new BrowserMultiFormatReader();
+
 export default function CheckerPage() {
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
@@ -56,9 +60,10 @@ export default function CheckerPage() {
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
   const [scannerDebug, setScannerDebug] = useState('');
+  const [capturing, setCapturing] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<any>(null);
-  const readerRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -78,88 +83,171 @@ export default function CheckerPage() {
 
   // Stop scanner
   const stopScanner = useCallback(() => {
-    try {
-      if (controlsRef.current) {
-        controlsRef.current.stop();
-        controlsRef.current = null;
-      }
-    } catch { /* ignore */ }
+    try { controlsRef.current?.stop(); } catch { /* */ }
+    controlsRef.current = null;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
     setScannerDebug('');
+    setCapturing(false);
   }, []);
 
-  // Start scanner - let ZXing handle EVERYTHING (camera + stream + decode)
+  // Start scanner - open camera with high resolution
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     setScannerDebug('מפעיל מצלמה...');
 
-    // Wait for video element to mount
-    await new Promise((r) => setTimeout(r, 500));
-
-    const video = videoRef.current;
-    if (!video) {
-      setScannerOpen(false);
-      setSnackbar({ message: 'שגיאה: אלמנט וידאו לא נמצא', severity: 'error' });
-      return;
-    }
+    await new Promise((r) => setTimeout(r, 400));
 
     try {
-      if (!readerRef.current) {
-        readerRef.current = new BrowserMultiFormatReader();
-      }
-      const reader = readerRef.current;
-
-      // Let ZXing select the back camera and start streaming + decoding
-      const controls = await reader.decodeFromVideoDevice(
-        undefined, // undefined = let ZXing pick back camera
-        video,
-        (result, error) => {
-          if (result) {
-            const code = result.getText();
-            const format = result.getBarcodeFormat();
-            setScannerDebug(`זוהה: "${code}" (format: ${format})`);
-
-            // Accept any barcode
-            stopScanner();
-            handleBarcodeDetected(code);
-          }
-          // When no barcode found, error is NotFoundException - normal, ignore
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
-      );
+        audio: false,
+      });
 
-      controlsRef.current = controls;
+      streamRef.current = stream;
 
-      // Check video dimensions after it starts playing
-      video.addEventListener('playing', () => {
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        setScannerDebug(`${w}x${h} | סורק...`);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play().catch(() => {});
+      }
 
-        // Check torch support from the active stream
-        const stream = video.srcObject as MediaStream;
-        if (stream) {
-          const track = stream.getVideoTracks()[0];
-          try {
-            const caps = track?.getCapabilities?.() as any;
-            if (caps?.torch) setHasTorch(true);
-          } catch { /* ignore */ }
+      // Continuous autofocus + torch check
+      const track = stream.getVideoTracks()[0];
+      try {
+        const caps = track?.getCapabilities?.() as any;
+        if (caps?.focusMode?.includes('continuous')) {
+          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
         }
-      }, { once: true });
+        if (caps?.torch) setHasTorch(true);
+      } catch { /* */ }
 
+      const s = track.getSettings();
+      setScannerDebug(`${s.width}x${s.height} | לחץ על כפתור הצילום`);
+
+      // Also run ZXing continuous scanning in background
+      if (videoRef.current) {
+        try {
+          const controls = await zxingReader.decodeFromVideoDevice(
+            undefined,
+            videoRef.current,
+            (result) => {
+              if (result) {
+                const code = result.getText();
+                setScannerDebug(`זוהה אוטומטית: "${code}"`);
+                stopScanner();
+                handleBarcodeDetected(code);
+              }
+            },
+          );
+          controlsRef.current = controls;
+        } catch {
+          // If ZXing continuous fails, manual capture still works
+          setScannerDebug(`${s.width}x${s.height} | לחץ על כפתור הצילום`);
+        }
+      }
     } catch (err: any) {
-      console.error('Scanner start error:', err);
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
   }, [stopScanner, handleBarcodeDetected]);
 
+  // Manual capture - take a high-res photo and decode it
+  const captureAndDecode = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) return;
+
+    setCapturing(true);
+    setScannerDebug('מעבד תמונה...');
+
+    try {
+      // Method 1: Try ImageCapture API for highest quality photo
+      const stream = video.srcObject as MediaStream;
+      const track = stream?.getVideoTracks()[0];
+      let decoded = false;
+
+      if (track && 'ImageCapture' in window) {
+        try {
+          const imageCapture = new (window as any).ImageCapture(track);
+          const bitmap = await imageCapture.grabFrame();
+
+          // Draw bitmap to canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(bitmap, 0, 0);
+          bitmap.close();
+
+          // Convert to blob and decode with ZXing
+          const blob = await new Promise<Blob>((resolve) =>
+            canvas.toBlob((b) => resolve(b!), 'image/png')
+          );
+          const url = URL.createObjectURL(blob);
+
+          try {
+            const result = await zxingReader.decodeFromImageUrl(url);
+            if (result) {
+              const code = result.getText();
+              setScannerDebug(`ImageCapture: "${code}"`);
+              decoded = true;
+              stopScanner();
+              handleBarcodeDetected(code);
+            }
+          } catch { /* no barcode found */ }
+          URL.revokeObjectURL(url);
+        } catch { /* ImageCapture failed, try canvas method */ }
+      }
+
+      // Method 2: Canvas capture from video frame
+      if (!decoded) {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d')!;
+        ctx.drawImage(video, 0, 0);
+
+        const blob = await new Promise<Blob>((resolve) =>
+          canvas.toBlob((b) => resolve(b!), 'image/png')
+        );
+        const url = URL.createObjectURL(blob);
+
+        try {
+          const result = await zxingReader.decodeFromImageUrl(url);
+          if (result) {
+            const code = result.getText();
+            setScannerDebug(`Canvas: "${code}"`);
+            decoded = true;
+            stopScanner();
+            handleBarcodeDetected(code);
+          }
+        } catch { /* no barcode found */ }
+        URL.revokeObjectURL(url);
+      }
+
+      if (!decoded) {
+        setScannerDebug('לא זוהה ברקוד - נסה להתקרב ולחץ שוב');
+        setSnackbar({ message: 'לא זוהה ברקוד. התקרב ונסה שוב.', severity: 'info' });
+      }
+    } catch (err: any) {
+      setScannerDebug(`שגיאה: ${err?.message || err}`);
+    }
+
+    setCapturing(false);
+  }, [stopScanner, handleBarcodeDetected]);
+
   // Toggle torch
   const toggleTorch = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const stream = video.srcObject as MediaStream;
+    const stream = streamRef.current || (videoRef.current?.srcObject as MediaStream);
     const track = stream?.getVideoTracks()[0];
     if (track) {
       const newState = !torchOn;
@@ -168,12 +256,11 @@ export default function CheckerPage() {
     }
   }, [torchOn]);
 
-  // Cleanup on unmount
+  // Cleanup
   useEffect(() => {
     return () => {
-      try {
-        if (controlsRef.current) controlsRef.current.stop();
-      } catch { /* ignore */ }
+      try { controlsRef.current?.stop(); } catch { /* */ }
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -183,14 +270,12 @@ export default function CheckerPage() {
     queryFn: () => checkerApi.searchOrders(searchQuery || undefined, statusFilter, selectedDate || undefined),
   });
 
-  // Fetch order lines when an order is selected
   const { data: orderDetail, isLoading: linesLoading } = useQuery({
     queryKey: ['checker-lines', selectedOrder],
     queryFn: () => checkerApi.getOrderLines(selectedOrder!),
     enabled: !!selectedOrder,
   });
 
-  // Toggle line check
   const toggleMutation = useMutation({
     mutationFn: ({ lineId, checked }: { lineId: number; checked: boolean }) =>
       checkerApi.toggleLineCheck(lineId, checked),
@@ -201,18 +286,11 @@ export default function CheckerPage() {
         setSnackbar({ message: 'כל השורות נבדקו!', severity: 'success' });
       }
     },
-    onError: () => {
-      setSnackbar({ message: 'שגיאה בעדכון', severity: 'error' });
-    },
+    onError: () => setSnackbar({ message: 'שגיאה בעדכון', severity: 'error' }),
   });
 
-  const handleSearch = () => {
-    setSearchQuery(searchInput);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') handleSearch();
-  };
+  const handleSearch = () => setSearchQuery(searchInput);
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSearch(); };
 
   const allChecked = orderDetail
     ? orderDetail.orderLines.length > 0 && orderDetail.orderLines.every((l) => l.checkedByInspector)
@@ -225,62 +303,37 @@ export default function CheckerPage() {
         <Typography variant="h6" fontWeight="bold">בודק הזמנות</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {user?.fullName && <Typography variant="body2">{user.fullName}</Typography>}
-          <IconButton color="inherit" size="small" onClick={logout}>
-            <LogoutIcon />
-          </IconButton>
+          <IconButton color="inherit" size="small" onClick={logout}><LogoutIcon /></IconButton>
         </Box>
       </Box>
 
       {/* Search + Filters */}
       <Box sx={{ p: 2 }}>
-        <TextField
-          type="date"
-          size="small"
-          fullWidth
-          value={selectedDate}
+        <TextField type="date" size="small" fullWidth value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
           sx={{ mb: 1.5, bgcolor: 'white', borderRadius: 1 }}
-          InputLabelProps={{ shrink: true }}
-          label="תאריך"
-        />
+          InputLabelProps={{ shrink: true }} label="תאריך" />
 
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
-          <TextField
-            fullWidth
-            placeholder="חפש לפי מספר הזמנה, שם לקוח, טלפון..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            size="medium"
+          <TextField fullWidth placeholder="חפש לפי מספר הזמנה, שם לקוח, טלפון..."
+            value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+            onKeyDown={handleKeyDown} size="medium"
             sx={{ bgcolor: 'white', borderRadius: 1, '& .MuiInputBase-root': { height: 48 } }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={handleSearch} edge="end">
-                    <SearchIcon />
-                  </IconButton>
+                  <IconButton onClick={handleSearch} edge="end"><SearchIcon /></IconButton>
                 </InputAdornment>
               ),
-            }}
-          />
-          <Button
-            variant="contained"
-            onClick={startScanner}
-            sx={{ minWidth: 48, height: 48, p: 0 }}
-            color="primary"
-          >
+            }} />
+          <Button variant="contained" onClick={startScanner}
+            sx={{ minWidth: 48, height: 48, p: 0 }} color="primary">
             <ScannerIcon />
           </Button>
         </Box>
 
-        <ToggleButtonGroup
-          value={statusFilter}
-          exclusive
-          onChange={(_, val) => val && setStatusFilter(val)}
-          fullWidth
-          size="small"
-          sx={{ mb: 2 }}
-        >
+        <ToggleButtonGroup value={statusFilter} exclusive
+          onChange={(_, val) => val && setStatusFilter(val)} fullWidth size="small" sx={{ mb: 2 }}>
           <ToggleButton value="all">הכל</ToggleButton>
           <ToggleButton value="unchecked">לא נבדק</ToggleButton>
           <ToggleButton value="checked">נבדק</ToggleButton>
@@ -295,16 +348,12 @@ export default function CheckerPage() {
       <Box sx={{ px: 2, pb: 2 }}>
         {ordersLoading && <LinearProgress />}
         {orders.map((order: CheckerOrder) => (
-          <Card
-            key={order.id}
-            sx={{
-              mb: 1.5, cursor: 'pointer',
-              border: order.isFullyChecked ? '2px solid #4caf50' : '1px solid #e0e0e0',
-              bgcolor: order.isFullyChecked ? '#f1f8e9' : 'white',
-              '&:active': { transform: 'scale(0.98)' },
-            }}
-            onClick={() => setSelectedOrder(order.id)}
-          >
+          <Card key={order.id} sx={{
+            mb: 1.5, cursor: 'pointer',
+            border: order.isFullyChecked ? '2px solid #4caf50' : '1px solid #e0e0e0',
+            bgcolor: order.isFullyChecked ? '#f1f8e9' : 'white',
+            '&:active': { transform: 'scale(0.98)' },
+          }} onClick={() => setSelectedOrder(order.id)}>
             <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
                 <Typography variant="subtitle1" fontWeight="bold">{order.orderNumber}</Typography>
@@ -338,9 +387,7 @@ export default function CheckerPage() {
       <Dialog open={!!selectedOrder} onClose={() => setSelectedOrder(null)} fullScreen
         PaperProps={{ sx: { bgcolor: '#f5f5f5' } }}>
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
-          <IconButton color="inherit" onClick={() => setSelectedOrder(null)} edge="start">
-            <ArrowBackIcon />
-          </IconButton>
+          <IconButton color="inherit" onClick={() => setSelectedOrder(null)} edge="start"><ArrowBackIcon /></IconButton>
           <Box sx={{ flexGrow: 1 }}>
             {orderDetail && (
               <>
@@ -365,54 +412,32 @@ export default function CheckerPage() {
           <Divider sx={{ mb: 2 }} />
           {orderDetail?.orderLines.map((line) => (
             <Card key={line.id} sx={{
-              mb: 1,
-              border: line.checkedByInspector ? '2px solid #4caf50' : '1px solid #e0e0e0',
+              mb: 1, border: line.checkedByInspector ? '2px solid #4caf50' : '1px solid #e0e0e0',
               bgcolor: line.checkedByInspector ? '#f1f8e9' : 'white',
             }}>
               <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 }, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Checkbox
-                  checked={line.checkedByInspector}
+                <Checkbox checked={line.checkedByInspector}
                   onChange={() => toggleMutation.mutate({ lineId: line.id, checked: !line.checkedByInspector })}
                   sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
                   icon={<UncheckedIcon sx={{ fontSize: 32, color: '#bdbdbd' }} />}
-                  checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />}
-                />
+                  checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />} />
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                   <Typography variant="body1" fontWeight="bold" noWrap>{line.product}</Typography>
-                  {line.description && (
-                    <Typography variant="body2" color="text.secondary" noWrap>{line.description}</Typography>
-                  )}
-                  <Typography variant="body2" color="text.secondary">
-                    כמות: {line.quantity} | משקל: {line.weight} ק"ג
-                  </Typography>
+                  {line.description && <Typography variant="body2" color="text.secondary" noWrap>{line.description}</Typography>}
+                  <Typography variant="body2" color="text.secondary">כמות: {line.quantity} | משקל: {line.weight} ק"ג</Typography>
                 </Box>
-                <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>
-                  {line.lineNumber}
-                </Typography>
+                <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
               </CardContent>
             </Card>
           ))}
         </DialogContent>
       </Dialog>
 
-      {/* Scanner - Full screen overlay (NOT Dialog - to avoid DOM issues) */}
+      {/* Scanner - Full screen overlay */}
       {scannerOpen && (
-        <Box sx={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          zIndex: 9999, bgcolor: 'black',
-        }}>
-          {/* Video - ZXing controls this completely */}
-          <video
-            ref={videoRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-            }}
-          />
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'black' }}>
+          <video ref={videoRef} autoPlay playsInline muted
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
 
           {/* Header */}
           <Box sx={{
@@ -420,14 +445,10 @@ export default function CheckerPage() {
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             p: 1, bgcolor: 'rgba(0,0,0,0.6)',
           }}>
-            <IconButton onClick={stopScanner} sx={{ color: 'white' }}>
-              <CloseIcon />
-            </IconButton>
+            <IconButton onClick={stopScanner} sx={{ color: 'white' }}><CloseIcon /></IconButton>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למרכז</Typography>
-              {scannerDebug && (
-                <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>
-              )}
+              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד ולחץ על הכפתור</Typography>
+              {scannerDebug && <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>}
             </Box>
             {hasTorch ? (
               <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
@@ -438,23 +459,42 @@ export default function CheckerPage() {
 
           {/* Scan guide */}
           <Box sx={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
+            position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)',
             width: '85%', height: 140, zIndex: 10,
-            border: '3px solid rgba(255,50,50,0.8)',
-            borderRadius: 2,
-            pointerEvents: 'none',
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+            border: '3px solid rgba(255,50,50,0.8)', borderRadius: 2,
+            pointerEvents: 'none', boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
           }}>
             <Box sx={{
-              position: 'absolute', top: '50%', left: 8, right: 8,
-              height: 2, bgcolor: '#ff1744',
+              position: 'absolute', top: '50%', left: 8, right: 8, height: 2, bgcolor: '#ff1744',
               animation: 'scanline 2s ease-in-out infinite',
               '@keyframes scanline': {
                 '0%, 100%': { transform: 'translateY(-30px)', opacity: 0.7 },
                 '50%': { transform: 'translateY(30px)', opacity: 1 },
               },
             }} />
+          </Box>
+
+          {/* Big capture button at bottom */}
+          <Box sx={{
+            position: 'absolute', bottom: 40, left: 0, right: 0, zIndex: 10,
+            display: 'flex', justifyContent: 'center',
+          }}>
+            <IconButton
+              onClick={captureAndDecode}
+              disabled={capturing}
+              sx={{
+                width: 80, height: 80,
+                bgcolor: 'rgba(255,255,255,0.9)',
+                '&:hover': { bgcolor: 'white' },
+                '&:active': { transform: 'scale(0.9)' },
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+              }}
+            >
+              {capturing
+                ? <CircularProgress size={40} />
+                : <CameraIcon sx={{ fontSize: 40, color: '#333' }} />
+              }
+            </IconButton>
           </Box>
         </Box>
       )}
