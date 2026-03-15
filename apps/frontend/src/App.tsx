@@ -19,6 +19,7 @@ import DriversManagementPage from './pages/DriversManagementPage';
 import InstallersPage from './pages/InstallersPage';
 import InstallerFieldPage from './pages/InstallerFieldPage';
 import ConfirmationPage from './pages/ConfirmationPage';
+import CheckerPage from './pages/CheckerPage';
 import { useAuthStore } from './store/authStore';
 import { ReactNode, useEffect } from 'react';
 import api from './services/api';
@@ -56,6 +57,7 @@ function RoleBasedRedirect() {
   const user = useAuthStore((s) => s.user);
   if (user?.role === 'DRIVER') return <Navigate to="/driver" replace />;
   if (user?.role === 'INSTALLER') return <Navigate to="/installer" replace />;
+  if (user?.role === 'CHECKER') return <Navigate to="/checker" replace />;
   return <Navigate to="/orders" replace />;
 }
 
@@ -87,6 +89,16 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <InstallerFieldPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Checker route - mobile layout, no sidebar */}
+              <Route
+                path="/checker"
+                element={
+                  <ProtectedRoute>
+                    <CheckerPage />
                   </ProtectedRoute>
                 }
               />

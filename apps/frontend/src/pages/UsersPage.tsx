@@ -17,6 +17,7 @@ const ROLE_OPTIONS = [
   { value: 'COORDINATOR', label: 'מתאם' },
   { value: 'DRIVER', label: 'נהג' },
   { value: 'INSTALLER', label: 'מתקין' },
+  { value: 'CHECKER', label: 'בודק' },
 ];
 
 const emptyForm = {

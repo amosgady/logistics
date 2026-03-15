@@ -8,6 +8,7 @@ import {
   Paper, IconButton, Tooltip, Menu, MenuItem, ListItemIcon, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions,
   CircularProgress, LinearProgress,
+  Checkbox, FormControlLabel, FormGroup,
 } from '@mui/material';
 import {
   Send as SendIcon,
@@ -25,6 +26,8 @@ import {
   Comment as CommentIcon,
   PictureAsPdf as PdfIcon,
   Print as PrintIcon,
+  ArrowForward as ArrowForwardIcon,
+  FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -69,6 +72,7 @@ interface Order {
   respondedAt: string | null;
   sentToDriver: boolean;
   exportedToCsv: boolean;
+  sentToChecker: boolean;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   department: string | null;
@@ -107,7 +111,7 @@ function CoordinationStatusChip({ status }: { status: string }) {
   return <Chip icon={<PhoneIcon />} label="לא תואם" size="small" color="default" />;
 }
 
-function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onViewMedia, onUploadPdf, onDeletePdf, sendSmsPending, unsendPending }: {
+function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onViewMedia, onUploadPdf, onDeletePdf, onUnsendWms, onUnsendChecker, sendSmsPending, unsendPending }: {
   orders: Order[];
   onToggleCoordination: (order: Order) => void;
   onEditNotes: (order: Order) => void;
@@ -116,6 +120,8 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
+  onUnsendWms: (orderId: number) => void;
+  onUnsendChecker: (orderId: number) => void;
   sendSmsPending: boolean;
   unsendPending: boolean;
 }) {
@@ -160,8 +166,9 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
             <SortableTableCell label="חלון זמן" sortKey="timeWindow" sortConfig={sortConfig} onSort={handleSort} />
             <SortableTableCell label="תיאום" sortKey="coordinationStatus" sortConfig={sortConfig} onSort={handleSort} />
             <TableCell>הערות</TableCell>
-            <SortableTableCell label="נשלח" sortKey="sentToDriver" sortConfig={sortConfig} onSort={handleSort} />
-            <TableCell>CSV</TableCell>
+            <SortableTableCell label="נהג" sortKey="sentToDriver" sortConfig={sortConfig} onSort={handleSort} />
+            <TableCell>WMS</TableCell>
+            <TableCell>בודק</TableCell>
             <TableCell>ת. משלוח</TableCell>
             <TableCell>מדיה</TableCell>
           </TableRow>
@@ -255,7 +262,22 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
               </TableCell>
               <TableCell>
                 {order.exportedToCsv ? (
-                  <CheckIcon color="success" fontSize="small" />
+                  <Tooltip title="בטל שליחה ל WMS">
+                    <IconButton size="small" color="warning" onClick={() => onUnsendWms(order.id)}>
+                      <UndoIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  <CloseIcon color="disabled" fontSize="small" />
+                )}
+              </TableCell>
+              <TableCell>
+                {order.sentToChecker ? (
+                  <Tooltip title="בטל שליחה לבודק">
+                    <IconButton size="small" color="warning" onClick={() => onUnsendChecker(order.id)}>
+                      <UndoIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 ) : (
                   <CloseIcon color="disabled" fontSize="small" />
                 )}
@@ -429,7 +451,34 @@ export default function CoordinationPage() {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
       setSnackbar({ message: 'קובץ WMS יוצא בהצלחה', severity: 'success' });
     },
-    onError: () => setSnackbar({ message: 'שגיאה ביצוא WMS', severity: 'error' }),
+    onError: (error: any) => setSnackbar({ message: error?.message || 'שגיאה ביצוא WMS', severity: 'error' }),
+  });
+
+  const unsendWmsMutation = useMutation({
+    mutationFn: coordinationApi.unsendWmsExport,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: 'בוטלה שליחה ל WMS', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בביטול WMS', severity: 'error' }),
+  });
+
+  const sendToCheckerMutation = useMutation({
+    mutationFn: coordinationApi.sendToChecker,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: `נשלחו ${result.data.sentCount} הזמנות לבודק`, severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשליחה לבודק', severity: 'error' }),
+  });
+
+  const unsendCheckerMutation = useMutation({
+    mutationFn: coordinationApi.unsendFromChecker,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: 'בוטלה שליחה לבודק', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בביטול שליחה לבודק', severity: 'error' }),
   });
 
   const unsendFromDriverMutation = useMutation({
@@ -537,7 +586,11 @@ export default function CoordinationPage() {
     );
   };
 
-  const handlePrintSentOrders = () => {
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
+  const [printSelectedIds, setPrintSelectedIds] = useState<Set<number>>(new Set());
+  const [printableOrders, setPrintableOrders] = useState<Order[]>([]);
+
+  const handleOpenPrintDialog = () => {
     const sentOrders = routes.flatMap((r) =>
       r.orders.filter((o) => o.status === 'SENT_TO_DRIVER')
     );
@@ -545,6 +598,31 @@ export default function CoordinationPage() {
       setSnackbar({ message: 'אין הזמנות בסטטוס "נשלח"', severity: 'warning' });
       return;
     }
+    setPrintableOrders(sentOrders);
+    setPrintSelectedIds(new Set(sentOrders.map((o) => o.id)));
+    setPrintDialogOpen(true);
+  };
+
+  const handleTogglePrintOrder = (orderId: number) => {
+    setPrintSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleToggleAllPrint = () => {
+    if (printSelectedIds.size === printableOrders.length) {
+      setPrintSelectedIds(new Set());
+    } else {
+      setPrintSelectedIds(new Set(printableOrders.map((o) => o.id)));
+    }
+  };
+
+  const handlePrintSelected = () => {
+    const ordersToPrint = printableOrders.filter((o) => printSelectedIds.has(o.id));
+    if (ordersToPrint.length === 0) return;
 
     const formatDate = (d: string) => {
       const date = new Date(d);
@@ -557,7 +635,7 @@ export default function CoordinationPage() {
       PERGOLA_INSTALLATION: 'התקנת פרגולות',
     };
 
-    const printContent = sentOrders.map((order) => `
+    const printContent = ordersToPrint.map((order) => `
       <div class="page">
         <h2>הזמנה: ${order.orderNumber}</h2>
         <table class="header-table">
@@ -612,6 +690,7 @@ export default function CoordinationPage() {
     `);
     printWindow.document.close();
     printWindow.print();
+    setPrintDialogOpen(false);
   };
 
   const getRouteCoordinationProgress = (route: Route) => {
@@ -628,7 +707,7 @@ export default function CoordinationPage() {
             variant="outlined"
             size="small"
             startIcon={<PrintIcon />}
-            onClick={handlePrintSentOrders}
+            onClick={handleOpenPrintDialog}
           >
             הדפסה לבודקים
           </Button>
@@ -694,7 +773,7 @@ export default function CoordinationPage() {
                       color={progress.coordinated === progress.total ? 'success' : 'default'}
                     />
                     {allSent && <Chip label="נשלח לנהג" size="small" color="info" />}
-                    {allExported && <Chip label="יוצא CSV" size="small" color="secondary" />}
+                    {allExported && <Chip label="נשלח ל WMS" size="small" color="secondary" />}
                   </Box>
                 </Box>
 
@@ -710,6 +789,8 @@ export default function CoordinationPage() {
                   onViewMedia={(order) => setMediaDialog({ order })}
                   onUploadPdf={(orderId, file) => uploadPdfMutation.mutate({ orderId, file })}
                   onDeletePdf={(orderId) => deletePdfMutation.mutate(orderId)}
+                  onUnsendWms={(orderId) => unsendWmsMutation.mutate(orderId)}
+                  onUnsendChecker={(orderId) => unsendCheckerMutation.mutate(orderId)}
                   sendSmsPending={sendOrderSmsMutation.isPending}
                   unsendPending={unsendOrderMutation.isPending}
                 />
@@ -749,11 +830,21 @@ export default function CoordinationPage() {
                   </Button>
                   <Button
                     variant="outlined"
-                    startIcon={exportWmsMutation.isPending ? <CircularProgress size={16} /> : <DownloadIcon />}
+                    startIcon={exportWmsMutation.isPending ? <CircularProgress size={16} /> : <ArrowForwardIcon />}
                     onClick={() => exportWmsMutation.mutate(route.id)}
                     disabled={route.orders.length === 0 || exportWmsMutation.isPending}
+                    color="secondary"
                   >
-                    {allExported ? 'ייצוא WMS שוב' : 'ייצוא WMS'}
+                    {allExported ? 'שלח ל WMS שוב' : 'שלח ל WMS'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="success"
+                    startIcon={sendToCheckerMutation.isPending ? <CircularProgress size={16} /> : <FactCheckIcon />}
+                    onClick={() => sendToCheckerMutation.mutate(route.id)}
+                    disabled={!allExported || sendToCheckerMutation.isPending}
+                  >
+                    שלח לבודק
                   </Button>
                 </Box>
 
@@ -804,6 +895,48 @@ export default function CoordinationPage() {
           deliveredAt={mediaDialog.order.delivery.deliveredAt}
         />
       )}
+
+      <Dialog open={printDialogOpen} onClose={() => setPrintDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>בחר הזמנות להדפסה</DialogTitle>
+        <DialogContent>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={printSelectedIds.size === printableOrders.length && printableOrders.length > 0}
+                  indeterminate={printSelectedIds.size > 0 && printSelectedIds.size < printableOrders.length}
+                  onChange={handleToggleAllPrint}
+                />
+              }
+              label={<strong>בחר הכל ({printableOrders.length})</strong>}
+            />
+            <Divider sx={{ my: 1 }} />
+            {printableOrders.map((order) => (
+              <FormControlLabel
+                key={order.id}
+                control={
+                  <Checkbox
+                    checked={printSelectedIds.has(order.id)}
+                    onChange={() => handleTogglePrintOrder(order.id)}
+                  />
+                }
+                label={`${order.orderNumber} — ${order.customerName} (${order.city})`}
+              />
+            ))}
+          </FormGroup>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPrintDialogOpen(false)}>ביטול</Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={handlePrintSelected}
+            disabled={printSelectedIds.size === 0}
+          >
+            הדפס ({printSelectedIds.size})
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={!!snackbar} autoHideDuration={4000} onClose={() => setSnackbar(null)}>
         {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : undefined}

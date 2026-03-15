@@ -9,8 +9,8 @@
     },
     {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:frontend"],
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "--host", "--root", "C:/Projects/delivery-system/apps/frontend"],
       "port": 5173
     }
   ]

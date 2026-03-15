@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Card, CardContent,
   LinearProgress, Chip, Alert, Snackbar, IconButton,
@@ -12,6 +12,9 @@ import {
   RadioButtonUnchecked as UncheckedIcon,
   Logout as LogoutIcon,
   QrCodeScanner as ScannerIcon,
+  Close as CloseIcon,
+  FlashlightOn as FlashOnIcon,
+  FlashlightOff as FlashOffIcon,
 } from '@mui/icons-material';
 import Quagga from '@ericblade/quagga2';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -51,6 +54,11 @@ export default function CheckerPage() {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [hasTorch, setHasTorch] = useState(false);
+  const scannerRef = useRef<HTMLDivElement | null>(null);
+  const quaggaRunning = useRef(false);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -58,97 +66,144 @@ export default function CheckerPage() {
     return match ? match[1] : barcode;
   };
 
-  // Preprocess image: grayscale + high contrast for better barcode detection
-  const preprocessImage = (file: File): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        // Keep good resolution but cap at 2400px
-        const scale = Math.min(1, 2400 / Math.max(img.width, img.height));
-        canvas.width = img.width * scale;
-        canvas.height = img.height * scale;
-        const ctx = canvas.getContext('2d')!;
+  // Handle successful barcode detection
+  const handleBarcodeDetected = useCallback((barcodeValue: string) => {
+    const orderNum = extractOrderNumber(barcodeValue);
+    setSelectedDate('');
+    setStatusFilter('all');
+    setSearchInput(orderNum);
+    setSearchQuery(orderNum);
+    setSnackbar({ message: `נסרק: ${barcodeValue} → הזמנה ${orderNum}`, severity: 'success' });
+  }, []);
 
-        // Draw original
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  // Stop Quagga live scanner
+  const stopScanner = useCallback(() => {
+    if (quaggaRunning.current) {
+      Quagga.offDetected();
+      Quagga.stop();
+      quaggaRunning.current = false;
+    }
+    setScannerOpen(false);
+    setTorchOn(false);
+    setHasTorch(false);
+  }, []);
 
-        // Convert to high-contrast grayscale
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          // Increase contrast: push values toward 0 or 255
-          const contrast = gray < 128 ? Math.max(0, gray * 0.5) : Math.min(255, gray * 1.5 + 64);
-          data[i] = data[i + 1] = data[i + 2] = contrast;
-        }
-        ctx.putImageData(imageData, 0, 0);
+  // Start Quagga live scanner
+  const startScanner = useCallback(() => {
+    setScannerOpen(true);
+  }, []);
 
-        resolve(canvas.toDataURL('image/png'));
-        URL.revokeObjectURL(img.src);
-      };
-      img.src = URL.createObjectURL(file);
-    });
-  };
+  // Initialize Quagga when scanner dialog opens and the ref is available
+  useEffect(() => {
+    if (!scannerOpen || !scannerRef.current) return;
 
-  // Try Quagga decode with specific settings
-  const tryDecode = (src: string, patchSize: string, halfSample: boolean): Promise<string | null> => {
-    return new Promise((resolve) => {
-      Quagga.decodeSingle(
-        {
-          src,
-          numOfWorkers: 0,
-          inputStream: { size: 2400 },
-          decoder: {
-            readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'],
+    const target = scannerRef.current;
+
+    Quagga.init(
+      {
+        inputStream: {
+          type: 'LiveStream',
+          target,
+          constraints: {
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
-          locate: true,
-          locator: { patchSize, halfSample },
         },
-        (res) => {
-          resolve(res?.codeResult?.code || null);
+        decoder: {
+          readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'],
         },
-      );
-    });
-  };
+        locate: true,
+        locator: { patchSize: 'medium', halfSample: false },
+        frequency: 10,
+      },
+      (err) => {
+        if (err) {
+          // Camera failed (probably HTTP) - fall back to file input
+          setScannerOpen(false);
+          fileInputRef.current?.click();
+          return;
+        }
+        Quagga.start();
+        quaggaRunning.current = true;
 
+        // Check if torch is available
+        const track = Quagga.CameraAccess.getActiveTrack();
+        if (track) {
+          const caps = track.getCapabilities?.() as any;
+          if (caps?.torch) setHasTorch(true);
+        }
+      },
+    );
+
+    const onDetected = (result: any) => {
+      const code = result?.codeResult?.code;
+      if (!code) return;
+      // Stop scanning and use the result
+      stopScanner();
+      handleBarcodeDetected(code);
+    };
+
+    Quagga.onDetected(onDetected);
+
+    return () => {
+      if (quaggaRunning.current) {
+        Quagga.offDetected();
+        Quagga.stop();
+        quaggaRunning.current = false;
+      }
+    };
+  }, [scannerOpen, stopScanner, handleBarcodeDetected]);
+
+  // Toggle torch/flashlight
+  const toggleTorch = useCallback(() => {
+    const track = Quagga.CameraAccess.getActiveTrack();
+    if (track) {
+      const newState = !torchOn;
+      (track as any).applyConstraints({ advanced: [{ torch: newState }] });
+      setTorchOn(newState);
+    }
+  }, [torchOn]);
+
+  // File input fallback for when camera is not available (HTTP)
   const handleScanCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setScanning(true);
 
     try {
-      // Try with original image first, then preprocessed
-      const originalSrc = URL.createObjectURL(file);
-      const preprocessedSrc = await preprocessImage(file);
-
-      // Multiple attempts with different settings
-      const attempts = [
-        { src: originalSrc, patch: 'medium', half: true },
-        { src: originalSrc, patch: 'large', half: false },
-        { src: originalSrc, patch: 'small', half: true },
-        { src: preprocessedSrc, patch: 'medium', half: true },
-        { src: preprocessedSrc, patch: 'large', half: false },
-        { src: preprocessedSrc, patch: 'small', half: false },
+      const src = URL.createObjectURL(file);
+      // Try multiple settings for best detection
+      const settings = [
+        { patch: 'medium', half: false },
+        { patch: 'large', half: false },
+        { patch: 'small', half: true },
       ];
 
       let result: string | null = null;
-      for (const attempt of attempts) {
-        result = await tryDecode(attempt.src, attempt.patch, attempt.half);
+      for (const s of settings) {
+        result = await new Promise<string | null>((resolve) => {
+          Quagga.decodeSingle(
+            {
+              src,
+              numOfWorkers: 0,
+              inputStream: { size: 2400 },
+              decoder: { readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'] },
+              locate: true,
+              locator: { patchSize: s.patch, halfSample: s.half },
+            },
+            (res) => resolve(res?.codeResult?.code || null),
+          );
+        });
         if (result) break;
       }
 
-      URL.revokeObjectURL(originalSrc);
+      URL.revokeObjectURL(src);
 
       if (result) {
-        const orderNum = extractOrderNumber(result);
-        setSelectedDate('');
-        setStatusFilter('all');
-        setSearchInput(orderNum);
-        setSearchQuery(orderNum);
-        setSnackbar({ message: `נסרק: ${result} → הזמנה ${orderNum}`, severity: 'success' });
+        handleBarcodeDetected(result);
       } else {
-        setSnackbar({ message: 'לא זוהה ברקוד. נסה לצלם ישירות מול הברקוד עם תאורה טובה.', severity: 'error' });
+        setSnackbar({ message: 'לא זוהה ברקוד. נסה שוב עם תאורה טובה.', severity: 'error' });
       }
     } catch (err: any) {
       setSnackbar({ message: `שגיאה: ${err?.message || err}`, severity: 'error' });
@@ -248,7 +303,7 @@ export default function CheckerPage() {
           />
           <Button
             variant="contained"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={startScanner}
             sx={{ minWidth: 48, height: 48, p: 0 }}
             color="primary"
             disabled={scanning}
@@ -419,6 +474,64 @@ export default function CheckerPage() {
             </Card>
           ))}
         </DialogContent>
+      </Dialog>
+
+      {/* Live Scanner Dialog */}
+      <Dialog
+        open={scannerOpen}
+        onClose={stopScanner}
+        fullScreen
+        PaperProps={{ sx: { bgcolor: 'black' } }}
+      >
+        {/* Scanner header */}
+        <Box sx={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          p: 1, bgcolor: 'rgba(0,0,0,0.6)',
+        }}>
+          <IconButton onClick={stopScanner} sx={{ color: 'white' }}>
+            <CloseIcon />
+          </IconButton>
+          <Typography color="white" fontWeight="bold">כוון את הברקוד למסגרת</Typography>
+          {hasTorch ? (
+            <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
+              {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
+            </IconButton>
+          ) : <Box sx={{ width: 48 }} />}
+        </Box>
+
+        {/* Camera viewfinder */}
+        <Box
+          ref={scannerRef}
+          sx={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            '& video': { width: '100%', height: '100%', objectFit: 'cover' },
+            '& canvas.drawingBuffer': { display: 'none' },
+          }}
+        />
+
+        {/* Scan guide overlay */}
+        <Box sx={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '80%', height: 120,
+          border: '2px solid rgba(255,255,255,0.7)',
+          borderRadius: 2,
+          pointerEvents: 'none',
+        }}>
+          {/* Laser line animation */}
+          <Box sx={{
+            position: 'absolute', top: '50%', left: 8, right: 8,
+            height: 2, bgcolor: '#ff1744',
+            animation: 'scanline 2s ease-in-out infinite',
+            '@keyframes scanline': {
+              '0%, 100%': { transform: 'translateY(-25px)', opacity: 0.7 },
+              '50%': { transform: 'translateY(25px)', opacity: 1 },
+            },
+          }} />
+        </Box>
       </Dialog>
 
       {/* Snackbar */}
