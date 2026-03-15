@@ -43,10 +43,10 @@ function getTodayDate() {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
-// WASM-based barcode detector (ZXing C++ compiled to WASM - much more reliable than JS)
-const wasmDetector = new WasmBarcodeDetector({
-  formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'],
-});
+// WASM-based barcode detector - try without format filter first (detect ALL)
+const wasmDetectorAll = new WasmBarcodeDetector();
+// Also one with specific formats
+const wasmDetector128 = new WasmBarcodeDetector({ formats: ['code_128'] });
 
 export default function CheckerPage() {
   const logout = useAuthStore((s) => s.logout);
@@ -143,17 +143,6 @@ export default function CheckerPage() {
     }
   }, []);
 
-  // Helper: decode using WASM BarcodeDetector (ZXing C++ WASM)
-  const decodeWithWasm = async (source: HTMLCanvasElement | HTMLImageElement | ImageBitmap): Promise<{ result: string | null; error?: string }> => {
-    try {
-      const barcodes = await wasmDetector.detect(source);
-      if (barcodes.length > 0) return { result: barcodes[0].rawValue };
-      return { result: null };
-    } catch (err: any) {
-      return { result: null, error: err?.message?.slice(0, 40) || 'unknown' };
-    }
-  };
-
   // Helper: downscale image to max width for better decode performance
   const downscaleCanvas = (source: HTMLCanvasElement | HTMLImageElement, maxWidth: number): HTMLCanvasElement => {
     const sw = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;
@@ -164,6 +153,13 @@ export default function CheckerPage() {
     canvas.height = Math.floor(sh * scale);
     canvas.getContext('2d')!.drawImage(source, 0, 0, canvas.width, canvas.height);
     return canvas;
+  };
+
+  // Helper: get pixel sample to verify image has real data
+  const getPixelSample = (canvas: HTMLCanvasElement): string => {
+    const ctx = canvas.getContext('2d')!;
+    const d = ctx.getImageData(Math.floor(canvas.width / 2), Math.floor(canvas.height / 2), 1, 1).data;
+    return `px(${d[0]},${d[1]},${d[2]})`;
   };
 
   // Helper: decode using Quagga2 (specialized for 1D barcodes)
@@ -191,16 +187,55 @@ export default function CheckerPage() {
 
   // Try all decode methods on a canvas, return result or null
   const tryAllDecoders = async (canvas: HTMLCanvasElement, results: string[], label: string): Promise<string | null> => {
-    // WASM
-    const w = await decodeWithWasm(canvas);
-    if (w.result) { results.push(`${label} WASM: "${w.result}"`); return w.result; }
-    results.push(`${label} WASM: ${w.error ? 'E:' + w.error : 'X'}`);
+    // WASM detector (all formats)
+    try {
+      const barcodes = await wasmDetectorAll.detect(canvas);
+      if (barcodes.length > 0) {
+        const bc = barcodes[0];
+        results.push(`${label} WA: "${bc.rawValue}"(${bc.format})`);
+        return bc.rawValue;
+      }
+      results.push(`${label} WA:0`);
+    } catch (err: any) {
+      results.push(`${label} WA:E${err?.message?.slice(0, 25)}`);
+    }
+
+    // WASM detector (code_128 only)
+    try {
+      const barcodes = await wasmDetector128.detect(canvas);
+      if (barcodes.length > 0) {
+        results.push(`${label} W128: "${barcodes[0].rawValue}"`);
+        return barcodes[0].rawValue;
+      }
+      results.push(`${label} W128:0`);
+    } catch (err: any) {
+      results.push(`${label} W128:E${err?.message?.slice(0, 20)}`);
+    }
+
+    // Native BarcodeDetector (Chrome Android built-in)
+    if ('BarcodeDetector' in window) {
+      try {
+        const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13'] });
+        const barcodes = await nativeBD.detect(canvas);
+        if (barcodes.length > 0) {
+          results.push(`${label} NAT: "${barcodes[0].rawValue}"`);
+          return barcodes[0].rawValue;
+        }
+        results.push(`${label} NAT:0`);
+      } catch (err: any) {
+        results.push(`${label} NAT:E${err?.message?.slice(0, 20)}`);
+      }
+    }
 
     // Quagga
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    const q = await decodeWithQuagga(dataUrl);
-    if (q) { results.push(`${label} QG: "${q}"`); return q; }
-    results.push(`${label} QG: X`);
+    try {
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const q = await decodeWithQuagga(dataUrl);
+      if (q) { results.push(`${label} QG: "${q}"`); return q; }
+      results.push(`${label} QG:0`);
+    } catch (err: any) {
+      results.push(`${label} QG:E`);
+    }
 
     return null;
   };
@@ -286,47 +321,67 @@ export default function CheckerPage() {
       const ow = img.naturalWidth;
       const oh = img.naturalHeight;
       results.push(`${ow}x${oh}`);
+
+      // Check supported formats + native availability
+      try {
+        const fmts = await WasmBarcodeDetector.getSupportedFormats();
+        results.push(`fmts:${fmts.length}`);
+        const hasNative = 'BarcodeDetector' in window;
+        results.push(hasNative ? 'NAT:yes' : 'NAT:no');
+      } catch (e: any) {
+        results.push(`fmts:E${e?.message?.slice(0, 15)}`);
+      }
       setScannerDebug(results.join(' | '));
 
-      // Create full-size canvas
-      const fullCanvas = document.createElement('canvas');
-      fullCanvas.width = ow;
-      fullCanvas.height = oh;
-      fullCanvas.getContext('2d')!.drawImage(img, 0, 0);
+      // Create downscaled canvas (1280px - sweet spot for barcode detection)
+      const scaled = downscaleCanvas(img, 1280);
+      results.push(`→${scaled.width}x${scaled.height}`);
+      results.push(getPixelSample(scaled));
+      setScannerDebug(results.join(' | '));
 
-      // Try original size first
-      const r1 = await tryAllDecoders(fullCanvas, results, 'orig');
+      // Try on downscaled (best size for decoders)
+      const r1 = await tryAllDecoders(scaled, results, 'S');
       setScannerDebug(results.join(' | '));
       if (r1) { URL.revokeObjectURL(blobUrl); handleBarcodeDetected(r1); setCapturing(false); if (fileInputRef.current) fileInputRef.current.value = ''; return; }
 
-      // Try downscaled to 1280px
-      const scaled1280 = downscaleCanvas(img, 1280);
-      results.push(`→${scaled1280.width}x${scaled1280.height}`);
-      const r2 = await tryAllDecoders(scaled1280, results, '1280');
+      // Try on ImageData directly (in case canvas input is the issue)
+      try {
+        const ctx = scaled.getContext('2d')!;
+        const imageData = ctx.getImageData(0, 0, scaled.width, scaled.height);
+        const barcodes = await wasmDetectorAll.detect(imageData as any);
+        if (barcodes.length > 0) {
+          results.push(`ID: "${barcodes[0].rawValue}"`);
+          setScannerDebug(results.join(' | '));
+          URL.revokeObjectURL(blobUrl);
+          handleBarcodeDetected(barcodes[0].rawValue);
+          setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
+        results.push('ID:0');
+      } catch (e: any) {
+        results.push(`ID:E${e?.message?.slice(0, 25)}`);
+      }
       setScannerDebug(results.join(' | '));
-      if (r2) { URL.revokeObjectURL(blobUrl); handleBarcodeDetected(r2); setCapturing(false); if (fileInputRef.current) fileInputRef.current.value = ''; return; }
 
-      // Try downscaled to 640px
-      const scaled640 = downscaleCanvas(img, 640);
-      results.push(`→${scaled640.width}x${scaled640.height}`);
-      const r3 = await tryAllDecoders(scaled640, results, '640');
+      // Try on Blob directly
+      try {
+        const blob = await new Promise<Blob>((resolve) => scaled.toBlob((b) => resolve(b!), 'image/png'));
+        const barcodes = await wasmDetectorAll.detect(blob as any);
+        if (barcodes.length > 0) {
+          results.push(`BL: "${barcodes[0].rawValue}"`);
+          setScannerDebug(results.join(' | '));
+          URL.revokeObjectURL(blobUrl);
+          handleBarcodeDetected(barcodes[0].rawValue);
+          setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
+        results.push('BL:0');
+      } catch (e: any) {
+        results.push(`BL:E${e?.message?.slice(0, 25)}`);
+      }
       setScannerDebug(results.join(' | '));
-      if (r3) { URL.revokeObjectURL(blobUrl); handleBarcodeDetected(r3); setCapturing(false); if (fileInputRef.current) fileInputRef.current.value = ''; return; }
-
-      // Try center crop of downscaled image (focus on barcode area)
-      const cropCanvas = document.createElement('canvas');
-      const cw = scaled1280.width;
-      const ch = Math.floor(scaled1280.height * 0.3);
-      cropCanvas.width = cw;
-      cropCanvas.height = ch;
-      cropCanvas.getContext('2d')!.drawImage(
-        scaled1280,
-        0, Math.floor((scaled1280.height - ch) / 2), cw, ch,
-        0, 0, cw, ch,
-      );
-      const r4 = await tryAllDecoders(cropCanvas, results, 'crop');
-      setScannerDebug(results.join(' | '));
-      if (r4) { URL.revokeObjectURL(blobUrl); handleBarcodeDetected(r4); setCapturing(false); if (fileInputRef.current) fileInputRef.current.value = ''; return; }
 
       URL.revokeObjectURL(blobUrl);
       setSnackbar({ message: 'לא זוהה. נסה לצלם קרוב יותר, ישר, עם תאורה טובה.', severity: 'info' });
