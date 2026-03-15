@@ -18,6 +18,7 @@ import {
   CameraAlt as CameraIcon,
 } from '@mui/icons-material';
 import { BarcodeDetector as WasmBarcodeDetector } from 'barcode-detector/pure';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import Quagga from '@ericblade/quagga2';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
@@ -71,6 +72,7 @@ export default function CheckerPage() {
   const controlsRef = useRef<any>(null);
   const scanIntervalRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -89,7 +91,18 @@ export default function CheckerPage() {
   }, []);
 
   // Stop scanner
-  const stopScanner = useCallback(() => {
+  const stopScanner = useCallback(async () => {
+    // Stop html5-qrcode
+    if (html5QrCodeRef.current) {
+      try {
+        const state = html5QrCodeRef.current.getState();
+        if (state === 2 /* SCANNING */ || state === 3 /* PAUSED */) {
+          await html5QrCodeRef.current.stop();
+        }
+      } catch { /* */ }
+      html5QrCodeRef.current = null;
+    }
+    // Stop custom scanner
     if (scanIntervalRef.current) {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
@@ -107,275 +120,97 @@ export default function CheckerPage() {
     setCapturing(false);
   }, []);
 
-  // Start scanner with ImageCapture photo-based scanning
+  // Start scanner using html5-qrcode library (proven for mobile barcode scanning)
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
-    setScannerDebug('מפעיל מצלמה...');
+    setScannerDebug('מפעיל סורק html5-qrcode...');
     setScanCount(0);
 
-    await new Promise((r) => setTimeout(r, 400));
+    // Wait for the scanner div to render
+    await new Promise((r) => setTimeout(r, 500));
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
-
-      streamRef.current = stream;
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play().catch(() => {});
+      const scannerDiv = document.getElementById('html5-qrcode-scanner');
+      if (!scannerDiv) {
+        setScannerDebug('שגיאה: אלמנט סורק לא נמצא');
+        return;
       }
 
-      const track = stream.getVideoTracks()[0];
-      let zoomApplied = '';
+      const html5QrCode = new Html5Qrcode('html5-qrcode-scanner', {
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.CODE_39,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.ITF,
+          Html5QrcodeSupportedFormats.CODABAR,
+        ],
+        verbose: false,
+      });
+      html5QrCodeRef.current = html5QrCode;
 
-      // Apply camera optimizations: continuous autofocus + zoom + torch check
+      let scanN = 0;
+      let found = false;
+
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        {
+          fps: 15,
+          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+            // Wide rectangle for 1D barcodes
+            const w = Math.floor(viewfinderWidth * 0.9);
+            const h = Math.floor(viewfinderHeight * 0.25);
+            return { width: w, height: h };
+          },
+          aspectRatio: 16 / 9,
+          disableFlip: false,
+        },
+        // Success callback
+        (decodedText: string, _decodedResult: any) => {
+          if (found) return;
+          found = true;
+          setScannerDebug(`html5-qr: "${decodedText}"`);
+          // Stop and handle
+          html5QrCode.stop().catch(() => {}).then(() => {
+            html5QrCodeRef.current = null;
+            setScannerOpen(false);
+            handleBarcodeDetected(decodedText);
+          });
+        },
+        // Error callback (fires every failed scan — just update counter)
+        (_errorMessage: string) => {
+          scanN++;
+          if (scanN % 15 === 0) {
+            setScannerDebug(`html5-qr | סורק... #${scanN}`);
+            setScanCount(scanN);
+          }
+        },
+      );
+
+      // Try to apply zoom after start
       try {
-        const caps = track?.getCapabilities?.() as any;
-        const advanced: any[] = [];
-        if (caps?.focusMode?.includes('continuous')) {
-          advanced.push({ focusMode: 'continuous' });
+        const videoElem = scannerDiv.querySelector('video');
+        if (videoElem && videoElem.srcObject) {
+          const track = (videoElem.srcObject as MediaStream).getVideoTracks()[0];
+          const caps = track?.getCapabilities?.() as any;
+          if (caps?.zoom) {
+            const targetZoom = Math.min(2.0, caps.zoom.max);
+            await track.applyConstraints({ advanced: [{ zoom: targetZoom } as any] });
+            setScannerDebug(`html5-qr | zoom ${targetZoom.toFixed(1)} | סורק...`);
+          }
+          if (caps?.focusMode?.includes('continuous')) {
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+          }
+          if (caps?.torch) setHasTorch(true);
         }
-        // Zoom in to 2x to make barcode larger in frame
-        if (caps?.zoom) {
-          const maxZoom = Math.min(caps.zoom.max, 2.5);
-          const targetZoom = Math.max(caps.zoom.min, Math.min(2.0, maxZoom));
-          advanced.push({ zoom: targetZoom });
-          zoomApplied = `z${targetZoom.toFixed(1)}`;
-        }
-        if (advanced.length > 0) {
-          await track.applyConstraints({ advanced });
-        }
-        if (caps?.torch) setHasTorch(true);
       } catch { /* */ }
 
-      const s = track.getSettings();
-      const resolution = `${s.width}x${s.height}${zoomApplied ? ' ' + zoomApplied : ''}`;
-
-      // Create native BarcodeDetector once
-      const nativeBD = 'BarcodeDetector' in window
-        ? new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] })
-        : null;
-
-      // Helper: try all decoders on a source
-      const tryDecode = async (source: any): Promise<string | null> => {
-        if (nativeBD) {
-          try {
-            const barcodes = await nativeBD.detect(source);
-            if (barcodes.length > 0) return `NAT:${barcodes[0].rawValue}`;
-          } catch { /* */ }
-        }
-        try {
-          const barcodes = await wasmDetectorAll.detect(source);
-          if (barcodes.length > 0) return `WA:${barcodes[0].rawValue}`;
-        } catch { /* */ }
-        try {
-          const barcodes = await wasmDetector128.detect(source);
-          if (barcodes.length > 0) return `W128:${barcodes[0].rawValue}`;
-        } catch { /* */ }
-        return null;
-      };
-
-      // Helper: convert canvas to high-contrast grayscale
-      const toGrayscaleContrast = (src: HTMLCanvasElement): HTMLCanvasElement => {
-        const w = src.width, h = src.height;
-        const out = document.createElement('canvas');
-        out.width = w; out.height = h;
-        const ctx = src.getContext('2d')!;
-        const outCtx = out.getContext('2d')!;
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const d = imgData.data;
-        // Find min/max for contrast stretching
-        let minV = 255, maxV = 0;
-        for (let i = 0; i < d.length; i += 4) {
-          const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-          if (g < minV) minV = g;
-          if (g > maxV) maxV = g;
-        }
-        const range = maxV - minV || 1;
-        const result = outCtx.createImageData(w, h);
-        const rd = result.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-          const stretched = Math.round(((g - minV) / range) * 255);
-          rd[i] = rd[i + 1] = rd[i + 2] = stretched;
-          rd[i + 3] = 255;
-        }
-        outCtx.putImageData(result, 0, 0);
-        return out;
-      };
-
-      // Helper: scale canvas to target width
-      const scaleCanvas = (src: HTMLCanvasElement, targetW: number): HTMLCanvasElement => {
-        if (src.width <= targetW) return src;
-        const ratio = targetW / src.width;
-        const out = document.createElement('canvas');
-        out.width = targetW;
-        out.height = Math.round(src.height * ratio);
-        out.getContext('2d')!.drawImage(src, 0, 0, out.width, out.height);
-        return out;
-      };
-
-      // Create ImageCapture for photo-based scanning
-      let imageCapture: any = null;
-      try {
-        imageCapture = new (window as any).ImageCapture(track);
-      } catch { /* ImageCapture not available, will use video frames */ }
-
-      let count = 0;
-      let scanning = false;
-
-      scanIntervalRef.current = window.setInterval(async () => {
-        const video = videoRef.current;
-        if (!video || video.readyState < 2 || scanning) return;
-        scanning = true;
-        count++;
-
-        try {
-          // === Strategy A: Try native BD directly on video (fastest path) ===
-          if (nativeBD) {
-            try {
-              const barcodes = await nativeBD.detect(video);
-              if (barcodes.length > 0) {
-                const code = barcodes[0].rawValue;
-                setScannerDebug(`${resolution} | #${count} VID: "${code}"`);
-                if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                stopScanner();
-                handleBarcodeDetected(code);
-                return;
-              }
-            } catch { /* */ }
-          }
-
-          // === Strategy B: Every 3rd frame, take a real PHOTO via ImageCapture ===
-          if (imageCapture && count % 3 === 0) {
-            try {
-              const blob = await imageCapture.takePhoto();
-              const bmp = await createImageBitmap(blob);
-
-              // Full photo canvas
-              const photoCanvas = document.createElement('canvas');
-              photoCanvas.width = bmp.width;
-              photoCanvas.height = bmp.height;
-              photoCanvas.getContext('2d')!.drawImage(bmp, 0, 0);
-
-              // Try full photo at multiple scales
-              for (const targetW of [bmp.width, 1280, 800]) {
-                const scaled = scaleCanvas(photoCanvas, targetW);
-                const result = await tryDecode(scaled);
-                if (result) {
-                  const code = result.split(':').slice(1).join(':');
-                  setScannerDebug(`${resolution} | #${count} PHOTO@${targetW}: "${code}"`);
-                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                  stopScanner();
-                  handleBarcodeDetected(code);
-                  return;
-                }
-              }
-
-              // Try center strip of photo (40% height) + grayscale contrast
-              const stripH = Math.floor(bmp.height * 0.4);
-              const stripCanvas = document.createElement('canvas');
-              stripCanvas.width = bmp.width;
-              stripCanvas.height = stripH;
-              stripCanvas.getContext('2d')!.drawImage(
-                photoCanvas,
-                0, Math.floor((bmp.height - stripH) / 2), bmp.width, stripH,
-                0, 0, bmp.width, stripH,
-              );
-
-              // Try strip at multiple scales + grayscale
-              for (const targetW of [bmp.width, 1280, 640]) {
-                const scaled = scaleCanvas(stripCanvas, targetW);
-                let result = await tryDecode(scaled);
-                if (result) {
-                  const code = result.split(':').slice(1).join(':');
-                  setScannerDebug(`${resolution} | #${count} STRIP@${targetW}: "${code}"`);
-                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                  stopScanner();
-                  handleBarcodeDetected(code);
-                  return;
-                }
-                // Grayscale with contrast stretch
-                const gray = toGrayscaleContrast(scaled);
-                result = await tryDecode(gray);
-                if (result) {
-                  const code = result.split(':').slice(1).join(':');
-                  setScannerDebug(`${resolution} | #${count} GRAY@${targetW}: "${code}"`);
-                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                  stopScanner();
-                  handleBarcodeDetected(code);
-                  return;
-                }
-              }
-
-              bmp.close();
-              setScannerDebug(`${resolution} | #${count} photo:${bmp.width}x${bmp.height} ✗`);
-            } catch (e: any) {
-              setScannerDebug(`${resolution} | #${count} photo-err: ${e?.message?.slice(0, 40)}`);
-            }
-          } else {
-            // === Strategy C: Video frame — try WASM on center strip at different scales ===
-            const vw = video.videoWidth;
-            const vh = video.videoHeight;
-
-            const stripH = Math.floor(vh * 0.4);
-            const stripCanvas = document.createElement('canvas');
-            stripCanvas.width = vw;
-            stripCanvas.height = stripH;
-            stripCanvas.getContext('2d')!.drawImage(
-              video,
-              0, Math.floor((vh - stripH) / 2), vw, stripH,
-              0, 0, vw, stripH,
-            );
-
-            for (const targetW of [vw, 1280, 640]) {
-              const scaled = scaleCanvas(stripCanvas, targetW);
-              const result = await tryDecode(scaled);
-              if (result) {
-                const code = result.split(':').slice(1).join(':');
-                setScannerDebug(`${resolution} | #${count} VSTRIP@${targetW}: "${code}"`);
-                if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                stopScanner();
-                handleBarcodeDetected(code);
-                return;
-              }
-            }
-
-            // Try grayscale contrast on 640w
-            const small = scaleCanvas(stripCanvas, 640);
-            const gray = toGrayscaleContrast(small);
-            const result = await tryDecode(gray);
-            if (result) {
-              const code = result.split(':').slice(1).join(':');
-              setScannerDebug(`${resolution} | #${count} VGRAY: "${code}"`);
-              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-              stopScanner();
-              handleBarcodeDetected(code);
-              return;
-            }
-
-            setScannerDebug(`${resolution} | סורק... #${count}`);
-          }
-
-          setScanCount(count);
-        } catch { /* */ }
-
-        scanning = false;
-      }, 350);
-
-      setScannerDebug(`${resolution} | סריקה רציפה (photo+video)...`);
+      setScannerDebug('html5-qr | סריקה רציפה...');
     } catch (err: any) {
-      setScannerOpen(false);
-      setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
+      setScannerDebug(`שגיאה: ${err?.message || err}`);
+      // Fallback: if html5-qrcode fails, don't close - show error
     }
-  }, [stopScanner, handleBarcodeDetected]);
+  }, [handleBarcodeDetected]);
 
   // Embedded Code 128 barcode "T-12345-1" as base64 PNG (generated with JsBarcode)
   const TEST_BARCODE_DATA_URL = 'data:image/png;base64,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';
@@ -912,21 +747,17 @@ export default function CheckerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Scanner - Full screen overlay */}
+      {/* Scanner - Full screen overlay using html5-qrcode */}
       {scannerOpen && (
-        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'black' }}>
-          <video ref={videoRef} autoPlay playsInline muted
-            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'black', display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <Box sx={{
-            position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            p: 1, bgcolor: 'rgba(0,0,0,0.6)',
+            p: 1, bgcolor: 'rgba(0,0,0,0.8)', zIndex: 10,
           }}>
             <IconButton onClick={stopScanner} sx={{ color: 'white' }}><CloseIcon /></IconButton>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למסגרת — סריקה אוטומטית</Typography>
+            <Box sx={{ textAlign: 'center', flex: 1 }}>
+              <Typography color="white" fontWeight="bold" fontSize={13}>כוון את הברקוד למסגרת</Typography>
               {scannerDebug && <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>}
             </Box>
             {hasTorch ? (
@@ -936,42 +767,20 @@ export default function CheckerPage() {
             ) : <Box sx={{ width: 48 }} />}
           </Box>
 
-          {/* Scan guide */}
-          <Box sx={{
-            position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)',
-            width: '85%', height: 140, zIndex: 10,
-            border: '3px solid rgba(255,50,50,0.8)', borderRadius: 2,
-            pointerEvents: 'none', boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
-          }}>
-            <Box sx={{
-              position: 'absolute', top: '50%', left: 8, right: 8, height: 2, bgcolor: '#ff1744',
-              animation: 'scanline 2s ease-in-out infinite',
-              '@keyframes scanline': {
-                '0%, 100%': { transform: 'translateY(-30px)', opacity: 0.7 },
-                '50%': { transform: 'translateY(30px)', opacity: 1 },
-              },
-            }} />
-          </Box>
+          {/* html5-qrcode scanner container */}
+          <Box id="html5-qrcode-scanner" sx={{
+            flex: 1,
+            '& video': { objectFit: 'cover !important' },
+            '& #qr-shaded-region': { borderColor: '#ff1744 !important' },
+          }} />
 
-          {/* Scan status at bottom */}
+          {/* Bottom status */}
           <Box sx={{
-            position: 'absolute', bottom: 40, left: 0, right: 0, zIndex: 10,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+            p: 1.5, bgcolor: 'rgba(0,0,0,0.8)', zIndex: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.6)', px: 2, py: 1, borderRadius: 2 }}>
-              <CircularProgress size={20} sx={{ color: '#4caf50' }} />
-              <Typography color="white" fontSize={14}>סורק... #{scanCount}</Typography>
-            </Box>
-            <IconButton
-              onClick={captureAndDecode}
-              sx={{
-                width: 64, height: 64,
-                bgcolor: 'rgba(255,255,255,0.7)',
-                '&:active': { transform: 'scale(0.9)' },
-              }}
-            >
-              <CameraIcon sx={{ fontSize: 32, color: '#333' }} />
-            </IconButton>
+            <CircularProgress size={18} sx={{ color: '#4caf50' }} />
+            <Typography color="white" fontSize={13}>סורק... #{scanCount}</Typography>
           </Box>
         </Box>
       )}
