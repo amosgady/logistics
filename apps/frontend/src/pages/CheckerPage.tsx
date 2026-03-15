@@ -218,15 +218,16 @@ export default function CheckerPage() {
               const code = sym.decode();
               if (!code) continue;
 
-              if (isValidBarcode(code)) {
-                stopScanner();
-                handleBarcodeDetected(code);
-                return;
-              }
+              // DEBUG: show every detected barcode (no filter)
+              setScannerDebug(`ZBar: "${code}" (${sym.typeName})`);
+
+              // Accept any barcode - no format filter
+              stopScanner();
+              handleBarcodeDetected(code);
+              return;
             }
 
-            // Also try native BarcodeDetector on the original video (no crop, no enhancement)
-            // This gives us two chances per frame
+            // Also try native BarcodeDetector on the original video
             if ('BarcodeDetector' in window && frameCount % 3 === 0) {
               try {
                 const NativeBD = (window as any).BarcodeDetector;
@@ -235,11 +236,14 @@ export default function CheckerPage() {
                 if (stoppedRef.current) return;
                 for (const barcode of barcodes) {
                   const code = barcode.rawValue;
-                  if (code && isValidBarcode(code)) {
-                    stopScanner();
-                    handleBarcodeDetected(code);
-                    return;
-                  }
+                  if (!code) continue;
+
+                  // DEBUG: show every detected barcode (no filter)
+                  setScannerDebug(`Native: "${code}" (${barcode.format})`);
+
+                  stopScanner();
+                  handleBarcodeDetected(code);
+                  return;
                 }
               } catch { /* ignore native fallback errors */ }
             }
