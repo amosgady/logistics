@@ -228,97 +228,69 @@ export default function CheckerPage() {
     }
   }, [stopScanner, handleBarcodeDetected]);
 
-  // Self-test: generate a Code 128 barcode on canvas and try to decode it
+  // Embedded Code 128 barcode "T-12345-1" as base64 PNG (generated with JsBarcode)
+  const TEST_BARCODE_DATA_URL = 'data:image/png;base64,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';
+
+  // Self-test: decode a known embedded Code 128 barcode to verify decoders work
   const runSelfTest = useCallback(async () => {
     setScannerDebug('בדיקה עצמית...');
     setCapturedImage('');
     const results: string[] = ['TEST'];
 
-    // Create a test image by loading a known Code 128 barcode from an online generator
     try {
+      // Load embedded barcode image
       const testImg = document.createElement('img');
-      testImg.crossOrigin = 'anonymous';
-      // Use a simple barcode generator URL
-      testImg.src = 'https://barcode.tec-it.com/barcode.ashx?data=T-12345-1&code=Code128&translate-esc=true&dmsize=Default&unit=Fit&imagetype=Png&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0';
+      testImg.src = TEST_BARCODE_DATA_URL;
+      await new Promise<void>((resolve) => { testImg.onload = () => resolve(); });
+      results.push(`img:${testImg.naturalWidth}x${testImg.naturalHeight}`);
 
-      const loaded = await Promise.race([
-        new Promise<boolean>((resolve) => { testImg.onload = () => resolve(true); testImg.onerror = () => resolve(false); }),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
-      ]);
+      // Create canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = testImg.naturalWidth;
+      canvas.height = testImg.naturalHeight;
+      canvas.getContext('2d')!.drawImage(testImg, 0, 0);
+      setCapturedImage(canvas.toDataURL('image/png'));
 
-      if (!loaded) {
-        // Fallback: draw a simple test pattern (thick black/white bars)
-        results.push('URL fail, testing native API');
-        setScannerDebug(results.join(' | '));
-
-        // Just test if detect() works at all with an empty canvas
-        const testCanvas = document.createElement('canvas');
-        testCanvas.width = 400;
-        testCanvas.height = 100;
-        const ctx = testCanvas.getContext('2d')!;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, 400, 100);
-        // Draw some black bars
-        ctx.fillStyle = 'black';
-        for (let i = 0; i < 40; i++) {
-          if (i % 2 === 0) ctx.fillRect(10 + i * 9, 5, 5, 90);
-        }
-
-        try {
-          const barcodes = await wasmDetectorAll.detect(testCanvas);
-          results.push(`WASM detect ran OK: ${barcodes.length} results`);
-        } catch (e: any) {
-          results.push(`WASM detect error: ${e?.message?.slice(0, 40)}`);
-        }
-
-        if ('BarcodeDetector' in window) {
-          try {
-            const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128'] });
-            const barcodes = await nativeBD.detect(testCanvas);
-            results.push(`NAT detect ran OK: ${barcodes.length} results`);
-          } catch (e: any) {
-            results.push(`NAT detect error: ${e?.message?.slice(0, 40)}`);
-          }
-        }
-
-        setScannerDebug(results.join(' | '));
-        return;
-      }
-
-      results.push(`test img: ${testImg.naturalWidth}x${testImg.naturalHeight}`);
-
-      // Try WASM
+      // Try WASM (all formats)
       try {
-        const bitmap = await createImageBitmap(testImg);
-        const barcodes = await wasmDetectorAll.detect(bitmap);
-        bitmap.close();
-        results.push(barcodes.length > 0 ? `WASM OK: "${barcodes[0].rawValue}"` : `WASM: 0`);
+        const barcodes = await wasmDetectorAll.detect(canvas);
+        results.push(barcodes.length > 0 ? `WA:"${barcodes[0].rawValue}"(${barcodes[0].format})` : 'WA:0');
       } catch (e: any) {
-        results.push(`WASM: E${e?.message?.slice(0, 25)}`);
+        results.push(`WA:E${e?.message?.slice(0, 30)}`);
       }
 
-      // Try native
+      // Try WASM (code_128 only)
+      try {
+        const barcodes = await wasmDetector128.detect(canvas);
+        results.push(barcodes.length > 0 ? `W128:"${barcodes[0].rawValue}"` : 'W128:0');
+      } catch (e: any) {
+        results.push(`W128:E${e?.message?.slice(0, 30)}`);
+      }
+
+      // Try native BarcodeDetector
       if ('BarcodeDetector' in window) {
         try {
           const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128'] });
-          const bitmap = await createImageBitmap(testImg);
-          const barcodes = await nativeBD.detect(bitmap);
-          bitmap.close();
-          results.push(barcodes.length > 0 ? `NAT OK: "${barcodes[0].rawValue}"` : `NAT: 0`);
+          const barcodes = await nativeBD.detect(canvas);
+          results.push(barcodes.length > 0 ? `NAT:"${barcodes[0].rawValue}"` : 'NAT:0');
         } catch (e: any) {
-          results.push(`NAT: E${e?.message?.slice(0, 25)}`);
+          results.push(`NAT:E${e?.message?.slice(0, 30)}`);
         }
+      } else {
+        results.push('NAT:N/A');
       }
 
-      // Show test image
-      const tc = document.createElement('canvas');
-      tc.width = testImg.naturalWidth;
-      tc.height = testImg.naturalHeight;
-      tc.getContext('2d')!.drawImage(testImg, 0, 0);
-      setCapturedImage(tc.toDataURL('image/png'));
+      // Try Quagga
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const q = await decodeWithQuagga(dataUrl);
+        results.push(q ? `QG:"${q}"` : 'QG:0');
+      } catch (e: any) {
+        results.push(`QG:E`);
+      }
 
     } catch (e: any) {
-      results.push(`error: ${e?.message?.slice(0, 40)}`);
+      results.push(`err:${e?.message?.slice(0, 40)}`);
     }
 
     setScannerDebug(results.join(' | '));
