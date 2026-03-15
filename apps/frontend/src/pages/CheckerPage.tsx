@@ -481,8 +481,32 @@ export default function CheckerPage() {
         open={scannerOpen}
         onClose={stopScanner}
         fullScreen
-        PaperProps={{ sx: { bgcolor: 'black' } }}
+        PaperProps={{ sx: { bgcolor: 'black', overflow: 'hidden' } }}
       >
+        {/* Camera viewfinder - must be first, fills entire dialog */}
+        <Box
+          ref={scannerRef}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            overflow: 'hidden',
+            '& video': {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            },
+            '& canvas': {
+              display: 'none',
+            },
+          }}
+        />
+
         {/* Scanner header */}
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
@@ -500,23 +524,11 @@ export default function CheckerPage() {
           ) : <Box sx={{ width: 48 }} />}
         </Box>
 
-        {/* Camera viewfinder */}
-        <Box
-          ref={scannerRef}
-          sx={{
-            width: '100%',
-            height: '100%',
-            position: 'relative',
-            '& video': { width: '100%', height: '100%', objectFit: 'cover' },
-            '& canvas.drawingBuffer': { display: 'none' },
-          }}
-        />
-
         {/* Scan guide overlay */}
         <Box sx={{
           position: 'absolute', top: '50%', left: '50%',
           transform: 'translate(-50%, -50%)',
-          width: '80%', height: 120,
+          width: '80%', height: 120, zIndex: 10,
           border: '2px solid rgba(255,255,255,0.7)',
           borderRadius: 2,
           pointerEvents: 'none',
