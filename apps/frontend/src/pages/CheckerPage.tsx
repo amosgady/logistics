@@ -17,7 +17,8 @@ import {
   FlashlightOff as FlashOffIcon,
   CameraAlt as CameraIcon,
 } from '@mui/icons-material';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeDetector as WasmBarcodeDetector } from 'barcode-detector/pure';
+import Quagga from '@ericblade/quagga2';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
 import { useAuthStore } from '../store/authStore';
@@ -42,8 +43,10 @@ function getTodayDate() {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
-// Singleton reader for reuse
-const zxingReader = new BrowserMultiFormatReader();
+// WASM-based barcode detector (ZXing C++ compiled to WASM - much more reliable than JS)
+const wasmDetector = new WasmBarcodeDetector({
+  formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'],
+});
 
 export default function CheckerPage() {
   const logout = useAuthStore((s) => s.logout);
@@ -94,7 +97,7 @@ export default function CheckerPage() {
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
-    setScannerDebug('');
+    // Don't clear scannerDebug so it remains visible on main page
     setCapturing(false);
   }, []);
 
@@ -140,15 +143,36 @@ export default function CheckerPage() {
     }
   }, []);
 
-  // Helper: decode from canvas using ZXing (via data URL)
-  const decodeCanvasWithZXing = async (canvas: HTMLCanvasElement): Promise<string | null> => {
-    const dataUrl = canvas.toDataURL('image/png');
+  // Helper: decode using WASM BarcodeDetector (ZXing C++ WASM)
+  const decodeWithWasm = async (source: HTMLCanvasElement | HTMLImageElement | ImageBitmap): Promise<string | null> => {
     try {
-      const result = await zxingReader.decodeFromImageUrl(dataUrl);
-      return result ? result.getText() : null;
-    } catch {
-      return null;
-    }
+      const barcodes = await wasmDetector.detect(source);
+      if (barcodes.length > 0) return barcodes[0].rawValue;
+    } catch { /* */ }
+    return null;
+  };
+
+  // Helper: decode using Quagga2 (specialized for 1D barcodes)
+  const decodeWithQuagga = (dataUrl: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      Quagga.decodeSingle(
+        {
+          src: dataUrl,
+          numOfWorkers: 0,
+          locate: true,
+          decoder: {
+            readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'],
+          },
+        },
+        (result: any) => {
+          if (result?.codeResult?.code) {
+            resolve(result.codeResult.code);
+          } else {
+            resolve(null);
+          }
+        },
+      );
+    });
   };
 
   // Manual capture - take photo and decode with multiple methods
@@ -164,29 +188,30 @@ export default function CheckerPage() {
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    const results: string[] = []; // collect all debug messages
+    const results: string[] = [];
 
     try {
-      // === Step 1: Capture full frame ===
       results.push(`צולם ${vw}x${vh}`);
+
+      // === Capture full frame ===
       const fullCanvas = document.createElement('canvas');
       fullCanvas.width = vw;
       fullCanvas.height = vh;
       fullCanvas.getContext('2d')!.drawImage(video, 0, 0);
 
-      // === Method 1: ZXing full frame ===
-      const r1 = await decodeCanvasWithZXing(fullCanvas);
+      // === Method 1: WASM BarcodeDetector (ZXing C++ WASM) - full frame ===
+      const r1 = await decodeWithWasm(fullCanvas);
       if (r1) {
-        results.push(`ZXing full: "${r1}"`);
+        results.push(`WASM full: "${r1}"`);
         setScannerDebug(results.join(' | '));
         stopScanner();
         handleBarcodeDetected(r1);
         setCapturing(false);
         return;
       }
-      results.push('ZXing full: X');
+      results.push('WASM full: X');
 
-      // === Method 2: ZXing center crop ===
+      // === Method 2: WASM on center crop (barcode region) ===
       const cropCanvas = document.createElement('canvas');
       const cropW = Math.floor(vw * 0.9);
       const cropH = Math.floor(vh * 0.4);
@@ -197,64 +222,68 @@ export default function CheckerPage() {
         Math.floor((vw - cropW) / 2), Math.floor((vh - cropH) / 2), cropW, cropH,
         0, 0, cropW, cropH,
       );
-      const r2 = await decodeCanvasWithZXing(cropCanvas);
+      const r2 = await decodeWithWasm(cropCanvas);
       if (r2) {
-        results.push(`ZXing crop: "${r2}"`);
+        results.push(`WASM crop: "${r2}"`);
         setScannerDebug(results.join(' | '));
         stopScanner();
         handleBarcodeDetected(r2);
         setCapturing(false);
         return;
       }
-      results.push('ZXing crop: X');
+      results.push('WASM crop: X');
 
-      // === Method 3: ZXing grayscale + contrast ===
-      const enhCanvas = document.createElement('canvas');
-      enhCanvas.width = vw;
-      enhCanvas.height = vh;
-      const enhCtx = enhCanvas.getContext('2d')!;
-      enhCtx.drawImage(video, 0, 0);
-      const imgData = enhCtx.getImageData(0, 0, vw, vh);
-      const d = imgData.data;
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-        const v = Math.min(255, Math.max(0, ((gray - 128) * 2) + 128));
-        d[i] = d[i + 1] = d[i + 2] = v;
-      }
-      enhCtx.putImageData(imgData, 0, 0);
-      const r3 = await decodeCanvasWithZXing(enhCanvas);
+      // === Method 3: Quagga2 on full frame (specialized 1D decoder) ===
+      const dataUrl = fullCanvas.toDataURL('image/png');
+      const r3 = await decodeWithQuagga(dataUrl);
       if (r3) {
-        results.push(`ZXing enh: "${r3}"`);
+        results.push(`Quagga: "${r3}"`);
         setScannerDebug(results.join(' | '));
         stopScanner();
         handleBarcodeDetected(r3);
         setCapturing(false);
         return;
       }
-      results.push('ZXing enh: X');
+      results.push('Quagga: X');
 
-      // === Method 4: Native BarcodeDetector ===
-      if ('BarcodeDetector' in window) {
-        try {
-          const NativeBD = (window as any).BarcodeDetector;
-          const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'] });
-          const barcodes = await detector.detect(fullCanvas);
-          if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue;
-            results.push(`Native: "${code}"`);
-            setScannerDebug(results.join(' | '));
-            stopScanner();
-            handleBarcodeDetected(code);
-            setCapturing(false);
-            return;
-          }
-          results.push(`Native: X (0)`);
-        } catch (e: any) {
-          results.push(`Native: err`);
-        }
-      } else {
-        results.push('Native: N/A');
+      // === Method 4: Quagga2 on center crop ===
+      const cropDataUrl = cropCanvas.toDataURL('image/png');
+      const r4 = await decodeWithQuagga(cropDataUrl);
+      if (r4) {
+        results.push(`Quagga crop: "${r4}"`);
+        setScannerDebug(results.join(' | '));
+        stopScanner();
+        handleBarcodeDetected(r4);
+        setCapturing(false);
+        return;
       }
+      results.push('Quagga crop: X');
+
+      // === Method 5: WASM on grayscale + high contrast ===
+      const enhCanvas = document.createElement('canvas');
+      enhCanvas.width = vw;
+      enhCanvas.height = vh;
+      const enhCtx = enhCanvas.getContext('2d')!;
+      enhCtx.drawImage(video, 0, 0);
+      const imgData = enhCtx.getImageData(0, 0, vw, vh);
+      const px = imgData.data;
+      for (let i = 0; i < px.length; i += 4) {
+        const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+        // Strong binarization - pure black or white
+        const v = gray < 128 ? 0 : 255;
+        px[i] = px[i + 1] = px[i + 2] = v;
+      }
+      enhCtx.putImageData(imgData, 0, 0);
+      const r5 = await decodeWithWasm(enhCanvas);
+      if (r5) {
+        results.push(`WASM bin: "${r5}"`);
+        setScannerDebug(results.join(' | '));
+        stopScanner();
+        handleBarcodeDetected(r5);
+        setCapturing(false);
+        return;
+      }
+      results.push('WASM bin: X');
 
       // All failed
       setScannerDebug(results.join(' | '));
@@ -272,100 +301,128 @@ export default function CheckerPage() {
     if (!file) return;
 
     setCapturing(true);
-    const results: string[] = [`קובץ: ${file.name} (${Math.round(file.size / 1024)}KB)`];
+    const results: string[] = [`קובץ: ${(file.size / 1024).toFixed(0)}KB`];
     setScannerDebug(results[0]);
 
     try {
       const blobUrl = URL.createObjectURL(file);
-      let decoded = false;
 
-      // === Method A: ZXing decodeFromImageUrl with blob URL directly ===
+      // Load image
+      const img = document.createElement('img');
+      img.src = blobUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('img load failed'));
+      });
+      results.push(`${img.naturalWidth}x${img.naturalHeight}`);
+      setScannerDebug(results.join(' | '));
+
+      // Create canvas from image (for methods that need canvas)
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+
+      // === Method A: WASM BarcodeDetector on ImageBitmap ===
       try {
-        results.push('ZXing URL...');
-        setScannerDebug(results.join(' | '));
-        const result = await zxingReader.decodeFromImageUrl(blobUrl);
-        if (result) {
-          const code = result.getText();
-          results.push(`"${code}"`);
+        const bitmap = await createImageBitmap(img);
+        const r1 = await decodeWithWasm(bitmap);
+        bitmap.close();
+        if (r1) {
+          results.push(`WASM: "${r1}"`);
           setScannerDebug(results.join(' | '));
-          decoded = true;
           URL.revokeObjectURL(blobUrl);
-          handleBarcodeDetected(code);
+          handleBarcodeDetected(r1);
           setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
           return;
         }
+        results.push('WASM: X');
       } catch (err: any) {
-        results.pop(); // remove "ZXing URL..."
-        results.push(`ZXing URL: ${err?.name || 'X'}`);
-        setScannerDebug(results.join(' | '));
+        results.push(`WASM: err(${err?.message?.slice(0, 20)})`);
       }
+      setScannerDebug(results.join(' | '));
 
-      // === Method B: ZXing decodeFromImageElement ===
-      if (!decoded) {
-        try {
-          const img = document.createElement('img');
-          img.src = blobUrl;
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject(new Error('img load failed'));
-          });
-          results.push(`img: ${img.naturalWidth}x${img.naturalHeight}`);
+      // === Method B: WASM on center crop ===
+      try {
+        const cw = Math.floor(img.naturalWidth * 0.9);
+        const ch = Math.floor(img.naturalHeight * 0.4);
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = cw;
+        cropCanvas.height = ch;
+        cropCanvas.getContext('2d')!.drawImage(
+          img,
+          Math.floor((img.naturalWidth - cw) / 2), Math.floor((img.naturalHeight - ch) / 2), cw, ch,
+          0, 0, cw, ch,
+        );
+        const r2 = await decodeWithWasm(cropCanvas);
+        if (r2) {
+          results.push(`WASM crop: "${r2}"`);
           setScannerDebug(results.join(' | '));
-
-          const result = await zxingReader.decodeFromImageElement(img);
-          if (result) {
-            const code = result.getText();
-            results.push(`ZXing img: "${code}"`);
-            setScannerDebug(results.join(' | '));
-            decoded = true;
-            URL.revokeObjectURL(blobUrl);
-            handleBarcodeDetected(code);
-            setCapturing(false);
-            return;
-          }
-        } catch (err: any) {
-          results.push(`ZXing img: ${err?.name || 'X'}`);
-          setScannerDebug(results.join(' | '));
+          URL.revokeObjectURL(blobUrl);
+          handleBarcodeDetected(r2);
+          setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
         }
+        results.push('WASM crop: X');
+      } catch (err: any) {
+        results.push(`WASM crop: err`);
       }
+      setScannerDebug(results.join(' | '));
 
-      // === Method C: Native BarcodeDetector on img ===
-      if (!decoded && 'BarcodeDetector' in window) {
-        try {
-          const img2 = document.createElement('img');
-          img2.src = blobUrl;
-          await new Promise<void>((resolve, reject) => {
-            img2.onload = () => resolve();
-            img2.onerror = () => reject(new Error('img2 load'));
-          });
-          const bitmap = await createImageBitmap(img2);
-          const NativeBD = (window as any).BarcodeDetector;
-          const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'] });
-          const barcodes = await detector.detect(bitmap);
-          bitmap.close();
-
-          if (barcodes.length > 0) {
-            const code = barcodes[0].rawValue;
-            results.push(`Native: "${code}" (${barcodes[0].format})`);
-            setScannerDebug(results.join(' | '));
-            decoded = true;
-            URL.revokeObjectURL(blobUrl);
-            handleBarcodeDetected(code);
-            setCapturing(false);
-            return;
-          }
-          results.push(`Native: 0`);
-        } catch (err: any) {
-          results.push(`Native: ${err?.message?.slice(0, 30)}`);
+      // === Method C: Quagga2 ===
+      try {
+        const dataUrl = canvas.toDataURL('image/png');
+        const r3 = await decodeWithQuagga(dataUrl);
+        if (r3) {
+          results.push(`Quagga: "${r3}"`);
+          setScannerDebug(results.join(' | '));
+          URL.revokeObjectURL(blobUrl);
+          handleBarcodeDetected(r3);
+          setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
         }
+        results.push('Quagga: X');
+      } catch (err: any) {
+        results.push(`Quagga: err`);
+      }
+      setScannerDebug(results.join(' | '));
+
+      // === Method D: WASM on binarized image ===
+      try {
+        const binCanvas = document.createElement('canvas');
+        binCanvas.width = img.naturalWidth;
+        binCanvas.height = img.naturalHeight;
+        const binCtx = binCanvas.getContext('2d')!;
+        binCtx.drawImage(img, 0, 0);
+        const imgData = binCtx.getImageData(0, 0, binCanvas.width, binCanvas.height);
+        const px = imgData.data;
+        for (let i = 0; i < px.length; i += 4) {
+          const gray = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+          const v = gray < 128 ? 0 : 255;
+          px[i] = px[i + 1] = px[i + 2] = v;
+        }
+        binCtx.putImageData(imgData, 0, 0);
+        const r4 = await decodeWithWasm(binCanvas);
+        if (r4) {
+          results.push(`WASM bin: "${r4}"`);
+          setScannerDebug(results.join(' | '));
+          URL.revokeObjectURL(blobUrl);
+          handleBarcodeDetected(r4);
+          setCapturing(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+          return;
+        }
+        results.push('WASM bin: X');
+      } catch (err: any) {
+        results.push(`WASM bin: err`);
       }
 
       URL.revokeObjectURL(blobUrl);
-
-      if (!decoded) {
-        setScannerDebug(results.join(' | '));
-        setSnackbar({ message: 'לא זוהה. נסה לצלם קרוב יותר, ישר, עם תאורה טובה.', severity: 'info' });
-      }
+      setScannerDebug(results.join(' | '));
+      setSnackbar({ message: 'לא זוהה. נסה לצלם קרוב יותר, ישר, עם תאורה טובה.', severity: 'info' });
     } catch (err: any) {
       setScannerDebug(`שגיאה: ${err?.message || err}`);
     }
@@ -466,6 +523,15 @@ export default function CheckerPage() {
           <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
             onChange={handleNativeCapture} style={{ display: 'none' }} />
         </Box>
+
+        {/* Debug area - always visible */}
+        {scannerDebug && (
+          <Box sx={{ mb: 1.5, p: 1, bgcolor: '#fff3e0', borderRadius: 1, border: '1px solid #ff9800' }}>
+            <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all', display: 'block' }}>
+              🔍 {scannerDebug}
+            </Typography>
+          </Box>
+        )}
 
         <ToggleButtonGroup value={statusFilter} exclusive
           onChange={(_, val) => val && setStatusFilter(val)} fullWidth size="small" sx={{ mb: 2 }}>
