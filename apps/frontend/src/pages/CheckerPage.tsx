@@ -145,9 +145,108 @@ export default function CheckerPage() {
       const s = track.getSettings();
       const resolution = `${s.width}x${s.height}`;
 
-      // Start continuous scanning every 300ms
+      // Helper: try decode on a source, return barcode or null
+      const tryDecode = async (source: any): Promise<string | null> => {
+        // Native BD
+        if ('BarcodeDetector' in window) {
+          try {
+            const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] });
+            const barcodes = await nativeBD.detect(source);
+            if (barcodes.length > 0) return barcodes[0].rawValue;
+          } catch { /* */ }
+        }
+        // WASM
+        try {
+          const barcodes = await wasmDetectorAll.detect(source);
+          if (barcodes.length > 0) return barcodes[0].rawValue;
+        } catch { /* */ }
+        return null;
+      };
+
+      // Helper: sharpen a canvas using unsharp mask technique
+      const sharpenCanvas = (src: HTMLCanvasElement): HTMLCanvasElement => {
+        const w = src.width, h = src.height;
+        const out = document.createElement('canvas');
+        out.width = w; out.height = h;
+        const srcCtx = src.getContext('2d')!;
+        const outCtx = out.getContext('2d')!;
+        const imgData = srcCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        const result = outCtx.createImageData(w, h);
+        const r = result.data;
+        // Sharpen kernel: [0,-1,0,-1,5,-1,0,-1,0]
+        const amount = 1.5;
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            for (let c = 0; c < 3; c++) {
+              const idx = (y * w + x) * 4 + c;
+              const val = d[idx] * (1 + 4 * amount)
+                - amount * d[((y - 1) * w + x) * 4 + c]
+                - amount * d[((y + 1) * w + x) * 4 + c]
+                - amount * d[(y * w + x - 1) * 4 + c]
+                - amount * d[(y * w + x + 1) * 4 + c];
+              r[idx] = Math.min(255, Math.max(0, val));
+            }
+            r[(y * w + x) * 4 + 3] = 255;
+          }
+        }
+        outCtx.putImageData(result, 0, 0);
+        return out;
+      };
+
+      // Helper: apply adaptive threshold for barcode enhancement
+      const adaptiveThreshold = (src: HTMLCanvasElement): HTMLCanvasElement => {
+        const w = src.width, h = src.height;
+        const out = document.createElement('canvas');
+        out.width = w; out.height = h;
+        const srcCtx = src.getContext('2d')!;
+        const outCtx = out.getContext('2d')!;
+        const imgData = srcCtx.getImageData(0, 0, w, h);
+        const d = imgData.data;
+        // Convert to grayscale array
+        const gray = new Uint8Array(w * h);
+        for (let i = 0; i < w * h; i++) {
+          gray[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);
+        }
+        // Compute integral image for fast local mean
+        const integral = new Float64Array((w + 1) * (h + 1));
+        for (let y = 0; y < h; y++) {
+          let rowSum = 0;
+          for (let x = 0; x < w; x++) {
+            rowSum += gray[y * w + x];
+            integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
+          }
+        }
+        // Adaptive threshold with window size ~15% of width
+        const winSize = Math.max(15, Math.floor(w * 0.15));
+        const half = Math.floor(winSize / 2);
+        const result = outCtx.createImageData(w, h);
+        const rd = result.data;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const y1 = Math.max(0, y - half), y2 = Math.min(h - 1, y + half);
+            const x1 = Math.max(0, x - half), x2 = Math.min(w - 1, x + half);
+            const area = (x2 - x1 + 1) * (y2 - y1 + 1);
+            const sum = integral[(y2 + 1) * (w + 1) + (x2 + 1)]
+              - integral[y1 * (w + 1) + (x2 + 1)]
+              - integral[(y2 + 1) * (w + 1) + x1]
+              + integral[y1 * (w + 1) + x1];
+            const mean = sum / area;
+            const v = gray[y * w + x] < mean * 0.88 ? 0 : 255;
+            const idx = (y * w + x) * 4;
+            rd[idx] = rd[idx + 1] = rd[idx + 2] = v;
+            rd[idx + 3] = 255;
+          }
+        }
+        outCtx.putImageData(result, 0, 0);
+        return out;
+      };
+
+      // Start continuous scanning every 250ms
       let count = 0;
       let scanning = false;
+      const nativeBD = 'BarcodeDetector' in window ? new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] }) : null;
+
       scanIntervalRef.current = window.setInterval(async () => {
         const video = videoRef.current;
         if (!video || video.readyState < 2 || scanning) return;
@@ -158,15 +257,13 @@ export default function CheckerPage() {
           const vw = video.videoWidth;
           const vh = video.videoHeight;
 
-          // Try native BarcodeDetector directly on video element (fastest)
-          if ('BarcodeDetector' in window) {
+          // === Step 1: Try directly on video element (fastest) ===
+          if (nativeBD) {
             try {
-              const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] });
               const barcodes = await nativeBD.detect(video);
               if (barcodes.length > 0) {
                 const code = barcodes[0].rawValue;
-                setScannerDebug(`${resolution} | #${count} NAT: "${code}"`);
-                // Stop scanning and handle result
+                setScannerDebug(`${resolution} | #${count} NAT-video: "${code}"`);
                 if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
                 scanIntervalRef.current = null;
                 stopScanner();
@@ -176,50 +273,62 @@ export default function CheckerPage() {
             } catch { /* */ }
           }
 
-          // Try WASM detector on video element
-          try {
-            const barcodes = await wasmDetectorAll.detect(video);
-            if (barcodes.length > 0) {
-              const code = barcodes[0].rawValue;
-              setScannerDebug(`${resolution} | #${count} WASM: "${code}"`);
-              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-              scanIntervalRef.current = null;
-              stopScanner();
-              handleBarcodeDetected(code);
-              return;
-            }
-          } catch { /* */ }
+          // === Step 2: Capture center strip to canvas, try raw + sharpened + thresholded ===
+          // Only do heavy processing every 2nd frame to keep performance
+          if (count % 2 === 0) {
+            // Capture center strip (where barcode should be)
+            const stripH = Math.floor(vh * 0.35);
+            const stripCanvas = document.createElement('canvas');
+            stripCanvas.width = vw;
+            stripCanvas.height = stripH;
+            stripCanvas.getContext('2d')!.drawImage(
+              video,
+              0, Math.floor((vh - stripH) / 2), vw, stripH,
+              0, 0, vw, stripH,
+            );
 
-          // Try WASM on center-cropped canvas
-          const cropCanvas = document.createElement('canvas');
-          const cropW = vw;
-          const cropH = Math.floor(vh * 0.3);
-          cropCanvas.width = cropW;
-          cropCanvas.height = cropH;
-          cropCanvas.getContext('2d')!.drawImage(
-            video,
-            0, Math.floor((vh - cropH) / 2), cropW, cropH,
-            0, 0, cropW, cropH,
-          );
-          try {
-            const barcodes = await wasmDetectorAll.detect(cropCanvas);
-            if (barcodes.length > 0) {
-              const code = barcodes[0].rawValue;
-              setScannerDebug(`${resolution} | #${count} WASM-crop: "${code}"`);
+            // Try raw strip
+            const r1 = await tryDecode(stripCanvas);
+            if (r1) {
+              setScannerDebug(`${resolution} | #${count} strip: "${r1}"`);
               if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
               scanIntervalRef.current = null;
               stopScanner();
-              handleBarcodeDetected(code);
+              handleBarcodeDetected(r1);
               return;
             }
-          } catch { /* */ }
+
+            // Try sharpened
+            const sharpened = sharpenCanvas(stripCanvas);
+            const r2 = await tryDecode(sharpened);
+            if (r2) {
+              setScannerDebug(`${resolution} | #${count} sharp: "${r2}"`);
+              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+              scanIntervalRef.current = null;
+              stopScanner();
+              handleBarcodeDetected(r2);
+              return;
+            }
+
+            // Try adaptive threshold
+            const thresholded = adaptiveThreshold(stripCanvas);
+            const r3 = await tryDecode(thresholded);
+            if (r3) {
+              setScannerDebug(`${resolution} | #${count} thresh: "${r3}"`);
+              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+              scanIntervalRef.current = null;
+              stopScanner();
+              handleBarcodeDetected(r3);
+              return;
+            }
+          }
 
           setScannerDebug(`${resolution} | סורק... #${count}`);
           setScanCount(count);
         } catch { /* */ }
 
         scanning = false;
-      }, 300);
+      }, 250);
 
       setScannerDebug(`${resolution} | סריקה רציפה...`);
     } catch (err: any) {
