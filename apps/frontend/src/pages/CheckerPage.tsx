@@ -16,6 +16,7 @@ import {
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
 } from '@mui/icons-material';
+import { scanImageData } from '@undecaf/zbar-wasm';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
 import { useAuthStore } from '../store/authStore';
@@ -40,8 +41,30 @@ function getTodayDate() {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
-// Detect native BarcodeDetector support (Chrome Android 83+)
-const hasNativeBarcodeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+/**
+ * Enhance image for barcode detection - like Cognex image processing
+ * Applies grayscale + contrast boost + sharpening
+ */
+function enhanceImageForBarcode(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  // Convert to grayscale + boost contrast
+  for (let i = 0; i < data.length; i += 4) {
+    // Grayscale
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+
+    // Contrast boost (factor 1.5, centered at 128)
+    const enhanced = Math.min(255, Math.max(0, ((gray - 128) * 1.5) + 128));
+
+    data[i] = enhanced;
+    data[i + 1] = enhanced;
+    data[i + 2] = enhanced;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return ctx.getImageData(0, 0, width, height);
+}
 
 export default function CheckerPage() {
   const logout = useAuthStore((s) => s.logout);
@@ -57,11 +80,10 @@ export default function CheckerPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
-  const [scannerDebug, setScannerDebug] = useState('מאתחל...');
+  const [scannerDebug, setScannerDebug] = useState('');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stoppedRef = useRef(false);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
@@ -100,14 +122,17 @@ export default function CheckerPage() {
     setScannerDebug('');
   }, []);
 
-  // Start camera and scanning - Cognex-inspired: high-res + continuous autofocus + native detection
+  // Validate barcode format
+  const isValidBarcode = (code: string) => /^T-\d+-\d+$/.test(code) || /^\d{6,}$/.test(code);
+
+  // Start camera and scanning
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     stoppedRef.current = false;
     setScannerDebug('מפעיל מצלמה...');
 
     try {
-      // Request HIGH resolution with continuous autofocus - like Cognex
+      // Request HIGH resolution with continuous autofocus
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -125,12 +150,11 @@ export default function CheckerPage() {
 
       streamRef.current = stream;
 
-      // Apply advanced track constraints for best focus
+      // Apply advanced track constraints
       const track = stream.getVideoTracks()[0];
       try {
         const caps = track?.getCapabilities?.() as any;
         const advancedConstraints: any[] = [];
-
         if (caps?.focusMode?.includes('continuous')) {
           advancedConstraints.push({ focusMode: 'continuous' });
         }
@@ -140,11 +164,9 @@ export default function CheckerPage() {
         if (advancedConstraints.length > 0) {
           await track.applyConstraints({ advanced: advancedConstraints });
         }
-      } catch {
-        // Some browsers don't support advanced constraints
-      }
+      } catch { /* ignore */ }
 
-      // Wait for video element to be in DOM, then start
+      // Wait for video element
       setTimeout(async () => {
         if (stoppedRef.current || !videoRef.current) return;
 
@@ -152,102 +174,79 @@ export default function CheckerPage() {
         video.srcObject = stream;
         await video.play().catch(() => {});
 
-        // Log actual resolution
         const settings = track.getSettings();
-        setScannerDebug(`${settings.width}x${settings.height} | ${hasNativeBarcodeDetector ? 'Native' : 'WASM'} detector`);
+        setScannerDebug(`${settings.width}x${settings.height} | ZBar + image enhancement`);
 
-        // Create offscreen canvas for frame capture
+        // Create offscreen canvas for frame processing
         const canvas = document.createElement('canvas');
-        canvasRef.current = canvas;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
 
-        if (hasNativeBarcodeDetector) {
-          // ===== NATIVE BarcodeDetector - hardware accelerated, very fast =====
-          const NativeBD = (window as any).BarcodeDetector;
-          const detector = new NativeBD({
-            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf'],
-          });
+        let busy = false;
+        let frameCount = 0;
 
-          let busy = false;
-          scanIntervalRef.current = window.setInterval(async () => {
-            if (!video || video.readyState < 2 || busy || stoppedRef.current) return;
-            busy = true;
-            try {
-              const barcodes = await detector.detect(video);
-              busy = false;
-              if (stoppedRef.current) return;
+        scanIntervalRef.current = window.setInterval(async () => {
+          if (!video || video.readyState < 2 || busy || stoppedRef.current) return;
+          busy = true;
+          frameCount++;
 
-              for (const barcode of barcodes) {
-                const code = barcode.rawValue;
-                if (!code) continue;
-                if (!/^T-\d+-\d+$/.test(code) && !/^\d{6,}$/.test(code)) continue;
+          try {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
 
-                // Accept immediately - native detector is reliable
+            // Scan the center region (where the barcode guide is) - 90% width, 40% height
+            const cropX = Math.floor(vw * 0.05);
+            const cropY = Math.floor(vh * 0.3);
+            const cropW = Math.floor(vw * 0.9);
+            const cropH = Math.floor(vh * 0.4);
+
+            canvas.width = cropW;
+            canvas.height = cropH;
+
+            // Draw cropped center region
+            ctx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+            // Apply image enhancement (contrast + grayscale) - like Cognex
+            const enhancedData = enhanceImageForBarcode(ctx, cropW, cropH);
+
+            // Decode with ZBar (excellent for 1D barcodes)
+            const symbols = await scanImageData(enhancedData);
+
+            busy = false;
+            if (stoppedRef.current) return;
+
+            for (const sym of symbols) {
+              const code = sym.decode();
+              if (!code) continue;
+
+              if (isValidBarcode(code)) {
                 stopScanner();
                 handleBarcodeDetected(code);
                 return;
               }
-            } catch {
-              busy = false;
             }
-          }, 100); // Scan every 100ms - native is fast enough
-        } else {
-          // ===== FALLBACK: html5-qrcode via decodeSingle on canvas frames =====
-          const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
 
-          // Create a hidden container for html5-qrcode
-          const container = document.createElement('div');
-          container.id = 'qr-fallback-region';
-          container.style.display = 'none';
-          document.body.appendChild(container);
-
-          const qrScanner = new Html5Qrcode('qr-fallback-region', {
-            formatsToSupport: [
-              Html5QrcodeSupportedFormats.CODE_128,
-              Html5QrcodeSupportedFormats.CODE_39,
-              Html5QrcodeSupportedFormats.EAN_13,
-              Html5QrcodeSupportedFormats.EAN_8,
-              Html5QrcodeSupportedFormats.ITF,
-            ],
-            verbose: false,
-          });
-
-          let busy = false;
-          scanIntervalRef.current = window.setInterval(async () => {
-            if (!video || video.readyState < 2 || busy || stoppedRef.current) return;
-            busy = true;
-
-            try {
-              // Capture frame to canvas
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              const ctx = canvas.getContext('2d');
-              if (!ctx) { busy = false; return; }
-              ctx.drawImage(video, 0, 0);
-
-              // Convert to blob and scan
-              const blob = await new Promise<Blob | null>((resolve) =>
-                canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9)
-              );
-              if (!blob || stoppedRef.current) { busy = false; return; }
-
-              const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
-              const result = await qrScanner.scanFileV2(file, false);
-              busy = false;
-
-              if (result?.decodedText && !stoppedRef.current) {
-                const code = result.decodedText;
-                if (/^T-\d+-\d+$/.test(code) || /^\d{6,}$/.test(code)) {
-                  container.remove();
-                  stopScanner();
-                  handleBarcodeDetected(code);
-                  return;
+            // Also try native BarcodeDetector on the original video (no crop, no enhancement)
+            // This gives us two chances per frame
+            if ('BarcodeDetector' in window && frameCount % 3 === 0) {
+              try {
+                const NativeBD = (window as any).BarcodeDetector;
+                const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf'] });
+                const barcodes = await detector.detect(video);
+                if (stoppedRef.current) return;
+                for (const barcode of barcodes) {
+                  const code = barcode.rawValue;
+                  if (code && isValidBarcode(code)) {
+                    stopScanner();
+                    handleBarcodeDetected(code);
+                    return;
+                  }
                 }
-              }
-            } catch {
-              busy = false;
+              } catch { /* ignore native fallback errors */ }
             }
-          }, 200); // Frame scan every 200ms for WASM fallback
-        }
+          } catch {
+            busy = false;
+          }
+        }, 120); // Scan every 120ms
       }, 300);
     } catch (err: any) {
       setScannerOpen(false);
@@ -330,7 +329,6 @@ export default function CheckerPage() {
 
       {/* Search + Filters */}
       <Box sx={{ p: 2 }}>
-        {/* Date picker */}
         <TextField
           type="date"
           size="small"
@@ -342,7 +340,6 @@ export default function CheckerPage() {
           label="תאריך"
         />
 
-        {/* Search bar + scan button */}
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
           <TextField
             fullWidth
@@ -372,7 +369,6 @@ export default function CheckerPage() {
           </Button>
         </Box>
 
-        {/* Status filter */}
         <ToggleButtonGroup
           value={statusFilter}
           exclusive
@@ -386,7 +382,6 @@ export default function CheckerPage() {
           <ToggleButton value="checked">נבדק</ToggleButton>
         </ToggleButtonGroup>
 
-        {/* Results count */}
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
           {ordersLoading ? 'טוען...' : `${orders.length} הזמנות`}
         </Typography>
@@ -452,7 +447,6 @@ export default function CheckerPage() {
         fullScreen
         PaperProps={{ sx: { bgcolor: '#f5f5f5' } }}
       >
-        {/* Dialog Header */}
         <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5 }}>
           <IconButton color="inherit" onClick={() => setSelectedOrder(null)} edge="start">
             <ArrowBackIcon />
@@ -470,14 +464,12 @@ export default function CheckerPage() {
         <DialogContent sx={{ p: 2 }}>
           {linesLoading && <CircularProgress sx={{ display: 'block', mx: 'auto', mt: 4 }} />}
 
-          {/* All checked banner */}
           {allChecked && orderDetail && orderDetail.orderLines.length > 0 && (
             <Alert severity="success" sx={{ mb: 2, fontSize: 16 }} icon={<CheckCircleIcon />}>
               כל השורות נבדקו!
             </Alert>
           )}
 
-          {/* Order info */}
           {orderDetail && (
             <Box sx={{ mb: 2, p: 1.5, bgcolor: 'white', borderRadius: 1 }}>
               <Typography variant="body2"><strong>כתובת:</strong> {orderDetail.address}, {orderDetail.city}</Typography>
@@ -488,7 +480,6 @@ export default function CheckerPage() {
 
           <Divider sx={{ mb: 2 }} />
 
-          {/* Lines list */}
           {orderDetail?.orderLines.map((line) => (
             <Card
               key={line.id}
@@ -535,7 +526,6 @@ export default function CheckerPage() {
         fullScreen
         PaperProps={{ sx: { bgcolor: 'black', overflow: 'hidden' } }}
       >
-        {/* Direct video element - high resolution like Cognex */}
         <video
           ref={videoRef}
           autoPlay
@@ -573,7 +563,7 @@ export default function CheckerPage() {
           ) : <Box sx={{ width: 48 }} />}
         </Box>
 
-        {/* Scan guide overlay */}
+        {/* Scan guide overlay - center region */}
         <Box sx={{
           position: 'absolute', top: '50%', left: '50%',
           transform: 'translate(-50%, -50%)',
@@ -583,7 +573,6 @@ export default function CheckerPage() {
           pointerEvents: 'none',
           boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
         }}>
-          {/* Laser line animation */}
           <Box sx={{
             position: 'absolute', top: '50%', left: 8, right: 8,
             height: 2, bgcolor: '#ff1744',
@@ -593,7 +582,6 @@ export default function CheckerPage() {
               '50%': { transform: 'translateY(30px)', opacity: 1 },
             },
           }} />
-          {/* Corner markers */}
           {[
             { top: -2, left: -2, borderTop: '4px solid #ff1744', borderLeft: '4px solid #ff1744' },
             { top: -2, right: -2, borderTop: '4px solid #ff1744', borderRight: '4px solid #ff1744' },
