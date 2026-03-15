@@ -139,6 +139,17 @@ export default function CheckerPage() {
     }
   }, []);
 
+  // Helper: decode from canvas using ZXing (via data URL)
+  const decodeCanvasWithZXing = async (canvas: HTMLCanvasElement): Promise<string | null> => {
+    const dataUrl = canvas.toDataURL('image/png');
+    try {
+      const result = await zxingReader.decodeFromImageUrl(dataUrl);
+      return result ? result.getText() : null;
+    } catch {
+      return null;
+    }
+  };
+
   // Manual capture - take photo and decode with multiple methods
   const captureAndDecode = useCallback(async () => {
     const video = videoRef.current;
@@ -152,122 +163,101 @@ export default function CheckerPage() {
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    setScannerDebug(`מצלם ${vw}x${vh}...`);
+    const results: string[] = []; // collect all debug messages
 
     try {
-      let decoded = false;
-
-      // === Method 1: Full frame canvas → ZXing decodeFromCanvas ===
+      // === Step 1: Capture full frame ===
+      results.push(`צולם ${vw}x${vh}`);
       const fullCanvas = document.createElement('canvas');
       fullCanvas.width = vw;
       fullCanvas.height = vh;
-      const fullCtx = fullCanvas.getContext('2d')!;
-      fullCtx.drawImage(video, 0, 0);
+      fullCanvas.getContext('2d')!.drawImage(video, 0, 0);
 
-      try {
-        const result = zxingReader.decodeFromCanvas(fullCanvas);
-        if (result) {
-          const code = result.getText();
-          setScannerDebug(`ZXing full: "${code}"`);
-          decoded = true;
-          stopScanner();
-          handleBarcodeDetected(code);
-        }
-      } catch (e: any) {
-        setScannerDebug(`ZXing full: ${e?.name || 'fail'}`);
+      // === Method 1: ZXing full frame ===
+      const r1 = await decodeCanvasWithZXing(fullCanvas);
+      if (r1) {
+        results.push(`ZXing full: "${r1}"`);
+        setScannerDebug(results.join(' | '));
+        stopScanner();
+        handleBarcodeDetected(r1);
+        setCapturing(false);
+        return;
       }
+      results.push('ZXing full: X');
 
-      // === Method 2: Center crop canvas → ZXing ===
-      if (!decoded) {
-        const cropCanvas = document.createElement('canvas');
-        const cropW = Math.floor(vw * 0.9);
-        const cropH = Math.floor(vh * 0.4);
-        const cropX = Math.floor((vw - cropW) / 2);
-        const cropY = Math.floor((vh - cropH) / 2);
-        cropCanvas.width = cropW;
-        cropCanvas.height = cropH;
-        const cropCtx = cropCanvas.getContext('2d')!;
-        cropCtx.drawImage(video, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-        try {
-          const result = zxingReader.decodeFromCanvas(cropCanvas);
-          if (result) {
-            const code = result.getText();
-            setScannerDebug(`ZXing crop: "${code}"`);
-            decoded = true;
-            stopScanner();
-            handleBarcodeDetected(code);
-          }
-        } catch (e: any) {
-          setScannerDebug(`ZXing crop: ${e?.name || 'fail'}`);
-        }
+      // === Method 2: ZXing center crop ===
+      const cropCanvas = document.createElement('canvas');
+      const cropW = Math.floor(vw * 0.9);
+      const cropH = Math.floor(vh * 0.4);
+      cropCanvas.width = cropW;
+      cropCanvas.height = cropH;
+      cropCanvas.getContext('2d')!.drawImage(
+        video,
+        Math.floor((vw - cropW) / 2), Math.floor((vh - cropH) / 2), cropW, cropH,
+        0, 0, cropW, cropH,
+      );
+      const r2 = await decodeCanvasWithZXing(cropCanvas);
+      if (r2) {
+        results.push(`ZXing crop: "${r2}"`);
+        setScannerDebug(results.join(' | '));
+        stopScanner();
+        handleBarcodeDetected(r2);
+        setCapturing(false);
+        return;
       }
+      results.push('ZXing crop: X');
 
-      // === Method 3: Grayscale + contrast boost → ZXing ===
-      if (!decoded) {
-        const enhCanvas = document.createElement('canvas');
-        enhCanvas.width = vw;
-        enhCanvas.height = vh;
-        const enhCtx = enhCanvas.getContext('2d')!;
-        enhCtx.drawImage(video, 0, 0);
-        const imgData = enhCtx.getImageData(0, 0, vw, vh);
-        const d = imgData.data;
-        for (let i = 0; i < d.length; i += 4) {
-          const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-          const v = Math.min(255, Math.max(0, ((gray - 128) * 2) + 128));
-          d[i] = d[i + 1] = d[i + 2] = v;
-        }
-        enhCtx.putImageData(imgData, 0, 0);
-
-        try {
-          const result = zxingReader.decodeFromCanvas(enhCanvas);
-          if (result) {
-            const code = result.getText();
-            setScannerDebug(`ZXing enhanced: "${code}"`);
-            decoded = true;
-            stopScanner();
-            handleBarcodeDetected(code);
-          }
-        } catch (e: any) {
-          setScannerDebug(`ZXing enhanced: ${e?.name || 'fail'}`);
-        }
+      // === Method 3: ZXing grayscale + contrast ===
+      const enhCanvas = document.createElement('canvas');
+      enhCanvas.width = vw;
+      enhCanvas.height = vh;
+      const enhCtx = enhCanvas.getContext('2d')!;
+      enhCtx.drawImage(video, 0, 0);
+      const imgData = enhCtx.getImageData(0, 0, vw, vh);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        const v = Math.min(255, Math.max(0, ((gray - 128) * 2) + 128));
+        d[i] = d[i + 1] = d[i + 2] = v;
       }
+      enhCtx.putImageData(imgData, 0, 0);
+      const r3 = await decodeCanvasWithZXing(enhCanvas);
+      if (r3) {
+        results.push(`ZXing enh: "${r3}"`);
+        setScannerDebug(results.join(' | '));
+        stopScanner();
+        handleBarcodeDetected(r3);
+        setCapturing(false);
+        return;
+      }
+      results.push('ZXing enh: X');
 
-      // === Method 4: Native BarcodeDetector on video directly ===
-      if (!decoded && 'BarcodeDetector' in window) {
+      // === Method 4: Native BarcodeDetector ===
+      if ('BarcodeDetector' in window) {
         try {
           const NativeBD = (window as any).BarcodeDetector;
           const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'] });
-          const barcodes = await detector.detect(video);
-
+          const barcodes = await detector.detect(fullCanvas);
           if (barcodes.length > 0) {
             const code = barcodes[0].rawValue;
-            setScannerDebug(`Native video: "${code}" (${barcodes[0].format})`);
-            decoded = true;
+            results.push(`Native: "${code}"`);
+            setScannerDebug(results.join(' | '));
             stopScanner();
             handleBarcodeDetected(code);
-          } else {
-            // Try on canvas too
-            const barcodes2 = await detector.detect(fullCanvas);
-            if (barcodes2.length > 0) {
-              const code = barcodes2[0].rawValue;
-              setScannerDebug(`Native canvas: "${code}" (${barcodes2[0].format})`);
-              decoded = true;
-              stopScanner();
-              handleBarcodeDetected(code);
-            } else {
-              setScannerDebug('Native: 0 results (video+canvas)');
-            }
+            setCapturing(false);
+            return;
           }
+          results.push(`Native: X (0)`);
         } catch (e: any) {
-          setScannerDebug(`Native err: ${e?.message?.slice(0, 60)}`);
+          results.push(`Native: err`);
         }
+      } else {
+        results.push('Native: N/A');
       }
 
-      if (!decoded) {
-        setScannerDebug(`לא זוהה (${vw}x${vh}) - התקרב ולחץ שוב`);
-        setSnackbar({ message: 'לא זוהה ברקוד. התקרב ונסה שוב.', severity: 'info' });
-      }
+      // All failed
+      setScannerDebug(results.join(' | '));
+      setSnackbar({ message: 'לא זוהה ברקוד. התקרב ונסה שוב.', severity: 'info' });
     } catch (err: any) {
       setScannerDebug(`שגיאה: ${err?.message || err}`);
     }
