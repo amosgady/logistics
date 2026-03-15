@@ -120,45 +120,57 @@ export default function CheckerPage() {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d')!;
         const recentReads: string[] = [];
-        const REQUIRED_CONSISTENT = 3; // Need 3 identical reads
+        const REQUIRED_CONSISTENT = 2; // Need 2 identical reads
+        let decoding = false;
 
         scanIntervalRef.current = window.setInterval(() => {
           const video = videoRef.current;
-          if (!video || video.readyState < 2) return;
+          if (!video || video.readyState < 2 || decoding) return;
+          decoding = true;
 
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           ctx.drawImage(video, 0, 0);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
 
-          Quagga.decodeSingle(
-            {
-              src: dataUrl,
-              numOfWorkers: 0,
-              inputStream: { size: 1280 },
-              decoder: { readers: ['code_128_reader'] },
-              locate: true,
-              locator: { patchSize: 'medium', halfSample: true },
-            },
-            (res: any) => {
-              const code = res?.codeResult?.code;
-              if (!code) return;
+          // Try two patch sizes per frame for better detection
+          const tryDecode = (patchSize: string, halfSample: boolean) => {
+            return new Promise<string | null>((resolve) => {
+              Quagga.decodeSingle(
+                {
+                  src: dataUrl,
+                  numOfWorkers: 0,
+                  inputStream: { size: 1600 },
+                  decoder: { readers: ['code_128_reader'] },
+                  locate: true,
+                  locator: { patchSize, halfSample },
+                },
+                (res: any) => resolve(res?.codeResult?.code || null),
+              );
+            });
+          };
 
-              // Only accept T-XXXXX-X format barcodes
-              if (!/^T-\d+-\d+$/.test(code)) return;
+          (async () => {
+            let code = await tryDecode('medium', false);
+            if (!code) code = await tryDecode('large', false);
+            if (!code) code = await tryDecode('small', true);
+            decoding = false;
 
-              recentReads.push(code);
-              if (recentReads.length > 10) recentReads.shift();
+            if (!code) return;
+            // Accept T-XXXXX-X format or any numeric barcode
+            if (!/^T-\d+-\d+$/.test(code) && !/^\d{6,}$/.test(code)) return;
 
-              // Check if last N reads are identical
-              const last = recentReads.slice(-REQUIRED_CONSISTENT);
-              if (last.length === REQUIRED_CONSISTENT && last.every((r) => r === last[0])) {
-                stopScanner();
-                handleBarcodeDetected(last[0]);
-              }
-            },
-          );
-        }, 300); // Scan every 300ms
+            recentReads.push(code);
+            if (recentReads.length > 10) recentReads.shift();
+
+            // Check if last N reads are identical
+            const last = recentReads.slice(-REQUIRED_CONSISTENT);
+            if (last.length === REQUIRED_CONSISTENT && last.every((r) => r === last[0])) {
+              stopScanner();
+              handleBarcodeDetected(last[0]);
+            }
+          })();
+        }, 200); // Scan every 200ms
       }, 300);
     } catch {
       // Camera not available - fall back to file input
