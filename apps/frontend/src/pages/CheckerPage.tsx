@@ -65,6 +65,7 @@ export default function CheckerPage() {
   const [scannerDebug, setScannerDebug] = useState('');
   const [capturing, setCapturing] = useState(false);
   const [scanCount, setScanCount] = useState(0);
+  const [capturedImage, setCapturedImage] = useState<string>(''); // data URL of last capture for debugging
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<any>(null);
@@ -226,6 +227,102 @@ export default function CheckerPage() {
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
   }, [stopScanner, handleBarcodeDetected]);
+
+  // Self-test: generate a Code 128 barcode on canvas and try to decode it
+  const runSelfTest = useCallback(async () => {
+    setScannerDebug('בדיקה עצמית...');
+    setCapturedImage('');
+    const results: string[] = ['TEST'];
+
+    // Create a test image by loading a known Code 128 barcode from an online generator
+    try {
+      const testImg = document.createElement('img');
+      testImg.crossOrigin = 'anonymous';
+      // Use a simple barcode generator URL
+      testImg.src = 'https://barcode.tec-it.com/barcode.ashx?data=T-12345-1&code=Code128&translate-esc=true&dmsize=Default&unit=Fit&imagetype=Png&rotation=0&color=%23000000&bgcolor=%23ffffff&qunit=Mm&quiet=0';
+
+      const loaded = await Promise.race([
+        new Promise<boolean>((resolve) => { testImg.onload = () => resolve(true); testImg.onerror = () => resolve(false); }),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000)),
+      ]);
+
+      if (!loaded) {
+        // Fallback: draw a simple test pattern (thick black/white bars)
+        results.push('URL fail, testing native API');
+        setScannerDebug(results.join(' | '));
+
+        // Just test if detect() works at all with an empty canvas
+        const testCanvas = document.createElement('canvas');
+        testCanvas.width = 400;
+        testCanvas.height = 100;
+        const ctx = testCanvas.getContext('2d')!;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, 400, 100);
+        // Draw some black bars
+        ctx.fillStyle = 'black';
+        for (let i = 0; i < 40; i++) {
+          if (i % 2 === 0) ctx.fillRect(10 + i * 9, 5, 5, 90);
+        }
+
+        try {
+          const barcodes = await wasmDetectorAll.detect(testCanvas);
+          results.push(`WASM detect ran OK: ${barcodes.length} results`);
+        } catch (e: any) {
+          results.push(`WASM detect error: ${e?.message?.slice(0, 40)}`);
+        }
+
+        if ('BarcodeDetector' in window) {
+          try {
+            const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128'] });
+            const barcodes = await nativeBD.detect(testCanvas);
+            results.push(`NAT detect ran OK: ${barcodes.length} results`);
+          } catch (e: any) {
+            results.push(`NAT detect error: ${e?.message?.slice(0, 40)}`);
+          }
+        }
+
+        setScannerDebug(results.join(' | '));
+        return;
+      }
+
+      results.push(`test img: ${testImg.naturalWidth}x${testImg.naturalHeight}`);
+
+      // Try WASM
+      try {
+        const bitmap = await createImageBitmap(testImg);
+        const barcodes = await wasmDetectorAll.detect(bitmap);
+        bitmap.close();
+        results.push(barcodes.length > 0 ? `WASM OK: "${barcodes[0].rawValue}"` : `WASM: 0`);
+      } catch (e: any) {
+        results.push(`WASM: E${e?.message?.slice(0, 25)}`);
+      }
+
+      // Try native
+      if ('BarcodeDetector' in window) {
+        try {
+          const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128'] });
+          const bitmap = await createImageBitmap(testImg);
+          const barcodes = await nativeBD.detect(bitmap);
+          bitmap.close();
+          results.push(barcodes.length > 0 ? `NAT OK: "${barcodes[0].rawValue}"` : `NAT: 0`);
+        } catch (e: any) {
+          results.push(`NAT: E${e?.message?.slice(0, 25)}`);
+        }
+      }
+
+      // Show test image
+      const tc = document.createElement('canvas');
+      tc.width = testImg.naturalWidth;
+      tc.height = testImg.naturalHeight;
+      tc.getContext('2d')!.drawImage(testImg, 0, 0);
+      setCapturedImage(tc.toDataURL('image/png'));
+
+    } catch (e: any) {
+      results.push(`error: ${e?.message?.slice(0, 40)}`);
+    }
+
+    setScannerDebug(results.join(' | '));
+  }, []);
 
   // Helper: downscale image to max width for better decode performance
   const downscaleCanvas = (source: HTMLCanvasElement | HTMLImageElement, maxWidth: number): HTMLCanvasElement => {
@@ -421,6 +518,8 @@ export default function CheckerPage() {
       const scaled = downscaleCanvas(img, 1280);
       results.push(`→${scaled.width}x${scaled.height}`);
       results.push(getPixelSample(scaled));
+      // Save for visual debugging
+      setCapturedImage(scaled.toDataURL('image/jpeg', 0.7));
       setScannerDebug(results.join(' | '));
 
       // Try on downscaled (best size for decoders)
@@ -577,6 +676,17 @@ export default function CheckerPage() {
             <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all', display: 'block' }}>
               🔍 {scannerDebug}
             </Typography>
+          </Box>
+        )}
+        {/* Self-test button */}
+        <Button variant="text" size="small" onClick={runSelfTest} sx={{ mb: 0.5, fontSize: 11 }}>
+          🧪 בדיקת מפענח
+        </Button>
+        {/* Show captured/test image */}
+        {capturedImage && (
+          <Box sx={{ mb: 1.5, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>תמונה שנשלחה למפענח:</Typography>
+            <img src={capturedImage} alt="captured" style={{ maxWidth: '100%', maxHeight: 200, border: '1px solid #ccc' }} />
           </Box>
         )}
 
