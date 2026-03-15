@@ -146,6 +146,9 @@ export default function CheckerPage() {
           Html5QrcodeSupportedFormats.CODABAR,
         ],
         verbose: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true, // Use Chrome's native ML-based BarcodeDetector
+        },
       });
       html5QrCodeRef.current = html5QrCode;
 
@@ -543,6 +546,104 @@ export default function CheckerPage() {
     }
   }, [torchOn]);
 
+  // Debug capture: grab frame from scanner video, show it, try all decoders
+  const debugCapture = useCallback(async () => {
+    const scannerDiv = document.getElementById('html5-qrcode-scanner');
+    const video = scannerDiv?.querySelector('video');
+    if (!video || video.readyState < 2) {
+      setScannerDebug('DBG: אין וידאו פעיל');
+      return;
+    }
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const results: string[] = [`DBG ${vw}x${vh}`];
+
+    // Full frame canvas
+    const canvas = document.createElement('canvas');
+    canvas.width = vw;
+    canvas.height = vh;
+    canvas.getContext('2d')!.drawImage(video, 0, 0);
+
+    // Show the captured frame
+    setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
+
+    // Try native BarcodeDetector (no format filter - detect ANYTHING)
+    if ('BarcodeDetector' in window) {
+      try {
+        const bd = new (window as any).BarcodeDetector();
+        const barcodes = await bd.detect(canvas);
+        results.push(barcodes.length > 0
+          ? `NAT-ALL:"${barcodes[0].rawValue}"(${barcodes[0].format})`
+          : `NAT-ALL:0`);
+      } catch (e: any) { results.push(`NAT-ALL:E`); }
+
+      try {
+        const bd128 = new (window as any).BarcodeDetector({ formats: ['code_128'] });
+        const barcodes = await bd128.detect(canvas);
+        results.push(barcodes.length > 0 ? `NAT128:"${barcodes[0].rawValue}"` : `NAT128:0`);
+      } catch (e: any) { results.push(`NAT128:E`); }
+    } else {
+      results.push('NAT:N/A');
+    }
+
+    // Try WASM (all formats)
+    try {
+      const barcodes = await wasmDetectorAll.detect(canvas);
+      results.push(barcodes.length > 0 ? `WA:"${barcodes[0].rawValue}"(${barcodes[0].format})` : `WA:0`);
+    } catch { results.push('WA:E'); }
+
+    // Try WASM (code_128)
+    try {
+      const barcodes = await wasmDetector128.detect(canvas);
+      results.push(barcodes.length > 0 ? `W128:"${barcodes[0].rawValue}"` : `W128:0`);
+    } catch { results.push('W128:E'); }
+
+    // Try center strip at smaller size
+    const stripH = Math.floor(vh * 0.3);
+    const strip = document.createElement('canvas');
+    strip.width = 640;
+    strip.height = Math.floor(stripH * (640 / vw));
+    strip.getContext('2d')!.drawImage(
+      canvas,
+      0, Math.floor((vh - stripH) / 2), vw, stripH,
+      0, 0, strip.width, strip.height,
+    );
+    try {
+      const barcodes = await wasmDetectorAll.detect(strip);
+      results.push(barcodes.length > 0 ? `STRIP:"${barcodes[0].rawValue}"` : `STRIP:0`);
+    } catch { results.push('STRIP:E'); }
+
+    // Try ImageCapture photo if available
+    try {
+      const track = (video.srcObject as MediaStream)?.getVideoTracks()[0];
+      if (track && 'ImageCapture' in window) {
+        const ic = new (window as any).ImageCapture(track);
+        const blob = await ic.takePhoto();
+        const bmp = await createImageBitmap(blob);
+        results.push(`PHOTO:${bmp.width}x${bmp.height}`);
+        const pc = document.createElement('canvas');
+        pc.width = bmp.width; pc.height = bmp.height;
+        pc.getContext('2d')!.drawImage(bmp, 0, 0);
+
+        const barcodes = await wasmDetectorAll.detect(pc);
+        results.push(barcodes.length > 0 ? `PH-WA:"${barcodes[0].rawValue}"` : `PH-WA:0`);
+
+        if ('BarcodeDetector' in window) {
+          const bd = new (window as any).BarcodeDetector();
+          const barcodes2 = await bd.detect(pc);
+          results.push(barcodes2.length > 0 ? `PH-NAT:"${barcodes2[0].rawValue}"` : `PH-NAT:0`);
+        }
+
+        bmp.close();
+      }
+    } catch (e: any) {
+      results.push(`PHOTO:E-${e?.message?.slice(0, 30)}`);
+    }
+
+    setScannerDebug(results.join(' | '));
+  }, []);
+
   // Cleanup
   useEffect(() => {
     return () => {
@@ -774,13 +875,18 @@ export default function CheckerPage() {
             '& #qr-shaded-region': { borderColor: '#ff1744 !important' },
           }} />
 
-          {/* Bottom status */}
+          {/* Bottom status + debug capture button */}
           <Box sx={{
             p: 1.5, bgcolor: 'rgba(0,0,0,0.8)', zIndex: 10,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2,
           }}>
             <CircularProgress size={18} sx={{ color: '#4caf50' }} />
             <Typography color="white" fontSize={13}>סורק... #{scanCount}</Typography>
+            <Button variant="contained" size="small" color="warning"
+              onClick={debugCapture}
+              sx={{ fontSize: 11, py: 0.5, px: 1.5, minWidth: 'auto' }}>
+              📸 צלם דיבאג
+            </Button>
           </Box>
         </Box>
       )}
