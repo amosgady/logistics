@@ -97,7 +97,7 @@ export default function CheckerPage() {
     setCapturing(false);
   }, []);
 
-  // Start scanner - open camera with high resolution
+  // Start scanner - just open camera, no continuous decode
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     setScannerDebug('מפעיל מצלמה...');
@@ -132,110 +132,100 @@ export default function CheckerPage() {
       } catch { /* */ }
 
       const s = track.getSettings();
-      setScannerDebug(`${s.width}x${s.height} | לחץ על כפתור הצילום`);
-
-      // Also run ZXing continuous scanning in background
-      if (videoRef.current) {
-        try {
-          const controls = await zxingReader.decodeFromVideoDevice(
-            undefined,
-            videoRef.current,
-            (result) => {
-              if (result) {
-                const code = result.getText();
-                setScannerDebug(`זוהה אוטומטית: "${code}"`);
-                stopScanner();
-                handleBarcodeDetected(code);
-              }
-            },
-          );
-          controlsRef.current = controls;
-        } catch {
-          // If ZXing continuous fails, manual capture still works
-          setScannerDebug(`${s.width}x${s.height} | לחץ על כפתור הצילום`);
-        }
-      }
+      setScannerDebug(`${s.width}x${s.height} | כוון ולחץ צילום`);
     } catch (err: any) {
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
-  }, [stopScanner, handleBarcodeDetected]);
+  }, []);
 
   // Manual capture - take a high-res photo and decode it
   const captureAndDecode = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || video.readyState < 2) return;
+    setScannerDebug(`readyState: ${video?.readyState}, size: ${video?.videoWidth}x${video?.videoHeight}`);
+
+    if (!video || video.readyState < 2) {
+      setScannerDebug('וידאו לא מוכן - נסה שוב');
+      setSnackbar({ message: 'המצלמה עדיין לא מוכנה, נסה שוב', severity: 'info' });
+      return;
+    }
 
     setCapturing(true);
-    setScannerDebug('מעבד תמונה...');
+    setScannerDebug('מצלם...');
 
     try {
-      // Method 1: Try ImageCapture API for highest quality photo
-      const stream = video.srcObject as MediaStream;
-      const track = stream?.getVideoTracks()[0];
+      // Capture frame to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, 0, 0);
+
+      setScannerDebug(`צולם ${canvas.width}x${canvas.height}, מפענח...`);
+
+      // Convert to image URL
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95)
+      );
+
+      if (!blob) {
+        setScannerDebug('שגיאה ביצירת תמונה');
+        setCapturing(false);
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
       let decoded = false;
 
-      if (track && 'ImageCapture' in window) {
-        try {
-          const imageCapture = new (window as any).ImageCapture(track);
-          const bitmap = await imageCapture.grabFrame();
+      // Try ZXing decode
+      try {
+        const result = await zxingReader.decodeFromImageUrl(url);
+        if (result) {
+          const code = result.getText();
+          const fmt = result.getBarcodeFormat();
+          setScannerDebug(`נמצא: "${code}" (${fmt})`);
+          decoded = true;
+          URL.revokeObjectURL(url);
+          stopScanner();
+          handleBarcodeDetected(code);
+        }
+      } catch (e: any) {
+        // NotFoundException is normal when no barcode found
+        setScannerDebug(`ZXing: ${e?.name || 'no result'} - ${e?.message?.slice(0, 50) || 'לא נמצא'}`);
+      }
 
-          // Draw bitmap to canvas
-          const canvas = document.createElement('canvas');
-          canvas.width = bitmap.width;
-          canvas.height = bitmap.height;
-          const ctx = canvas.getContext('2d')!;
-          ctx.drawImage(bitmap, 0, 0);
+      // Try native BarcodeDetector as backup
+      if (!decoded && 'BarcodeDetector' in window) {
+        try {
+          setScannerDebug('מנסה native detector...');
+          const NativeBD = (window as any).BarcodeDetector;
+          const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'qr_code'] });
+
+          // Create ImageBitmap from canvas
+          const bitmap = await createImageBitmap(canvas);
+          const barcodes = await detector.detect(bitmap);
           bitmap.close();
 
-          // Convert to blob and decode with ZXing
-          const blob = await new Promise<Blob>((resolve) =>
-            canvas.toBlob((b) => resolve(b!), 'image/png')
-          );
-          const url = URL.createObjectURL(blob);
-
-          try {
-            const result = await zxingReader.decodeFromImageUrl(url);
-            if (result) {
-              const code = result.getText();
-              setScannerDebug(`ImageCapture: "${code}"`);
-              decoded = true;
-              stopScanner();
-              handleBarcodeDetected(code);
-            }
-          } catch { /* no barcode found */ }
-          URL.revokeObjectURL(url);
-        } catch { /* ImageCapture failed, try canvas method */ }
-      }
-
-      // Method 2: Canvas capture from video frame
-      if (!decoded) {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(video, 0, 0);
-
-        const blob = await new Promise<Blob>((resolve) =>
-          canvas.toBlob((b) => resolve(b!), 'image/png')
-        );
-        const url = URL.createObjectURL(blob);
-
-        try {
-          const result = await zxingReader.decodeFromImageUrl(url);
-          if (result) {
-            const code = result.getText();
-            setScannerDebug(`Canvas: "${code}"`);
+          if (barcodes.length > 0) {
+            const code = barcodes[0].rawValue;
+            const fmt = barcodes[0].format;
+            setScannerDebug(`Native: "${code}" (${fmt})`);
             decoded = true;
+            URL.revokeObjectURL(url);
             stopScanner();
             handleBarcodeDetected(code);
+          } else {
+            setScannerDebug('Native: 0 results');
           }
-        } catch { /* no barcode found */ }
-        URL.revokeObjectURL(url);
+        } catch (e: any) {
+          setScannerDebug(`Native error: ${e?.message?.slice(0, 50)}`);
+        }
       }
 
+      URL.revokeObjectURL(url);
+
       if (!decoded) {
-        setScannerDebug('לא זוהה ברקוד - נסה להתקרב ולחץ שוב');
+        setScannerDebug('לא זוהה ברקוד - התקרב ולחץ שוב');
         setSnackbar({ message: 'לא זוהה ברקוד. התקרב ונסה שוב.', severity: 'info' });
       }
     } catch (err: any) {
