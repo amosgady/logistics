@@ -64,6 +64,7 @@ export default function CheckerPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const controlsRef = useRef<any>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -265,6 +266,82 @@ export default function CheckerPage() {
     setCapturing(false);
   }, [stopScanner, handleBarcodeDetected]);
 
+  // Handle photo from native camera app (file input with capture="environment")
+  const handleNativeCapture = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCapturing(true);
+    setScannerDebug('מפענח תמונה מהמצלמה...');
+
+    try {
+      // Load image
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = url;
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const results: string[] = [`תמונה ${img.width}x${img.height}`];
+
+      // Draw to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      canvas.getContext('2d')!.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+
+      let decoded = false;
+
+      // ZXing decode
+      const dataUrl = canvas.toDataURL('image/png');
+      try {
+        const result = await zxingReader.decodeFromImageUrl(dataUrl);
+        if (result) {
+          const code = result.getText();
+          results.push(`ZXing: "${code}"`);
+          setScannerDebug(results.join(' | '));
+          decoded = true;
+          handleBarcodeDetected(code);
+        }
+      } catch {
+        results.push('ZXing: X');
+      }
+
+      // Native BarcodeDetector
+      if (!decoded && 'BarcodeDetector' in window) {
+        try {
+          const NativeBD = (window as any).BarcodeDetector;
+          const detector = new NativeBD({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf', 'codabar'] });
+          const barcodes = await detector.detect(canvas);
+          if (barcodes.length > 0) {
+            const code = barcodes[0].rawValue;
+            results.push(`Native: "${code}"`);
+            setScannerDebug(results.join(' | '));
+            decoded = true;
+            handleBarcodeDetected(code);
+          } else {
+            results.push('Native: X');
+          }
+        } catch {
+          results.push('Native: err');
+        }
+      }
+
+      if (!decoded) {
+        setScannerDebug(results.join(' | '));
+        setSnackbar({ message: 'לא זוהה ברקוד גם בתמונה מהמצלמה', severity: 'info' });
+      }
+    } catch (err: any) {
+      setScannerDebug(`שגיאת תמונה: ${err?.message}`);
+    }
+
+    setCapturing(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, [handleBarcodeDetected]);
+
   // Toggle torch
   const toggleTorch = useCallback(() => {
     const stream = streamRef.current || (videoRef.current?.srcObject as MediaStream);
@@ -350,6 +427,12 @@ export default function CheckerPage() {
             sx={{ minWidth: 48, height: 48, p: 0 }} color="primary">
             <ScannerIcon />
           </Button>
+          <Button variant="outlined" onClick={() => fileInputRef.current?.click()}
+            sx={{ minWidth: 48, height: 48, p: 0 }} color="secondary">
+            <CameraIcon />
+          </Button>
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+            onChange={handleNativeCapture} style={{ display: 'none' }} />
         </Box>
 
         <ToggleButtonGroup value={statusFilter} exclusive
