@@ -107,7 +107,7 @@ export default function CheckerPage() {
     setCapturing(false);
   }, []);
 
-  // Start scanner with CONTINUOUS scanning (like Cognex)
+  // Start scanner with ImageCapture photo-based scanning
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
     setScannerDebug('מפעיל מצלמה...');
@@ -132,120 +132,104 @@ export default function CheckerPage() {
         await videoRef.current.play().catch(() => {});
       }
 
-      // Continuous autofocus + torch check
       const track = stream.getVideoTracks()[0];
+      let zoomApplied = '';
+
+      // Apply camera optimizations: continuous autofocus + zoom + torch check
       try {
         const caps = track?.getCapabilities?.() as any;
+        const advanced: any[] = [];
         if (caps?.focusMode?.includes('continuous')) {
-          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+          advanced.push({ focusMode: 'continuous' });
+        }
+        // Zoom in to 2x to make barcode larger in frame
+        if (caps?.zoom) {
+          const maxZoom = Math.min(caps.zoom.max, 2.5);
+          const targetZoom = Math.max(caps.zoom.min, Math.min(2.0, maxZoom));
+          advanced.push({ zoom: targetZoom });
+          zoomApplied = `z${targetZoom.toFixed(1)}`;
+        }
+        if (advanced.length > 0) {
+          await track.applyConstraints({ advanced });
         }
         if (caps?.torch) setHasTorch(true);
       } catch { /* */ }
 
       const s = track.getSettings();
-      const resolution = `${s.width}x${s.height}`;
+      const resolution = `${s.width}x${s.height}${zoomApplied ? ' ' + zoomApplied : ''}`;
 
-      // Helper: try decode on a source, return barcode or null
+      // Create native BarcodeDetector once
+      const nativeBD = 'BarcodeDetector' in window
+        ? new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] })
+        : null;
+
+      // Helper: try all decoders on a source
       const tryDecode = async (source: any): Promise<string | null> => {
-        // Native BD
-        if ('BarcodeDetector' in window) {
+        if (nativeBD) {
           try {
-            const nativeBD = new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] });
             const barcodes = await nativeBD.detect(source);
-            if (barcodes.length > 0) return barcodes[0].rawValue;
+            if (barcodes.length > 0) return `NAT:${barcodes[0].rawValue}`;
           } catch { /* */ }
         }
-        // WASM
         try {
           const barcodes = await wasmDetectorAll.detect(source);
-          if (barcodes.length > 0) return barcodes[0].rawValue;
+          if (barcodes.length > 0) return `WA:${barcodes[0].rawValue}`;
+        } catch { /* */ }
+        try {
+          const barcodes = await wasmDetector128.detect(source);
+          if (barcodes.length > 0) return `W128:${barcodes[0].rawValue}`;
         } catch { /* */ }
         return null;
       };
 
-      // Helper: sharpen a canvas using unsharp mask technique
-      const sharpenCanvas = (src: HTMLCanvasElement): HTMLCanvasElement => {
+      // Helper: convert canvas to high-contrast grayscale
+      const toGrayscaleContrast = (src: HTMLCanvasElement): HTMLCanvasElement => {
         const w = src.width, h = src.height;
         const out = document.createElement('canvas');
         out.width = w; out.height = h;
-        const srcCtx = src.getContext('2d')!;
+        const ctx = src.getContext('2d')!;
         const outCtx = out.getContext('2d')!;
-        const imgData = srcCtx.getImageData(0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
         const d = imgData.data;
-        const result = outCtx.createImageData(w, h);
-        const r = result.data;
-        // Sharpen kernel: [0,-1,0,-1,5,-1,0,-1,0]
-        const amount = 1.5;
-        for (let y = 1; y < h - 1; y++) {
-          for (let x = 1; x < w - 1; x++) {
-            for (let c = 0; c < 3; c++) {
-              const idx = (y * w + x) * 4 + c;
-              const val = d[idx] * (1 + 4 * amount)
-                - amount * d[((y - 1) * w + x) * 4 + c]
-                - amount * d[((y + 1) * w + x) * 4 + c]
-                - amount * d[(y * w + x - 1) * 4 + c]
-                - amount * d[(y * w + x + 1) * 4 + c];
-              r[idx] = Math.min(255, Math.max(0, val));
-            }
-            r[(y * w + x) * 4 + 3] = 255;
-          }
+        // Find min/max for contrast stretching
+        let minV = 255, maxV = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          if (g < minV) minV = g;
+          if (g > maxV) maxV = g;
         }
-        outCtx.putImageData(result, 0, 0);
-        return out;
-      };
-
-      // Helper: apply adaptive threshold for barcode enhancement
-      const adaptiveThreshold = (src: HTMLCanvasElement): HTMLCanvasElement => {
-        const w = src.width, h = src.height;
-        const out = document.createElement('canvas');
-        out.width = w; out.height = h;
-        const srcCtx = src.getContext('2d')!;
-        const outCtx = out.getContext('2d')!;
-        const imgData = srcCtx.getImageData(0, 0, w, h);
-        const d = imgData.data;
-        // Convert to grayscale array
-        const gray = new Uint8Array(w * h);
-        for (let i = 0; i < w * h; i++) {
-          gray[i] = Math.round(0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]);
-        }
-        // Compute integral image for fast local mean
-        const integral = new Float64Array((w + 1) * (h + 1));
-        for (let y = 0; y < h; y++) {
-          let rowSum = 0;
-          for (let x = 0; x < w; x++) {
-            rowSum += gray[y * w + x];
-            integral[(y + 1) * (w + 1) + (x + 1)] = integral[y * (w + 1) + (x + 1)] + rowSum;
-          }
-        }
-        // Adaptive threshold with window size ~15% of width
-        const winSize = Math.max(15, Math.floor(w * 0.15));
-        const half = Math.floor(winSize / 2);
+        const range = maxV - minV || 1;
         const result = outCtx.createImageData(w, h);
         const rd = result.data;
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const y1 = Math.max(0, y - half), y2 = Math.min(h - 1, y + half);
-            const x1 = Math.max(0, x - half), x2 = Math.min(w - 1, x + half);
-            const area = (x2 - x1 + 1) * (y2 - y1 + 1);
-            const sum = integral[(y2 + 1) * (w + 1) + (x2 + 1)]
-              - integral[y1 * (w + 1) + (x2 + 1)]
-              - integral[(y2 + 1) * (w + 1) + x1]
-              + integral[y1 * (w + 1) + x1];
-            const mean = sum / area;
-            const v = gray[y * w + x] < mean * 0.88 ? 0 : 255;
-            const idx = (y * w + x) * 4;
-            rd[idx] = rd[idx + 1] = rd[idx + 2] = v;
-            rd[idx + 3] = 255;
-          }
+        for (let i = 0; i < d.length; i += 4) {
+          const g = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          const stretched = Math.round(((g - minV) / range) * 255);
+          rd[i] = rd[i + 1] = rd[i + 2] = stretched;
+          rd[i + 3] = 255;
         }
         outCtx.putImageData(result, 0, 0);
         return out;
       };
 
-      // Start continuous scanning every 250ms
+      // Helper: scale canvas to target width
+      const scaleCanvas = (src: HTMLCanvasElement, targetW: number): HTMLCanvasElement => {
+        if (src.width <= targetW) return src;
+        const ratio = targetW / src.width;
+        const out = document.createElement('canvas');
+        out.width = targetW;
+        out.height = Math.round(src.height * ratio);
+        out.getContext('2d')!.drawImage(src, 0, 0, out.width, out.height);
+        return out;
+      };
+
+      // Create ImageCapture for photo-based scanning
+      let imageCapture: any = null;
+      try {
+        imageCapture = new (window as any).ImageCapture(track);
+      } catch { /* ImageCapture not available, will use video frames */ }
+
       let count = 0;
       let scanning = false;
-      const nativeBD = 'BarcodeDetector' in window ? new (window as any).BarcodeDetector({ formats: ['code_128', 'code_39', 'ean_13', 'ean_8'] }) : null;
 
       scanIntervalRef.current = window.setInterval(async () => {
         const video = videoRef.current;
@@ -254,18 +238,14 @@ export default function CheckerPage() {
         count++;
 
         try {
-          const vw = video.videoWidth;
-          const vh = video.videoHeight;
-
-          // === Step 1: Try directly on video element (fastest) ===
+          // === Strategy A: Try native BD directly on video (fastest path) ===
           if (nativeBD) {
             try {
               const barcodes = await nativeBD.detect(video);
               if (barcodes.length > 0) {
                 const code = barcodes[0].rawValue;
-                setScannerDebug(`${resolution} | #${count} NAT-video: "${code}"`);
+                setScannerDebug(`${resolution} | #${count} VID: "${code}"`);
                 if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-                scanIntervalRef.current = null;
                 stopScanner();
                 handleBarcodeDetected(code);
                 return;
@@ -273,11 +253,79 @@ export default function CheckerPage() {
             } catch { /* */ }
           }
 
-          // === Step 2: Capture center strip to canvas, try raw + sharpened + thresholded ===
-          // Only do heavy processing every 2nd frame to keep performance
-          if (count % 2 === 0) {
-            // Capture center strip (where barcode should be)
-            const stripH = Math.floor(vh * 0.35);
+          // === Strategy B: Every 3rd frame, take a real PHOTO via ImageCapture ===
+          if (imageCapture && count % 3 === 0) {
+            try {
+              const blob = await imageCapture.takePhoto();
+              const bmp = await createImageBitmap(blob);
+
+              // Full photo canvas
+              const photoCanvas = document.createElement('canvas');
+              photoCanvas.width = bmp.width;
+              photoCanvas.height = bmp.height;
+              photoCanvas.getContext('2d')!.drawImage(bmp, 0, 0);
+
+              // Try full photo at multiple scales
+              for (const targetW of [bmp.width, 1280, 800]) {
+                const scaled = scaleCanvas(photoCanvas, targetW);
+                const result = await tryDecode(scaled);
+                if (result) {
+                  const code = result.split(':').slice(1).join(':');
+                  setScannerDebug(`${resolution} | #${count} PHOTO@${targetW}: "${code}"`);
+                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+                  stopScanner();
+                  handleBarcodeDetected(code);
+                  return;
+                }
+              }
+
+              // Try center strip of photo (40% height) + grayscale contrast
+              const stripH = Math.floor(bmp.height * 0.4);
+              const stripCanvas = document.createElement('canvas');
+              stripCanvas.width = bmp.width;
+              stripCanvas.height = stripH;
+              stripCanvas.getContext('2d')!.drawImage(
+                photoCanvas,
+                0, Math.floor((bmp.height - stripH) / 2), bmp.width, stripH,
+                0, 0, bmp.width, stripH,
+              );
+
+              // Try strip at multiple scales + grayscale
+              for (const targetW of [bmp.width, 1280, 640]) {
+                const scaled = scaleCanvas(stripCanvas, targetW);
+                let result = await tryDecode(scaled);
+                if (result) {
+                  const code = result.split(':').slice(1).join(':');
+                  setScannerDebug(`${resolution} | #${count} STRIP@${targetW}: "${code}"`);
+                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+                  stopScanner();
+                  handleBarcodeDetected(code);
+                  return;
+                }
+                // Grayscale with contrast stretch
+                const gray = toGrayscaleContrast(scaled);
+                result = await tryDecode(gray);
+                if (result) {
+                  const code = result.split(':').slice(1).join(':');
+                  setScannerDebug(`${resolution} | #${count} GRAY@${targetW}: "${code}"`);
+                  if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+                  stopScanner();
+                  handleBarcodeDetected(code);
+                  return;
+                }
+              }
+
+              bmp.close();
+              setScannerDebug(`${resolution} | #${count} photo:${bmp.width}x${bmp.height} ✗`);
+            } catch (e: any) {
+              setScannerDebug(`${resolution} | #${count} photo-err: ${e?.message?.slice(0, 40)}`);
+            }
+          } else {
+            // === Strategy C: Video frame — try WASM on center strip at different scales ===
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+
+            const stripH = Math.floor(vh * 0.4);
             const stripCanvas = document.createElement('canvas');
             stripCanvas.width = vw;
             stripCanvas.height = stripH;
@@ -287,50 +335,42 @@ export default function CheckerPage() {
               0, 0, vw, stripH,
             );
 
-            // Try raw strip
-            const r1 = await tryDecode(stripCanvas);
-            if (r1) {
-              setScannerDebug(`${resolution} | #${count} strip: "${r1}"`);
+            for (const targetW of [vw, 1280, 640]) {
+              const scaled = scaleCanvas(stripCanvas, targetW);
+              const result = await tryDecode(scaled);
+              if (result) {
+                const code = result.split(':').slice(1).join(':');
+                setScannerDebug(`${resolution} | #${count} VSTRIP@${targetW}: "${code}"`);
+                if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+                stopScanner();
+                handleBarcodeDetected(code);
+                return;
+              }
+            }
+
+            // Try grayscale contrast on 640w
+            const small = scaleCanvas(stripCanvas, 640);
+            const gray = toGrayscaleContrast(small);
+            const result = await tryDecode(gray);
+            if (result) {
+              const code = result.split(':').slice(1).join(':');
+              setScannerDebug(`${resolution} | #${count} VGRAY: "${code}"`);
               if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-              scanIntervalRef.current = null;
               stopScanner();
-              handleBarcodeDetected(r1);
+              handleBarcodeDetected(code);
               return;
             }
 
-            // Try sharpened
-            const sharpened = sharpenCanvas(stripCanvas);
-            const r2 = await tryDecode(sharpened);
-            if (r2) {
-              setScannerDebug(`${resolution} | #${count} sharp: "${r2}"`);
-              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-              scanIntervalRef.current = null;
-              stopScanner();
-              handleBarcodeDetected(r2);
-              return;
-            }
-
-            // Try adaptive threshold
-            const thresholded = adaptiveThreshold(stripCanvas);
-            const r3 = await tryDecode(thresholded);
-            if (r3) {
-              setScannerDebug(`${resolution} | #${count} thresh: "${r3}"`);
-              if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
-              scanIntervalRef.current = null;
-              stopScanner();
-              handleBarcodeDetected(r3);
-              return;
-            }
+            setScannerDebug(`${resolution} | סורק... #${count}`);
           }
 
-          setScannerDebug(`${resolution} | סורק... #${count}`);
           setScanCount(count);
         } catch { /* */ }
 
         scanning = false;
-      }, 250);
+      }, 350);
 
-      setScannerDebug(`${resolution} | סריקה רציפה...`);
+      setScannerDebug(`${resolution} | סריקה רציפה (photo+video)...`);
     } catch (err: any) {
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
