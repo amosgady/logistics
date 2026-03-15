@@ -14,6 +14,7 @@ enum UserRole {
   COORDINATOR
   DRIVER
   INSTALLER
+  CHECKER
 }
 
 enum OrderStatus {
@@ -207,6 +208,7 @@ model Order {
   // Export flags
   sentToDriver  Boolean @default(false) @map("sent_to_driver")
   exportedToCsv Boolean @default(false) @map("exported_to_csv")
+  sentToChecker Boolean @default(false) @map("sent_to_checker")
 
   // Timestamps
   createdAt DateTime @default(now()) @map("created_at")
@@ -248,6 +250,9 @@ model OrderLine {
   barcode        String?
   scannedLoad    Boolean @default(false) @map("scanned_load")
   scannedDeliver Boolean @default(false) @map("scanned_deliver")
+
+  checkedByInspector Boolean  @default(false) @map("checked_by_inspector")
+  checkedAt          DateTime? @map("checked_at")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

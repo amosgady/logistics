@@ -18,6 +18,7 @@ import smsRoutes from './modules/sms/sms.routes';
 import trackingRoutes from './modules/tracking/tracking.routes';
 import confirmRoutes from './modules/confirmation/confirmation.routes';
 import smsWebhookRoutes from './modules/sms-webhook/sms-webhook.routes';
+import checkerRoutes from './modules/checker/checker.routes';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.set('trust proxy', 1);
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
+  exposedHeaders: ['Content-Disposition'],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -52,6 +54,7 @@ app.use('/api/v1/installer', installerFieldRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/sms', smsRoutes);
 app.use('/api/v1/tracking', trackingRoutes);
+app.use('/api/v1/checker', checkerRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -177,6 +177,7 @@ export class ExportService {
       where: { id: routeId },
       include: {
         truck: true,
+        installerProfile: { include: { user: true } },
         orders: {
           include: { orderLines: true },
           orderBy: { routeSequence: 'asc' },
@@ -185,6 +186,10 @@ export class ExportService {
     });
 
     if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    const vehicleName = route.truck?.name
+      || route.installerProfile?.user?.fullName
+      || `מסלול-${route.id}`;
 
     // Build CSV content
     const headers = [
@@ -206,15 +211,16 @@ export class ExportService {
       const deliveryDate = order.deliveryDate.toISOString().split('T')[0];
 
       for (const line of order.orderLines) {
+        const csvEscape = (v: string) => v.includes(',') || v.includes('"') ? `"${v.replace(/"/g, '""')}"` : v;
         rows.push([
           order.orderNumber,
           deliveryDate,
-          department,
-          route.truck!.name,
+          csvEscape(department),
+          csvEscape(vehicleName),
           String(order.routeSequence || 0),
-          coordinatorName,
-          line.product,
-          line.description || '',
+          csvEscape(coordinatorName),
+          csvEscape(line.product),
+          csvEscape(line.description || ''),
           String(line.quantity),
         ].join(','));
       }
@@ -230,9 +236,51 @@ export class ExportService {
 
     return {
       csv: rows.join('\n'),
-      filename: `wms_${route.truck!.name}_${route.routeDate.toISOString().split('T')[0]}.csv`,
+      filename: `wms_${vehicleName}_${route.routeDate.toISOString().split('T')[0]}.csv`,
       exportedCount: route.orders.length,
     };
+  }
+  async unsendWmsExport(orderId: number) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { exportedToCsv: false },
+    });
+
+    return { orderId, orderNumber: order.orderNumber };
+  }
+
+  async sendToChecker(routeId: number) {
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: { orders: true, truck: true },
+    });
+
+    if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    const count = await prisma.order.updateMany({
+      where: { routeId, sentToChecker: false },
+      data: { sentToChecker: true },
+    });
+
+    return {
+      sentCount: count.count,
+      truckName: route.truck?.name || `מסלול ${route.id}`,
+    };
+  }
+
+  async unsendFromChecker(orderId: number) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { sentToChecker: false },
+    });
+
+    return { orderId, orderNumber: order.orderNumber };
   }
 }
 
