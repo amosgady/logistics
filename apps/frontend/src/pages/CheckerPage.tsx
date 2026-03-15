@@ -57,8 +57,9 @@ export default function CheckerPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
-  const scannerRef = useRef<HTMLDivElement | null>(null);
-  const quaggaRunning = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -76,96 +77,94 @@ export default function CheckerPage() {
     setSnackbar({ message: `נסרק: ${barcodeValue} → הזמנה ${orderNum}`, severity: 'success' });
   }, []);
 
-  // Stop Quagga live scanner
+  // Stop camera and scanning
   const stopScanner = useCallback(() => {
-    if (quaggaRunning.current) {
-      Quagga.offDetected();
-      Quagga.stop();
-      quaggaRunning.current = false;
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
   }, []);
 
-  // Start Quagga live scanner
-  const startScanner = useCallback(() => {
+  // Start camera and scanning
+  const startScanner = useCallback(async () => {
     setScannerOpen(true);
-  }, []);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      streamRef.current = stream;
 
-  // Initialize Quagga when scanner dialog opens and the ref is available
+      // Wait for video element to be in DOM
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+
+        // Check torch support
+        const track = stream.getVideoTracks()[0];
+        const caps = track?.getCapabilities?.() as any;
+        if (caps?.torch) setHasTorch(true);
+
+        // Start scanning frames with Quagga decodeSingle
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d')!;
+
+        scanIntervalRef.current = window.setInterval(() => {
+          const video = videoRef.current;
+          if (!video || video.readyState < 2) return;
+
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+          const dataUrl = canvas.toDataURL('image/png');
+
+          Quagga.decodeSingle(
+            {
+              src: dataUrl,
+              numOfWorkers: 0,
+              inputStream: { size: 1280 },
+              decoder: { readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'] },
+              locate: true,
+              locator: { patchSize: 'medium', halfSample: true },
+            },
+            (res: any) => {
+              if (res?.codeResult?.code) {
+                stopScanner();
+                handleBarcodeDetected(res.codeResult.code);
+              }
+            },
+          );
+        }, 500); // Scan every 500ms
+      }, 300);
+    } catch {
+      // Camera not available - fall back to file input
+      setScannerOpen(false);
+      fileInputRef.current?.click();
+    }
+  }, [stopScanner, handleBarcodeDetected]);
+
+  // Cleanup on unmount
   useEffect(() => {
-    if (!scannerOpen || !scannerRef.current) return;
-
-    const target = scannerRef.current;
-
-    Quagga.init(
-      {
-        inputStream: {
-          type: 'LiveStream',
-          target,
-          constraints: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        },
-        decoder: {
-          readers: ['code_128_reader', 'code_39_reader', 'ean_reader', 'ean_8_reader'],
-        },
-        locate: true,
-        locator: { patchSize: 'medium', halfSample: false },
-        frequency: 10,
-      },
-      (err) => {
-        if (err) {
-          // Camera failed (probably HTTP) - fall back to file input
-          setScannerOpen(false);
-          fileInputRef.current?.click();
-          return;
-        }
-        Quagga.start();
-        quaggaRunning.current = true;
-
-        // Ensure video plays on mobile (playsinline attribute)
-        const videoEl = target.querySelector('video');
-        if (videoEl) {
-          videoEl.setAttribute('playsinline', 'true');
-          videoEl.setAttribute('webkit-playsinline', 'true');
-          videoEl.play().catch(() => {});
-        }
-
-        // Check if torch is available
-        const track = Quagga.CameraAccess.getActiveTrack();
-        if (track) {
-          const caps = track.getCapabilities?.() as any;
-          if (caps?.torch) setHasTorch(true);
-        }
-      },
-    );
-
-    const onDetected = (result: any) => {
-      const code = result?.codeResult?.code;
-      if (!code) return;
-      // Stop scanning and use the result
-      stopScanner();
-      handleBarcodeDetected(code);
-    };
-
-    Quagga.onDetected(onDetected);
-
     return () => {
-      if (quaggaRunning.current) {
-        Quagga.offDetected();
-        Quagga.stop();
-        quaggaRunning.current = false;
-      }
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
-  }, [scannerOpen, stopScanner, handleBarcodeDetected]);
+  }, []);
 
   // Toggle torch/flashlight
   const toggleTorch = useCallback(() => {
-    const track = Quagga.CameraAccess.getActiveTrack();
+    const track = streamRef.current?.getVideoTracks()[0];
     if (track) {
       const newState = !torchOn;
       (track as any).applyConstraints({ advanced: [{ torch: newState }] });
@@ -491,36 +490,19 @@ export default function CheckerPage() {
         fullScreen
         PaperProps={{ sx: { bgcolor: 'black', overflow: 'hidden' } }}
       >
-        {/* Camera viewfinder - must be first, fills entire dialog */}
-        <Box
-          ref={scannerRef}
-          sx={{
+        {/* Direct video element - no Quagga DOM */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
             position: 'absolute',
             top: 0,
             left: 0,
             width: '100%',
             height: '100%',
-            overflow: 'hidden',
-            // Quagga wraps video in div.viewport
-            '& .viewport': {
-              position: 'absolute !important',
-              top: '0 !important',
-              left: '0 !important',
-              width: '100% !important',
-              height: '100% !important',
-              overflow: 'hidden',
-            },
-            '& video': {
-              position: 'absolute !important',
-              top: '0 !important',
-              left: '0 !important',
-              width: '100% !important',
-              height: '100% !important',
-              objectFit: 'cover !important',
-            },
-            '& canvas': {
-              display: 'none !important',
-            },
+            objectFit: 'cover',
           }}
         />
 
