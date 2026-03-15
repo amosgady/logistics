@@ -16,7 +16,6 @@ import {
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
 } from '@mui/icons-material';
-import { Html5Qrcode } from 'html5-qrcode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
 import { useAuthStore } from '../store/authStore';
@@ -41,6 +40,9 @@ function getTodayDate() {
   return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 }
 
+// Detect native BarcodeDetector support (Chrome Android 83+)
+const hasNativeBarcodeDetector = typeof window !== 'undefined' && 'BarcodeDetector' in window;
+
 export default function CheckerPage() {
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
@@ -55,9 +57,12 @@ export default function CheckerPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
-  const html5QrRef = useRef<Html5Qrcode | null>(null);
-  const lastReadRef = useRef<string>('');
-  const readCountRef = useRef<number>(0);
+  const [scannerDebug, setScannerDebug] = useState('מאתחל...');
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const stoppedRef = useRef(false);
 
   // Extract order number from barcode: T-ORDERNUMBER-DIGIT → ORDERNUMBER
   const extractOrderNumber = (barcode: string): string => {
@@ -75,150 +80,197 @@ export default function CheckerPage() {
     setSnackbar({ message: `נסרק: ${barcodeValue} → הזמנה ${orderNum}`, severity: 'success' });
   }, []);
 
-  // Stop scanner
-  const stopScanner = useCallback(async () => {
-    try {
-      if (html5QrRef.current) {
-        const state = html5QrRef.current.getState();
-        // State 2 = SCANNING, 3 = PAUSED
-        if (state === 2 || state === 3) {
-          await html5QrRef.current.stop();
-        }
-        html5QrRef.current.clear();
-        html5QrRef.current = null;
-      }
-    } catch {
-      // ignore cleanup errors
+  // Stop camera and scanning
+  const stopScanner = useCallback(() => {
+    stoppedRef.current = true;
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
-    lastReadRef.current = '';
-    readCountRef.current = 0;
+    setScannerDebug('');
   }, []);
 
-  // Start scanner
+  // Start camera and scanning - Cognex-inspired: high-res + continuous autofocus + native detection
   const startScanner = useCallback(async () => {
     setScannerOpen(true);
-    lastReadRef.current = '';
-    readCountRef.current = 0;
-
-    // Wait for DOM element to exist
-    await new Promise((r) => setTimeout(r, 400));
+    stoppedRef.current = false;
+    setScannerDebug('מפעיל מצלמה...');
 
     try {
-      const html5Qr = new Html5Qrcode('scanner-region');
-      html5QrRef.current = html5Qr;
+      // Request HIGH resolution with continuous autofocus - like Cognex
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          // @ts-ignore - focusMode is valid but not in TS types
+          focusMode: { ideal: 'continuous' },
+        },
+      });
 
-      // Get cameras and pick back camera
-      const cameras = await Html5Qrcode.getCameras();
-      let cameraId = cameras[0]?.id;
-      // Prefer back/environment camera
-      const backCam = cameras.find((c) =>
-        /back|rear|environment/i.test(c.label)
-      );
-      if (backCam) cameraId = backCam.id;
-
-      if (!cameraId) {
-        setSnackbar({ message: 'לא נמצאה מצלמה', severity: 'error' });
-        setScannerOpen(false);
+      if (stoppedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
         return;
       }
 
-      await html5Qr.start(
-        cameraId,
-        {
-          fps: 15,
-          qrbox: { width: 300, height: 150 },
-          aspectRatio: 1.0,
-          disableFlip: false,
-        },
-        (decodedText) => {
-          // Validate barcode format
-          if (!/^T-\d+-\d+$/.test(decodedText) && !/^\d{6,}$/.test(decodedText)) return;
+      streamRef.current = stream;
 
-          // Require 2 consecutive identical reads
-          if (decodedText === lastReadRef.current) {
-            readCountRef.current++;
-          } else {
-            lastReadRef.current = decodedText;
-            readCountRef.current = 1;
-          }
-
-          if (readCountRef.current >= 2) {
-            // Stop and report
-            html5Qr.stop().then(() => {
-              html5Qr.clear();
-              html5QrRef.current = null;
-              setScannerOpen(false);
-              handleBarcodeDetected(decodedText);
-            }).catch(() => {
-              setScannerOpen(false);
-              handleBarcodeDetected(decodedText);
-            });
-          }
-        },
-        () => {
-          // QR code not found in this frame - ignore
-        },
-      );
-
-      // Check torch support
+      // Apply advanced track constraints for best focus
+      const track = stream.getVideoTracks()[0];
       try {
-        const track = html5Qr.getRunningTrackSettings();
-        if (track && (track as any).torch !== undefined) {
+        const caps = track?.getCapabilities?.() as any;
+        const advancedConstraints: any[] = [];
+
+        if (caps?.focusMode?.includes('continuous')) {
+          advancedConstraints.push({ focusMode: 'continuous' });
+        }
+        if (caps?.torch) {
           setHasTorch(true);
         }
-      } catch {
-        // Some browsers don't support getRunningTrackSettings
-      }
-
-      // Also check via getCapabilities
-      try {
-        const caps = html5Qr.getRunningTrackCameraCapabilities();
-        const torchFeature = caps?.torchFeature as any;
-        if (torchFeature?.isSupported?.()) {
-          setHasTorch(true);
+        if (advancedConstraints.length > 0) {
+          await track.applyConstraints({ advanced: advancedConstraints });
         }
       } catch {
-        // ignore
+        // Some browsers don't support advanced constraints
       }
+
+      // Wait for video element to be in DOM, then start
+      setTimeout(async () => {
+        if (stoppedRef.current || !videoRef.current) return;
+
+        const video = videoRef.current;
+        video.srcObject = stream;
+        await video.play().catch(() => {});
+
+        // Log actual resolution
+        const settings = track.getSettings();
+        setScannerDebug(`${settings.width}x${settings.height} | ${hasNativeBarcodeDetector ? 'Native' : 'WASM'} detector`);
+
+        // Create offscreen canvas for frame capture
+        const canvas = document.createElement('canvas');
+        canvasRef.current = canvas;
+
+        if (hasNativeBarcodeDetector) {
+          // ===== NATIVE BarcodeDetector - hardware accelerated, very fast =====
+          const NativeBD = (window as any).BarcodeDetector;
+          const detector = new NativeBD({
+            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'itf'],
+          });
+
+          let busy = false;
+          scanIntervalRef.current = window.setInterval(async () => {
+            if (!video || video.readyState < 2 || busy || stoppedRef.current) return;
+            busy = true;
+            try {
+              const barcodes = await detector.detect(video);
+              busy = false;
+              if (stoppedRef.current) return;
+
+              for (const barcode of barcodes) {
+                const code = barcode.rawValue;
+                if (!code) continue;
+                if (!/^T-\d+-\d+$/.test(code) && !/^\d{6,}$/.test(code)) continue;
+
+                // Accept immediately - native detector is reliable
+                stopScanner();
+                handleBarcodeDetected(code);
+                return;
+              }
+            } catch {
+              busy = false;
+            }
+          }, 100); // Scan every 100ms - native is fast enough
+        } else {
+          // ===== FALLBACK: html5-qrcode via decodeSingle on canvas frames =====
+          const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+
+          // Create a hidden container for html5-qrcode
+          const container = document.createElement('div');
+          container.id = 'qr-fallback-region';
+          container.style.display = 'none';
+          document.body.appendChild(container);
+
+          const qrScanner = new Html5Qrcode('qr-fallback-region', {
+            formatsToSupport: [
+              Html5QrcodeSupportedFormats.CODE_128,
+              Html5QrcodeSupportedFormats.CODE_39,
+              Html5QrcodeSupportedFormats.EAN_13,
+              Html5QrcodeSupportedFormats.EAN_8,
+              Html5QrcodeSupportedFormats.ITF,
+            ],
+            verbose: false,
+          });
+
+          let busy = false;
+          scanIntervalRef.current = window.setInterval(async () => {
+            if (!video || video.readyState < 2 || busy || stoppedRef.current) return;
+            busy = true;
+
+            try {
+              // Capture frame to canvas
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) { busy = false; return; }
+              ctx.drawImage(video, 0, 0);
+
+              // Convert to blob and scan
+              const blob = await new Promise<Blob | null>((resolve) =>
+                canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.9)
+              );
+              if (!blob || stoppedRef.current) { busy = false; return; }
+
+              const file = new File([blob], 'frame.jpg', { type: 'image/jpeg' });
+              const result = await qrScanner.scanFileV2(file, false);
+              busy = false;
+
+              if (result?.decodedText && !stoppedRef.current) {
+                const code = result.decodedText;
+                if (/^T-\d+-\d+$/.test(code) || /^\d{6,}$/.test(code)) {
+                  container.remove();
+                  stopScanner();
+                  handleBarcodeDetected(code);
+                  return;
+                }
+              }
+            } catch {
+              busy = false;
+            }
+          }, 200); // Frame scan every 200ms for WASM fallback
+        }
+      }, 300);
     } catch (err: any) {
-      console.error('Scanner error:', err);
       setScannerOpen(false);
       setSnackbar({ message: `שגיאת מצלמה: ${err?.message || err}`, severity: 'error' });
     }
-  }, [handleBarcodeDetected]);
+  }, [stopScanner, handleBarcodeDetected]);
 
-  // Toggle torch
-  const toggleTorch = useCallback(async () => {
-    try {
-      const caps = html5QrRef.current?.getRunningTrackCameraCapabilities();
-      const torchFeature = caps?.torchFeature as any;
-      if (torchFeature?.isSupported?.()) {
-        const newState = !torchOn;
-        await torchFeature.apply(newState);
-        setTorchOn(newState);
-      }
-    } catch {
-      // ignore
+  // Toggle torch/flashlight
+  const toggleTorch = useCallback(() => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (track) {
+      const newState = !torchOn;
+      (track as any).applyConstraints({ advanced: [{ torch: newState }] });
+      setTorchOn(newState);
     }
   }, [torchOn]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (html5QrRef.current) {
-        try {
-          const state = html5QrRef.current.getState();
-          if (state === 2 || state === 3) {
-            html5QrRef.current.stop().catch(() => {});
-          }
-          html5QrRef.current.clear();
-        } catch {
-          // ignore
-        }
-      }
+      stoppedRef.current = true;
+      if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
+      if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -476,13 +528,29 @@ export default function CheckerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Live Scanner Dialog - html5-qrcode manages its own video */}
+      {/* Live Scanner Dialog */}
       <Dialog
         open={scannerOpen}
         onClose={stopScanner}
         fullScreen
         PaperProps={{ sx: { bgcolor: 'black', overflow: 'hidden' } }}
       >
+        {/* Direct video element - high resolution like Cognex */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
+
         {/* Scanner header */}
         <Box sx={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
@@ -492,7 +560,12 @@ export default function CheckerPage() {
           <IconButton onClick={stopScanner} sx={{ color: 'white' }}>
             <CloseIcon />
           </IconButton>
-          <Typography color="white" fontWeight="bold">כוון את הברקוד למסגרת</Typography>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography color="white" fontWeight="bold" fontSize={14}>כוון את הברקוד למסגרת</Typography>
+            {scannerDebug && (
+              <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>
+            )}
+          </Box>
           {hasTorch ? (
             <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
               {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
@@ -500,23 +573,36 @@ export default function CheckerPage() {
           ) : <Box sx={{ width: 48 }} />}
         </Box>
 
-        {/* Scanner container - html5-qrcode renders video here */}
-        <Box
-          id="scanner-region"
-          sx={{
-            width: '100%',
-            height: '100%',
-            '& video': {
-              width: '100% !important',
-              height: '100% !important',
-              objectFit: 'cover !important',
+        {/* Scan guide overlay */}
+        <Box sx={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '85%', height: 140, zIndex: 10,
+          border: '3px solid rgba(255,50,50,0.8)',
+          borderRadius: 2,
+          pointerEvents: 'none',
+          boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
+        }}>
+          {/* Laser line animation */}
+          <Box sx={{
+            position: 'absolute', top: '50%', left: 8, right: 8,
+            height: 2, bgcolor: '#ff1744',
+            animation: 'scanline 2s ease-in-out infinite',
+            '@keyframes scanline': {
+              '0%, 100%': { transform: 'translateY(-30px)', opacity: 0.7 },
+              '50%': { transform: 'translateY(30px)', opacity: 1 },
             },
-            // Hide the default scanning region border from html5-qrcode
-            '& #qr-shaded-region': {
-              borderColor: 'rgba(255,255,255,0.5) !important',
-            },
-          }}
-        />
+          }} />
+          {/* Corner markers */}
+          {[
+            { top: -2, left: -2, borderTop: '4px solid #ff1744', borderLeft: '4px solid #ff1744' },
+            { top: -2, right: -2, borderTop: '4px solid #ff1744', borderRight: '4px solid #ff1744' },
+            { bottom: -2, left: -2, borderBottom: '4px solid #ff1744', borderLeft: '4px solid #ff1744' },
+            { bottom: -2, right: -2, borderBottom: '4px solid #ff1744', borderRight: '4px solid #ff1744' },
+          ].map((style, i) => (
+            <Box key={i} sx={{ position: 'absolute', width: 24, height: 24, ...style }} />
+          ))}
+        </Box>
       </Dialog>
 
       {/* Snackbar */}
