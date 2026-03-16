@@ -16,6 +16,7 @@ export class ExportService {
       where: { id: routeId },
       include: {
         truck: true,
+        installerProfile: { include: { user: true } },
         orders: {
           include: { orderLines: true },
           orderBy: { routeSequence: 'asc' },
@@ -70,9 +71,13 @@ export class ExportService {
       data: { isFinalized: true },
     });
 
+    const ownerName = route.truck?.name
+      || route.installerProfile?.user?.fullName
+      || `מסלול ${route.id}`;
+
     return {
       sentCount: route.orders.length,
-      truckName: route.truck!.name,
+      truckName: ownerName,
     };
   }
 
