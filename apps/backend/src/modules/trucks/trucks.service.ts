@@ -1,4 +1,5 @@
 import prisma from '../../utils/prisma';
+import { Department } from '@prisma/client';
 import { AppError } from '../../middleware/errorHandler';
 
 export class TrucksService {
@@ -24,7 +25,7 @@ export class TrucksService {
     maxPallets: number;
     workHoursPerDay: number;
     waitTimePerStop: number;
-    department?: string;
+    department?: Department;
   }) {
     return prisma.truck.create({ data });
   }
@@ -39,7 +40,7 @@ export class TrucksService {
     workHoursPerDay: number;
     waitTimePerStop: number;
     isActive: boolean;
-    department: string | null;
+    department: Department | null;
   }>) {
     return prisma.truck.update({ where: { id }, data });
   }
