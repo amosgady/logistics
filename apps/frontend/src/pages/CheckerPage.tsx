@@ -546,8 +546,13 @@ export default function CheckerPage() {
     }
   }, [torchOn]);
 
-  // Debug capture: grab frame from scanner video, show it, try all decoders
+  // Debug capture: pause scanner, grab frame, try all decoders, close overlay to show results
   const debugCapture = useCallback(async () => {
+    // 1. Pause html5-qrcode to stop it overwriting debug text
+    if (html5QrCodeRef.current) {
+      try { html5QrCodeRef.current.pause(true); } catch { /* */ }
+    }
+
     const scannerDiv = document.getElementById('html5-qrcode-scanner');
     const video = scannerDiv?.querySelector('video');
     if (!video || video.readyState < 2) {
@@ -565,7 +570,7 @@ export default function CheckerPage() {
     canvas.height = vh;
     canvas.getContext('2d')!.drawImage(video, 0, 0);
 
-    // Show the captured frame
+    // Save image for display
     setCapturedImage(canvas.toDataURL('image/jpeg', 0.8));
 
     // Try native BarcodeDetector (no format filter - detect ANYTHING)
@@ -614,14 +619,14 @@ export default function CheckerPage() {
       results.push(barcodes.length > 0 ? `STRIP:"${barcodes[0].rawValue}"` : `STRIP:0`);
     } catch { results.push('STRIP:E'); }
 
-    // Try ImageCapture photo if available
+    // Try ImageCapture photo (high-res with autofocus)
     try {
       const track = (video.srcObject as MediaStream)?.getVideoTracks()[0];
       if (track && 'ImageCapture' in window) {
         const ic = new (window as any).ImageCapture(track);
         const blob = await ic.takePhoto();
         const bmp = await createImageBitmap(blob);
-        results.push(`PHOTO:${bmp.width}x${bmp.height}`);
+        results.push(`PH:${bmp.width}x${bmp.height}`);
         const pc = document.createElement('canvas');
         pc.width = bmp.width; pc.height = bmp.height;
         pc.getContext('2d')!.drawImage(bmp, 0, 0);
@@ -635,13 +640,35 @@ export default function CheckerPage() {
           results.push(barcodes2.length > 0 ? `PH-NAT:"${barcodes2[0].rawValue}"` : `PH-NAT:0`);
         }
 
+        // Also try photo at 800px wide
+        const ratio = 800 / bmp.width;
+        const small = document.createElement('canvas');
+        small.width = 800;
+        small.height = Math.floor(bmp.height * ratio);
+        small.getContext('2d')!.drawImage(pc, 0, 0, small.width, small.height);
+        const barcodes3 = await wasmDetectorAll.detect(small);
+        results.push(barcodes3.length > 0 ? `PH-SM:"${barcodes3[0].rawValue}"` : `PH-SM:0`);
+
         bmp.close();
       }
     } catch (e: any) {
-      results.push(`PHOTO:E-${e?.message?.slice(0, 30)}`);
+      results.push(`PH:E-${e?.message?.slice(0, 30)}`);
     }
 
-    setScannerDebug(results.join(' | '));
+    // 2. Set results and CLOSE the scanner overlay so results stay visible
+    const resultText = results.join(' | ');
+    setScannerDebug(resultText);
+
+    // Stop scanner and close overlay
+    if (html5QrCodeRef.current) {
+      try {
+        await html5QrCodeRef.current.stop();
+      } catch { /* */ }
+      html5QrCodeRef.current = null;
+    }
+    setScannerOpen(false);
+    setTorchOn(false);
+    setHasTorch(false);
   }, []);
 
   // Cleanup
