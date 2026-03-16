@@ -205,6 +205,9 @@ model Order {
   deliveryNoteUrl       String? @map("delivery_note_url")
   signedDeliveryNoteUrl String? @map("signed_delivery_note_url")
 
+  // Note for driver/installer
+  driverNote    String?  @map("driver_note")
+
   // Export flags
   sentToDriver  Boolean @default(false) @map("sent_to_driver")
   exportedToCsv Boolean @default(false) @map("exported_to_csv")

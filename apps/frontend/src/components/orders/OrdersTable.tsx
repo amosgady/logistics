@@ -83,6 +83,7 @@ interface Order {
   sentToDriver: boolean;
   exportedToCsv: boolean;
   sentToChecker: boolean;
+  driverNote: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
@@ -216,6 +217,69 @@ function EditableAddress({ order }: { order: Order }) {
           {order.elevator != null && (order.elevator ? 'מעלית' : 'ללא מעלית')}
         </Typography>
       )}
+    </Box>
+  );
+}
+
+function EditableDriverNote({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(order.driverNote || '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: (driverNote: string) => orderApi.updateDriverNote(order.id, driverNote),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    const trimmed = value.trim();
+    if (trimmed !== (order.driverNote || '')) {
+      mutation.mutate(trimmed);
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TextField
+        inputRef={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        size="small"
+        variant="standard"
+        fullWidth
+        multiline
+        maxRows={3}
+        inputProps={{ style: { fontSize: 13 } }}
+        placeholder="הערה לנהג/מתקין..."
+      />
+    );
+  }
+
+  return (
+    <Box
+      sx={{ cursor: 'pointer', '&:hover .edit-icon': { opacity: 1 }, minWidth: 80 }}
+      onClick={() => { setValue(order.driverNote || ''); setEditing(true); }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="caption" sx={{ maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {order.driverNote || '-'}
+        </Typography>
+        <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
+      </Box>
     </Box>
   );
 }
@@ -492,6 +556,9 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         <TableCell>{order.zone?.nameHe || 'לא מוגדר'}</TableCell>
         <TableCell align="center">{order.exportedToCsv ? 'כן' : 'לא'}</TableCell>
         <TableCell align="center">{order.sentToChecker ? 'כן' : 'לא'}</TableCell>
+        <TableCell>
+          <EditableDriverNote order={order} />
+        </TableCell>
         <TableCell align="center">{order.orderLines?.length || 0}</TableCell>
         <TableCell align="center"><EditablePalletCount order={order} /></TableCell>
         <TableCell align="center">
@@ -526,7 +593,7 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={16} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
+        <TableCell colSpan={17} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
@@ -595,6 +662,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
               <SortableTableCell label="אזור" sortKey="zone.nameHe" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="WMS" sortKey="exportedToCsv" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="בודק" sortKey="sentToChecker" sortConfig={sortConfig} onSort={handleSort} align="center" />
+              <TableCell>הערה לנהג</TableCell>
               <SortableTableCell label="פריטים" sortKey="orderLines.length" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="משטחים" sortKey="palletCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <TableCell align="center">תעודה</TableCell>
@@ -604,7 +672,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={16} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={17} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">אין הזמנות</Typography>
                 </TableCell>
               </TableRow>

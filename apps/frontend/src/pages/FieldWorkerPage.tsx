@@ -109,6 +109,7 @@ interface Order {
   latitude: number | null;
   longitude: number | null;
   coordinationNotes: string | null;
+  driverNote: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
@@ -519,6 +520,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                   {order.coordinationNotes && (
                     <Alert severity="info" sx={{ mt: 1.5, py: 0 }}>
                       {order.coordinationNotes}
+                    </Alert>
+                  )}
+                  {order.driverNote && (
+                    <Alert severity="warning" sx={{ mt: 1.5, py: 0 }}>
+                      <strong>הערה:</strong> {order.driverNote}
                     </Alert>
                   )}
                 </CardContent>

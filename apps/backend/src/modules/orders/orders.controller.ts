@@ -177,6 +177,13 @@ export const ordersController = {
     res.json({ success: true });
   }),
 
+  updateDriverNote: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+    const { driverNote } = req.body;
+    const order = await ordersService.updateDriverNote(orderId, driverNote ?? null);
+    res.json({ success: true, data: order });
+  }),
+
   updateLineQuantity: asyncHandler(async (req: Request, res: Response) => {
     const lineId = parseInt(req.params.lineId as string);
     const { quantity } = req.body;

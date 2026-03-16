@@ -42,6 +42,7 @@ router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.
 router.patch('/:id/coordination', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordination);
 router.patch('/:id/pallet-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePalletCount);
 router.patch('/:id/address', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateAddress);
+router.patch('/:id/driver-note', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDriverNote);
 router.post('/:id/delivery-note', requireRole('COORDINATOR', 'ADMIN'), uploadPdf.single('file'), ordersController.uploadDeliveryNote);
 router.delete('/:id/delivery-note', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteDeliveryNote);
 

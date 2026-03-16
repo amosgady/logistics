@@ -233,7 +233,7 @@ export class OrdersService {
 
     // Only allow un-coordinating when currently coordinated
     if (isUncoordinating && order.coordinationStatus !== 'COORDINATED') {
-      throw new AppError(400, 'INVALID_COORDINATION_CHANGE', 'ניתן לבטל תיאום רק כאשר ההזמנה בסטטוס מתואם');
+      throw new AppError(400, 'INVALID_COORDINATION_CHANGE', 'חובה שההזמנה תהיה בסטטוס "בתיאום"');
     }
 
     // Auto-approve: when coordination is confirmed and order is in PLANNING or IN_COORDINATION,
@@ -323,6 +323,17 @@ export class OrdersService {
         quantity,
         totalPrice: new Prisma.Decimal(totalPrice.toFixed(2)),
       },
+    });
+  }
+
+  async updateDriverNote(orderId: number, driverNote: string | null) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { driverNote: driverNote?.trim() || null },
+      include: { orderLines: true, zone: true },
     });
   }
 

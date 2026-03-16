@@ -427,7 +427,10 @@ export default function CoordinationPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
     },
-    onError: () => setSnackbar({ message: 'שגיאה בעדכון תיאום', severity: 'error' }),
+    onError: (error: any) => {
+      const msg = error?.response?.data?.error?.message || 'שגיאה בעדכון תיאום';
+      setSnackbar({ message: msg, severity: 'error' });
+    },
   });
 
   const sendToDriverMutation = useMutation({

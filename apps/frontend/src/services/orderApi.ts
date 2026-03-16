@@ -79,4 +79,7 @@ export const orderApi = {
 
   deleteOrderLine: (lineId: number) =>
     api.delete(`/orders/lines/${lineId}`).then((r) => r.data),
+
+  updateDriverNote: (orderId: number, driverNote: string) =>
+    api.patch(`/orders/${orderId}/driver-note`, { driverNote }).then((r) => r.data),
 };
