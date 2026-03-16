@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import sharp from 'sharp';
 import { BarcodeDetector } from 'barcode-detector/pure';
+import { scanGrayBuffer } from '@undecaf/zbar-wasm';
 import { checkerService } from './checker.service';
 import { AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
@@ -8,6 +9,28 @@ import { asyncHandler } from '../../utils/asyncHandler';
 // WASM barcode detectors for server-side decoding
 const wasmDetectorAll = new BarcodeDetector();
 const wasmDetector128 = new BarcodeDetector({ formats: ['code_128'] });
+
+// Helper: decode using ZBar on a sharp-processed grayscale buffer
+async function tryZBar(imageBuffer: Buffer, label: string, results: string[]): Promise<string | null> {
+  try {
+    const { data, info } = await sharp(imageBuffer)
+      .grayscale()
+      .normalize()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const symbols = await scanGrayBuffer(data.buffer as ArrayBuffer, info.width, info.height);
+    if (symbols.length > 0) {
+      const val = symbols[0].decode();
+      results.push(`${label}:ZB:"${val}"(${symbols[0].typeName})`);
+      return val;
+    }
+    results.push(`${label}:ZB:0`);
+  } catch (e: any) {
+    results.push(`${label}:ZB:E-${e?.message?.slice(0, 30)}`);
+  }
+  return null;
+}
 
 export const checkerController = {
   searchOrders: asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -33,15 +56,14 @@ export const checkerController = {
     res.json({ success: true, data: result });
   }),
 
-  // Server-side barcode decoding with sharp image processing
+  // Server-side barcode decoding with sharp + ZBar + ZXing
   decodeBarcode: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { image } = req.body; // base64 data URL or raw base64
+    const { image } = req.body;
     if (!image) {
       res.status(400).json({ success: false, error: 'No image provided' });
       return;
     }
 
-    // Extract base64 data
     const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
     const imageBuffer = Buffer.from(base64Data, 'base64');
 
@@ -50,122 +72,54 @@ export const checkerController = {
 
     try {
       const meta = await sharp(imageBuffer).metadata();
-      results.push(`orig:${meta.width}x${meta.height}`);
+      const w = meta.width || 1000;
+      const h = meta.height || 1000;
+      results.push(`orig:${w}x${h}`);
 
-      // Strategy 1: Grayscale + normalize (auto contrast) + sharpen
-      const processedVariants = [
-        {
-          name: 'gray-norm-sharp',
-          buf: await sharp(imageBuffer)
-            .grayscale()
-            .normalize()
-            .sharpen({ sigma: 2, m1: 1.5, m2: 0.7 })
-            .png()
-            .toBuffer(),
-        },
-        {
-          name: 'gray-sharp-resize',
-          buf: await sharp(imageBuffer)
-            .grayscale()
-            .normalize()
-            .sharpen({ sigma: 3, m1: 2.0, m2: 1.0 })
-            .resize(1280, null, { fit: 'inside' })
-            .png()
-            .toBuffer(),
-        },
-        {
-          name: 'threshold-128',
-          buf: await sharp(imageBuffer)
-            .grayscale()
-            .normalize()
-            .sharpen({ sigma: 2 })
-            .threshold(128)
-            .png()
-            .toBuffer(),
-        },
-        {
-          name: 'threshold-100',
-          buf: await sharp(imageBuffer)
-            .grayscale()
-            .normalize()
-            .sharpen({ sigma: 2 })
-            .threshold(100)
-            .png()
-            .toBuffer(),
-        },
-        {
-          name: 'threshold-160',
-          buf: await sharp(imageBuffer)
-            .grayscale()
-            .normalize()
-            .sharpen({ sigma: 2 })
-            .threshold(160)
-            .png()
-            .toBuffer(),
-        },
-        {
-          name: 'center-crop-thresh',
-          buf: await (async () => {
-            const w = meta.width || 1000;
-            const h = meta.height || 1000;
-            const cropH = Math.floor(h * 0.3);
-            const top = Math.floor((h - cropH) / 2);
-            return sharp(imageBuffer)
-              .extract({ left: 0, top, width: w, height: cropH })
-              .grayscale()
-              .normalize()
-              .sharpen({ sigma: 3 })
-              .threshold(128)
-              .png()
-              .toBuffer();
-          })(),
-        },
-        {
-          name: 'center-crop-sharp',
-          buf: await (async () => {
-            const w = meta.width || 1000;
-            const h = meta.height || 1000;
-            const cropH = Math.floor(h * 0.3);
-            const top = Math.floor((h - cropH) / 2);
-            return sharp(imageBuffer)
-              .extract({ left: 0, top, width: w, height: cropH })
-              .grayscale()
-              .normalize()
-              .sharpen({ sigma: 2, m1: 2.0, m2: 1.0 })
-              .resize(1280, null, { fit: 'inside' })
-              .png()
-              .toBuffer();
-          })(),
-        },
-      ];
+      // === ZBar decoder (much better for 1D barcodes from camera) ===
 
-      for (const variant of processedVariants) {
-        try {
-          // Try all-format detector
-          const barcodes = await wasmDetectorAll.detect(
-            new Blob([new Uint8Array(variant.buf)], { type: 'image/png' }) as any
-          );
-          if (barcodes.length > 0) {
-            decoded = barcodes[0].rawValue;
-            results.push(`${variant.name}:WA:"${decoded}"(${barcodes[0].format})`);
-            break;
-          }
+      // 1. Raw image → ZBar
+      decoded = await tryZBar(imageBuffer, 'raw', results);
+      if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
 
-          // Try code_128 specific
-          const barcodes128 = await wasmDetector128.detect(
-            new Blob([new Uint8Array(variant.buf)], { type: 'image/png' }) as any
-          );
-          if (barcodes128.length > 0) {
-            decoded = barcodes128[0].rawValue;
-            results.push(`${variant.name}:W128:"${decoded}"`);
-            break;
-          }
+      // 2. Grayscale + normalize + sharpen → ZBar
+      const sharpened = await sharp(imageBuffer).grayscale().normalize().sharpen({ sigma: 2 }).png().toBuffer();
+      decoded = await tryZBar(sharpened, 'sharp', results);
+      if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
 
-          results.push(`${variant.name}:0`);
-        } catch (e: any) {
-          results.push(`${variant.name}:E-${e?.message?.slice(0, 30)}`);
-        }
+      // 3. Resize to 1280 + sharpen → ZBar
+      const resized = await sharp(imageBuffer).grayscale().normalize().sharpen({ sigma: 3 }).resize(1280, null, { fit: 'inside' }).png().toBuffer();
+      decoded = await tryZBar(resized, 'resize', results);
+      if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
+
+      // 4. Center crop (barcode region) → ZBar
+      const cropH = Math.floor(h * 0.35);
+      const top = Math.floor((h - cropH) / 2);
+      const cropped = await sharp(imageBuffer).extract({ left: 0, top, width: w, height: cropH }).grayscale().normalize().sharpen({ sigma: 2 }).png().toBuffer();
+      decoded = await tryZBar(cropped, 'crop', results);
+      if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
+
+      // 5. Threshold variants → ZBar
+      for (const th of [100, 128, 160]) {
+        const threshed = await sharp(imageBuffer).grayscale().normalize().sharpen({ sigma: 2 }).threshold(th).png().toBuffer();
+        decoded = await tryZBar(threshed, `th${th}`, results);
+        if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
       }
+
+      // 6. Center crop + threshold → ZBar
+      const cropThresh = await sharp(imageBuffer).extract({ left: 0, top, width: w, height: cropH }).grayscale().normalize().sharpen({ sigma: 3 }).threshold(128).png().toBuffer();
+      decoded = await tryZBar(cropThresh, 'crop-th', results);
+      if (decoded) { res.json({ success: true, data: { decoded, debug: results.join(' | ') } }); return; }
+
+      // === Also try ZXing on sharpened + cropped ===
+      try {
+        const barcodes = await wasmDetectorAll.detect(
+          new Blob([new Uint8Array(sharpened)], { type: 'image/png' }) as any
+        );
+        results.push(barcodes.length > 0 ? `ZX-sharp:"${barcodes[0].rawValue}"` : 'ZX-sharp:0');
+        if (barcodes.length > 0) decoded = barcodes[0].rawValue;
+      } catch { results.push('ZX:E'); }
+
     } catch (e: any) {
       results.push(`ERR:${e?.message?.slice(0, 50)}`);
     }
