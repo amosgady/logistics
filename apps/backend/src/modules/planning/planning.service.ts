@@ -90,6 +90,23 @@ export class PlanningService {
     const truck = await prisma.truck.findUnique({ where: { id: truckId } });
     if (!truck) throw new AppError(404, 'NOT_FOUND', 'משאית לא נמצאה');
 
+    // Guard: department must match between order and truck
+    if (order.department && truck.department && order.department !== truck.department) {
+      throw new AppError(400, 'DEPARTMENT_MISMATCH',
+        `מחלקת ההזמנה (${order.department}) לא תואמת למחלקת המשאית (${truck.department})`,
+      );
+    }
+    if (order.department && !truck.department) {
+      throw new AppError(400, 'DEPARTMENT_MISMATCH',
+        'לא ניתן לשייך הזמנה עם מחלקה למשאית ללא מחלקה',
+      );
+    }
+    if (!order.department && truck.department) {
+      throw new AppError(400, 'DEPARTMENT_MISMATCH',
+        'לא ניתן לשייך הזמנה ללא מחלקה למשאית עם מחלקה',
+      );
+    }
+
     // Find or create route for this truck + date
     const date = new Date(routeDate);
     date.setHours(0, 0, 0, 0);
