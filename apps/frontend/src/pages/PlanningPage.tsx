@@ -33,7 +33,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
 import { zoneApi } from '../services/zoneApi';
-import { INSTALLER_DEPARTMENTS, INSTALLER_DEPARTMENT_LABELS } from '../constants/departments';
+import { INSTALLER_DEPARTMENTS, INSTALLER_DEPARTMENT_LABELS, DEPARTMENT_LABELS } from '../constants/departments';
 import { useDateStore } from '../store/dateStore';
 import DateNavigator from '../components/common/DateNavigator';
 
@@ -376,7 +376,7 @@ function RouteCard({
 export default function PlanningPage() {
   const queryClient = useQueryClient();
   const { selectedDate: planDate, setSelectedDate: setPlanDate } = useDateStore();
-  const [selectedTruck, setSelectedTruck] = useState<number | ''>('');
+  const [selectedTruckByDept, setSelectedTruckByDept] = useState<Record<string, number | ''>>({});
   const [selectedInstallerByDept, setSelectedInstallerByDept] = useState<Record<string, number | ''>>({});
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
@@ -559,7 +559,8 @@ export default function PlanningPage() {
     setOptimizedRouteId(null);
   };
 
-  const handleAssign = (orderId: number) => {
+  const handleAssign = (orderId: number, dept: string) => {
+    const selectedTruck = selectedTruckByDept[dept];
     if (!selectedTruck) {
       setSnackbar({ message: 'בחר משאית תחילה', severity: 'error' });
       return;
@@ -587,12 +588,24 @@ export default function PlanningPage() {
     optimizeMutation.mutate(routeId);
   };
 
-  // Group delivery orders by zone
-  const ordersByZone = new Map<string, Order[]>();
+  // Group delivery orders by department, then by zone within each department
+  const deliveryByDept = new Map<string, Order[]>();
   for (const order of deliveryOrders) {
-    const zoneName = order.zone?.nameHe || 'לא מוגדר';
-    if (!ordersByZone.has(zoneName)) ordersByZone.set(zoneName, []);
-    ordersByZone.get(zoneName)!.push(order);
+    const dept = order.department || '_NONE_';
+    if (!deliveryByDept.has(dept)) deliveryByDept.set(dept, []);
+    deliveryByDept.get(dept)!.push(order);
+  }
+
+  // For each department group, build zone sub-groups
+  const deptZoneGroups = new Map<string, Map<string, Order[]>>();
+  for (const [dept, orders] of deliveryByDept.entries()) {
+    const zoneMap = new Map<string, Order[]>();
+    for (const order of orders) {
+      const zoneName = order.zone?.nameHe || 'לא מוגדר';
+      if (!zoneMap.has(zoneName)) zoneMap.set(zoneName, []);
+      zoneMap.get(zoneName)!.push(order);
+    }
+    deptZoneGroups.set(dept, zoneMap);
   }
 
   // Group installation orders by department
@@ -649,61 +662,74 @@ export default function PlanningPage() {
                 </Typography>
               ) : (
                 <>
-                  {/* Delivery orders section */}
+                  {/* Delivery orders section - grouped by department */}
                   {deliveryOrders.length > 0 && (
                     <Box sx={{ mb: 2 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <TruckIcon fontSize="small" color="primary" />
-                          <Typography variant="subtitle2" color="primary">
-                            הזמנות הובלה ({deliveryOrders.length})
-                          </Typography>
-                        </Box>
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                          <InputLabel>בחר משאית</InputLabel>
-                          <Select
-                            value={selectedTruck}
-                            label="בחר משאית"
-                            onChange={(e) => setSelectedTruck(e.target.value as number)}
-                          >
-                            {trucks.map((t: any) => (
-                              <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <TruckIcon fontSize="small" color="primary" />
+                        <Typography variant="subtitle2" color="primary">
+                          הזמנות הובלה ({deliveryOrders.length})
+                        </Typography>
                       </Box>
 
-                      {Array.from(ordersByZone.entries()).map(([zoneName, orders]) => (
-                        <Box key={zoneName} sx={{ mb: 1.5 }}>
-                          <Chip label={`${zoneName} (${orders.length})`} color="primary" size="small" sx={{ mb: 0.5 }} />
-                          {orders.map((order) => (
-                            <Card key={order.id} variant="outlined" sx={{ mb: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
-                              <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <Box>
-                                    <Typography variant="body2" fontWeight="bold">
-                                      {order.orderNumber} - {order.customerName}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {order.address}, {order.city} | {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
-                                    </Typography>
-                                  </Box>
-                                  <Tooltip title="שייך למשאית">
-                                    <IconButton
-                                      size="small"
-                                      color="primary"
-                                      onClick={() => handleAssign(order.id)}
-                                      disabled={!selectedTruck || assignMutation.isPending}
-                                    >
-                                      <AddIcon />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Box>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </Box>
-                      ))}
+                      {Array.from(deptZoneGroups.entries()).map(([dept, zoneMap]) => {
+                        const deptLabel = dept === '_NONE_' ? 'ללא מחלקה' : (DEPARTMENT_LABELS[dept] || dept);
+                        const deptOrders = deliveryByDept.get(dept) || [];
+                        const deptTrucks = trucks.filter((t: any) =>
+                          dept === '_NONE_' ? !t.department : t.department === dept
+                        );
+                        return (
+                          <Box key={dept} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                              <Chip label={`${deptLabel} (${deptOrders.length})`} color="primary" size="small" variant="outlined" />
+                              <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>בחר משאית</InputLabel>
+                                <Select
+                                  value={selectedTruckByDept[dept] || ''}
+                                  label="בחר משאית"
+                                  onChange={(e) => setSelectedTruckByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
+                                >
+                                  {deptTrucks.map((t: any) => (
+                                    <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Box>
+
+                            {Array.from(zoneMap.entries()).map(([zoneName, orders]) => (
+                              <Box key={zoneName} sx={{ mb: 1 }}>
+                                <Chip label={`${zoneName} (${orders.length})`} color="primary" size="small" sx={{ mb: 0.5 }} />
+                                {orders.map((order) => (
+                                  <Card key={order.id} variant="outlined" sx={{ mb: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
+                                    <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Box>
+                                          <Typography variant="body2" fontWeight="bold">
+                                            {order.orderNumber} - {order.customerName}
+                                          </Typography>
+                                          <Typography variant="caption" color="text.secondary">
+                                            {order.address}, {order.city} | {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
+                                          </Typography>
+                                        </Box>
+                                        <Tooltip title="שייך למשאית">
+                                          <IconButton
+                                            size="small"
+                                            color="primary"
+                                            onClick={() => handleAssign(order.id, dept)}
+                                            disabled={!selectedTruckByDept[dept] || assignMutation.isPending}
+                                          >
+                                            <AddIcon />
+                                          </IconButton>
+                                        </Tooltip>
+                                      </Box>
+                                    </CardContent>
+                                  </Card>
+                                ))}
+                              </Box>
+                            ))}
+                          </Box>
+                        );
+                      })}
                     </Box>
                   )}
 
