@@ -278,6 +278,7 @@ model Truck {
   waitTimePerStop Int       @map("wait_time_per_stop")
   isActive        Boolean   @default(true) @map("is_active")
   finalAddress    String?   @map("final_address")
+  department      Department?
 
   assignments TruckAssignment[]
   routes      Route[]

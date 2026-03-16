@@ -24,6 +24,7 @@ export class TrucksService {
     maxPallets: number;
     workHoursPerDay: number;
     waitTimePerStop: number;
+    department?: string;
   }) {
     return prisma.truck.create({ data });
   }
@@ -38,6 +39,7 @@ export class TrucksService {
     workHoursPerDay: number;
     waitTimePerStop: number;
     isActive: boolean;
+    department: string | null;
   }>) {
     return prisma.truck.update({ where: { id }, data });
   }

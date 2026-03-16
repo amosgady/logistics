@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { truckApi } from '../services/truckApi';
 import SortableTableCell from '../components/common/SortableTableCell';
 import { useSortable } from '../hooks/useSortable';
+import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS } from '../constants/departments';
 
 interface Truck {
   id: number;
@@ -23,6 +24,7 @@ interface Truck {
   waitTimePerStop: number;
   isActive: boolean;
   finalAddress: string | null;
+  department: string | null;
 }
 
 const emptyTruck = {
@@ -35,6 +37,7 @@ const emptyTruck = {
   workHoursPerDay: 10,
   waitTimePerStop: 15,
   finalAddress: '',
+  department: '',
 };
 
 export default function TrucksPage() {
@@ -87,6 +90,7 @@ export default function TrucksPage() {
         workHoursPerDay: Number(truck.workHoursPerDay),
         waitTimePerStop: truck.waitTimePerStop,
         finalAddress: truck.finalAddress || '',
+        department: truck.department || '',
       });
     } else {
       setEditingTruck(null);
@@ -102,10 +106,11 @@ export default function TrucksPage() {
   };
 
   const handleSave = () => {
+    const payload = { ...form, department: form.department || null };
     if (editingTruck) {
-      updateMutation.mutate({ id: editingTruck.id, data: form });
+      updateMutation.mutate({ id: editingTruck.id, data: payload });
     } else {
-      createMutation.mutate(form as any);
+      createMutation.mutate(payload as any);
     }
   };
 
@@ -134,6 +139,7 @@ export default function TrucksPage() {
               <SortableTableCell label="משטחים מקס'" sortKey="maxPallets" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="שעות עבודה" sortKey="workHoursPerDay" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="המתנה בנקודה (דק')" sortKey="waitTimePerStop" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <TableCell>פעולות</TableCell>
             </TableRow>
           </TableHead>
@@ -154,6 +160,7 @@ export default function TrucksPage() {
                 <TableCell>{truck.maxPallets}</TableCell>
                 <TableCell>{Number(truck.workHoursPerDay)}</TableCell>
                 <TableCell>{truck.waitTimePerStop}</TableCell>
+                <TableCell>{truck.department ? DEPARTMENT_LABELS[truck.department] || truck.department : '-'}</TableCell>
                 <TableCell>
                   <IconButton size="small" onClick={() => handleOpen(truck)}><EditIcon fontSize="small" /></IconButton>
                   <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(truck.id)}><DeleteIcon fontSize="small" /></IconButton>
@@ -161,7 +168,7 @@ export default function TrucksPage() {
               </TableRow>
             ))}
             {trucks.length === 0 && (
-              <TableRow><TableCell colSpan={9} align="center">אין משאיות</TableCell></TableRow>
+              <TableRow><TableCell colSpan={10} align="center">אין משאיות</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -186,6 +193,12 @@ export default function TrucksPage() {
             <TextField label="כמות משטחים מקסימלית" type="number" value={form.maxPallets} onChange={(e) => setForm({ ...form, maxPallets: Number(e.target.value) })} />
             <TextField label="שעות עבודה ביום" type="number" value={form.workHoursPerDay} onChange={(e) => setForm({ ...form, workHoursPerDay: Number(e.target.value) })} />
             <TextField label="זמן המתנה בנקודה (דקות)" type="number" value={form.waitTimePerStop} onChange={(e) => setForm({ ...form, waitTimePerStop: Number(e.target.value) })} />
+            <TextField select label="מחלקה" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
+              <MenuItem value="">ללא</MenuItem>
+              {DEPARTMENT_OPTIONS.map((opt) => (
+                <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+              ))}
+            </TextField>
             <TextField
               label="כתובת סיום"
               value={form.finalAddress}
