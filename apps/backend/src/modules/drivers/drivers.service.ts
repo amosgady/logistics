@@ -146,6 +146,9 @@ export class DriversService {
 
     return prisma.$transaction(async (tx) => {
       await tx.truckAssignment.deleteMany({ where: { driverProfileId: profileId } });
+      await tx.workerLocation.deleteMany({ where: { userId: profile.userId } });
+      await tx.message.deleteMany({ where: { OR: [{ senderId: profile.userId }, { recipientId: profile.userId }] } });
+      await tx.auditLog.deleteMany({ where: { userId: profile.userId } });
       await tx.driverProfile.delete({ where: { id: profileId } });
       await tx.user.delete({ where: { id: profile.userId } });
     });

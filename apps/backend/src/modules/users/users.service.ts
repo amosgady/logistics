@@ -76,10 +76,27 @@ export class UsersService {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'משתמש לא נמצא');
 
-    // Delete related records first
-    await prisma.driverProfile.deleteMany({ where: { userId: id } });
-    await prisma.installerProfile.deleteMany({ where: { userId: id } });
-    await prisma.user.delete({ where: { id } });
+    await prisma.$transaction(async (tx) => {
+      // Delete related records in correct order
+      const driverProfiles = await tx.driverProfile.findMany({ where: { userId: id } });
+      for (const dp of driverProfiles) {
+        await tx.truckAssignment.deleteMany({ where: { driverProfileId: dp.id } });
+      }
+
+      const installerProfiles = await tx.installerProfile.findMany({ where: { userId: id } });
+      for (const ip of installerProfiles) {
+        await tx.installerAssignment.deleteMany({ where: { installerProfileId: ip.id } });
+        // Remove installer from routes
+        await tx.route.updateMany({ where: { installerProfileId: ip.id }, data: { installerProfileId: null } });
+      }
+
+      await tx.workerLocation.deleteMany({ where: { userId: id } });
+      await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { recipientId: id }] } });
+      await tx.auditLog.deleteMany({ where: { userId: id } });
+      await tx.driverProfile.deleteMany({ where: { userId: id } });
+      await tx.installerProfile.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
   }
 }
 
