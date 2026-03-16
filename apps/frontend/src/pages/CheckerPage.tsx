@@ -156,17 +156,23 @@ export default function CheckerPage() {
       let found = false;
 
       await html5QrCode.start(
-        { facingMode: 'environment' },
         {
-          fps: 15,
+          facingMode: 'environment',
+        },
+        {
+          fps: 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
             // Wide rectangle for 1D barcodes
             const w = Math.floor(viewfinderWidth * 0.9);
-            const h = Math.floor(viewfinderHeight * 0.25);
+            const h = Math.floor(viewfinderHeight * 0.3);
             return { width: w, height: h };
           },
-          aspectRatio: 16 / 9,
           disableFlip: false,
+          videoConstraints: {
+            facingMode: { exact: 'environment' },
+            width: { min: 1280, ideal: 1920 },
+            height: { min: 720, ideal: 1080 },
+          },
         },
         // Success callback
         (decodedText: string, _decodedResult: any) => {
