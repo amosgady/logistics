@@ -21,6 +21,8 @@ export const ordersController = {
       deliveryDateTo: req.query.deliveryDateTo as string,
       search: req.query.search as string,
       department: departmentParam ? departmentParam.split(',') : undefined,
+      sentToWms: req.query.sentToWms === 'true' ? true : undefined,
+      sentToChecker: req.query.sentToChecker === 'true' ? true : undefined,
       page: req.query.page ? parseInt(req.query.page as string) : 1,
       pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string) : 50,
     };
@@ -173,5 +175,18 @@ export const ordersController = {
     });
 
     res.json({ success: true });
+  }),
+
+  updateLineQuantity: asyncHandler(async (req: Request, res: Response) => {
+    const lineId = parseInt(req.params.lineId as string);
+    const { quantity } = req.body;
+    const line = await ordersService.updateLineQuantity(lineId, quantity);
+    res.json({ success: true, data: line });
+  }),
+
+  deleteOrderLine: asyncHandler(async (req: Request, res: Response) => {
+    const lineId = parseInt(req.params.lineId as string);
+    const result = await ordersService.deleteOrderLine(lineId);
+    res.json({ success: true, data: result });
   }),
 };

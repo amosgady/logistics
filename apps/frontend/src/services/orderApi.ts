@@ -73,4 +73,10 @@ export const orderApi = {
 
   deleteDeliveryNote: (orderId: number) =>
     api.delete(`/orders/${orderId}/delivery-note`).then((r) => r.data),
+
+  updateLineQuantity: (lineId: number, quantity: number) =>
+    api.patch(`/orders/lines/${lineId}/quantity`, { quantity }).then((r) => r.data),
+
+  deleteOrderLine: (lineId: number) =>
+    api.delete(`/orders/lines/${lineId}`).then((r) => r.data),
 };

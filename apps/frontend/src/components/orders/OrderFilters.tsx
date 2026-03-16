@@ -1,7 +1,7 @@
 import {
   Box, TextField, MenuItem, InputAdornment, Button,
   Select, InputLabel, FormControl, Checkbox, ListItemText,
-  Chip, OutlinedInput,
+  Chip, OutlinedInput, FormControlLabel,
 } from '@mui/material';
 import { Search as SearchIcon, DateRange as DateRangeIcon } from '@mui/icons-material';
 import { useOrderStore } from '../../store/orderStore';
@@ -131,6 +131,28 @@ export default function OrderFilters() {
       >
         תאריך קרוב
       </Button>
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={filters.sentToWms || false}
+            onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
+            size="small"
+          />
+        }
+        label="נשלח ל-WMS"
+        sx={{ whiteSpace: 'nowrap' }}
+      />
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={filters.sentToChecker || false}
+            onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
+            size="small"
+          />
+        }
+        label="נשלח לבודק"
+        sx={{ whiteSpace: 'nowrap' }}
+      />
     </Box>
   );
 }

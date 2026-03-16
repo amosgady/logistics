@@ -10,6 +10,8 @@ interface OrderFilters {
   deliveryDateTo?: string;
   search?: string;
   department?: string[];
+  sentToWms?: boolean;
+  sentToChecker?: boolean;
   page?: number;
   pageSize?: number;
 }
@@ -47,6 +49,12 @@ export class OrdersService {
         { address: { contains: filters.search, mode: 'insensitive' } },
         { phone: { contains: filters.search } },
       ];
+    }
+    if (filters.sentToWms) {
+      where.exportedToCsv = true;
+    }
+    if (filters.sentToChecker) {
+      where.sentToChecker = true;
     }
 
     const [orders, total] = await Promise.all([
@@ -223,6 +231,11 @@ export class OrdersService {
     const isCoordinating = data.coordinationStatus === 'COORDINATED';
     const isUncoordinating = data.coordinationStatus === 'NOT_STARTED';
 
+    // Only allow un-coordinating when currently coordinated
+    if (isUncoordinating && order.coordinationStatus !== 'COORDINATED') {
+      throw new AppError(400, 'INVALID_COORDINATION_CHANGE', 'ניתן לבטל תיאום רק כאשר ההזמנה בסטטוס מתואם');
+    }
+
     // Auto-approve: when coordination is confirmed and order is in PLANNING or IN_COORDINATION,
     // automatically move it to APPROVED so "Send to Driver" becomes available.
     const shouldAutoApprove =
@@ -288,6 +301,43 @@ export class OrdersService {
         geocodedAddress: null,
       },
     });
+  }
+  async updateLineQuantity(lineId: number, quantity: number) {
+    const line = await prisma.orderLine.findUnique({
+      where: { id: lineId },
+      include: { order: true },
+    });
+    if (!line) throw new AppError(404, 'NOT_FOUND', 'שורת הזמנה לא נמצאה');
+    if (line.order.status !== 'PENDING') {
+      throw new AppError(400, 'INVALID_STATUS', 'ניתן לשנות כמות רק כאשר ההזמנה בסטטוס בהמתנה');
+    }
+    if (quantity < 1) throw new AppError(400, 'INVALID', 'כמות חייבת להיות לפחות 1');
+
+    const totalPrice = line.discount
+      ? Number(line.price) * quantity * (1 - Number(line.discount) / 100)
+      : Number(line.price) * quantity;
+
+    return prisma.orderLine.update({
+      where: { id: lineId },
+      data: {
+        quantity,
+        totalPrice: new Prisma.Decimal(totalPrice.toFixed(2)),
+      },
+    });
+  }
+
+  async deleteOrderLine(lineId: number) {
+    const line = await prisma.orderLine.findUnique({
+      where: { id: lineId },
+      include: { order: true },
+    });
+    if (!line) throw new AppError(404, 'NOT_FOUND', 'שורת הזמנה לא נמצאה');
+    if (line.order.status !== 'PENDING') {
+      throw new AppError(400, 'INVALID_STATUS', 'ניתן למחוק שורה רק כאשר ההזמנה בסטטוס בהמתנה');
+    }
+
+    await prisma.orderLine.delete({ where: { id: lineId } });
+    return { id: lineId };
   }
 }
 

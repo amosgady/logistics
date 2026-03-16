@@ -23,6 +23,7 @@ import {
   Edit as EditIcon,
   Photo as PhotoIcon,
   PictureAsPdf as PdfIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -81,6 +82,7 @@ interface Order {
   coordinationStatus: string;
   sentToDriver: boolean;
   exportedToCsv: boolean;
+  sentToChecker: boolean;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
@@ -218,7 +220,80 @@ function EditableAddress({ order }: { order: Order }) {
   );
 }
 
-function OrderLineDetails({ orderLines }: { orderLines: OrderLine[] }) {
+function EditableLineQuantity({ line, orderStatus }: { line: OrderLine; orderStatus: string }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(String(line.quantity));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isPending = orderStatus === 'PENDING';
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: (quantity: number) => orderApi.updateLineQuantity(line.id, quantity),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    const num = parseInt(value);
+    if (!isNaN(num) && num > 0 && num !== line.quantity) {
+      mutation.mutate(num);
+    }
+    setEditing(false);
+  };
+
+  if (!isPending) return <>{line.quantity}</>;
+
+  if (editing) {
+    return (
+      <TextField
+        inputRef={inputRef}
+        type="number"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        size="small"
+        variant="standard"
+        inputProps={{ min: 1, style: { textAlign: 'center', width: 50 } }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
+      onClick={() => { setValue(String(line.quantity)); setEditing(true); }}
+    >
+      {line.quantity}
+      <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
+    </Box>
+  );
+}
+
+function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]; orderStatus: string }) {
+  const queryClient = useQueryClient();
+  const isPending = orderStatus === 'PENDING';
+
+  const deleteMutation = useMutation({
+    mutationFn: (lineId: number) => orderApi.deleteOrderLine(lineId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const handleDelete = (lineId: number, product: string) => {
+    if (window.confirm(`למחוק את השורה "${product}"?`)) {
+      deleteMutation.mutate(lineId);
+    }
+  };
+
   if (!orderLines || orderLines.length === 0) {
     return <Typography variant="body2" sx={{ p: 2 }}>אין שורות הזמנה</Typography>;
   }
@@ -240,6 +315,7 @@ function OrderLineDetails({ orderLines }: { orderLines: OrderLine[] }) {
             <TableCell>סה"כ</TableCell>
             <TableCell>משקל</TableCell>
             <TableCell align="center">מלאי</TableCell>
+            {isPending && <TableCell align="center">פעולות</TableCell>}
           </TableRow>
         </TableHead>
         <TableBody>
@@ -248,7 +324,9 @@ function OrderLineDetails({ orderLines }: { orderLines: OrderLine[] }) {
               <TableCell>{line.lineNumber}</TableCell>
               <TableCell>{line.product}</TableCell>
               <TableCell>{line.description || '-'}</TableCell>
-              <TableCell align="center">{line.quantity}</TableCell>
+              <TableCell align="center">
+                <EditableLineQuantity line={line} orderStatus={orderStatus} />
+              </TableCell>
               <TableCell>
                 {Number(line.price).toLocaleString('he-IL', { style: 'currency', currency: 'ILS' })}
               </TableCell>
@@ -262,6 +340,13 @@ function OrderLineDetails({ orderLines }: { orderLines: OrderLine[] }) {
               </TableCell>
               <TableCell>{Number(line.weight)} ק"ג</TableCell>
               <TableCell align="center">{line.currentStock}</TableCell>
+              {isPending && (
+                <TableCell align="center">
+                  <IconButton size="small" color="error" onClick={() => handleDelete(line.id, line.product)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>
@@ -405,7 +490,8 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
         <TableCell>{order.department ? (DEPARTMENT_LABELS[order.department] || order.department) : '-'}</TableCell>
         <TableCell>{order.zone?.nameHe || 'לא מוגדר'}</TableCell>
-        <TableCell>{order.coordinationStatus === 'COORDINATED' ? 'כן' : 'לא'}</TableCell>
+        <TableCell align="center">{order.exportedToCsv ? 'כן' : 'לא'}</TableCell>
+        <TableCell align="center">{order.sentToChecker ? 'כן' : 'לא'}</TableCell>
         <TableCell align="center">{order.orderLines?.length || 0}</TableCell>
         <TableCell align="center"><EditablePalletCount order={order} /></TableCell>
         <TableCell align="center">
@@ -440,9 +526,9 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={15} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
+        <TableCell colSpan={16} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <OrderLineDetails orderLines={order.orderLines} />
+            <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
         </TableCell>
       </TableRow>
@@ -507,7 +593,8 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
               <SortableTableCell label="תאריך אספקה" sortKey="deliveryDate" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="אזור" sortKey="zone.nameHe" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="תיאום" sortKey="coordinationStatus" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="WMS" sortKey="exportedToCsv" sortConfig={sortConfig} onSort={handleSort} align="center" />
+              <SortableTableCell label="בודק" sortKey="sentToChecker" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="פריטים" sortKey="orderLines.length" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="משטחים" sortKey="palletCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <TableCell align="center">תעודה</TableCell>
@@ -517,7 +604,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={15} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={16} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">אין הזמנות</Typography>
                 </TableCell>
               </TableRow>

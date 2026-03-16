@@ -7,6 +7,8 @@ interface OrderFilters {
   deliveryDateTo?: string;
   search?: string;
   department?: string[];
+  sentToWms?: boolean;
+  sentToChecker?: boolean;
   page: number;
   pageSize: number;
 }
