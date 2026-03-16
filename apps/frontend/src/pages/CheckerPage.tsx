@@ -851,40 +851,42 @@ export default function CheckerPage() {
       {/* Scanner - Full screen overlay using html5-qrcode */}
       {scannerOpen && (
         <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'black', display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
+          {/* Header - fixed at top with high z-index */}
           <Box sx={{
+            position: 'absolute', top: 0, left: 0, right: 0,
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            p: 1, bgcolor: 'rgba(0,0,0,0.8)', zIndex: 10,
+            p: 1, bgcolor: 'rgba(0,0,0,0.85)', zIndex: 99999,
           }}>
             <IconButton onClick={stopScanner} sx={{ color: 'white' }}><CloseIcon /></IconButton>
             <Box sx={{ textAlign: 'center', flex: 1 }}>
-              <Typography color="white" fontWeight="bold" fontSize={13}>כוון את הברקוד למסגרת</Typography>
-              {scannerDebug && <Typography color="rgba(255,255,255,0.6)" fontSize={10}>{scannerDebug}</Typography>}
+              <Typography color="white" fontWeight="bold" fontSize={12}>כוון ברקוד למסגרת</Typography>
+              {scannerDebug && <Typography color="rgba(255,255,255,0.7)" fontSize={9} sx={{ wordBreak: 'break-all' }}>{scannerDebug}</Typography>}
             </Box>
-            {hasTorch ? (
+            {hasTorch && (
               <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
                 {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
               </IconButton>
-            ) : <Box sx={{ width: 48 }} />}
+            )}
           </Box>
 
           {/* html5-qrcode scanner container */}
           <Box id="html5-qrcode-scanner" sx={{
-            flex: 1,
+            width: '100%', height: '100%',
             '& video': { objectFit: 'cover !important' },
             '& #qr-shaded-region': { borderColor: '#ff1744 !important' },
           }} />
 
-          {/* Bottom status + debug capture button */}
+          {/* Bottom bar - fixed at bottom with high z-index */}
           <Box sx={{
-            p: 1.5, bgcolor: 'rgba(0,0,0,0.8)', zIndex: 10,
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            p: 1.5, bgcolor: 'rgba(0,0,0,0.85)', zIndex: 99999,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2,
           }}>
             <CircularProgress size={18} sx={{ color: '#4caf50' }} />
-            <Typography color="white" fontSize={13}>סורק... #{scanCount}</Typography>
+            <Typography color="white" fontSize={13}>סורק #{scanCount}</Typography>
             <Button variant="contained" size="small" color="warning"
               onClick={debugCapture}
-              sx={{ fontSize: 11, py: 0.5, px: 1.5, minWidth: 'auto' }}>
+              sx={{ fontSize: 12, py: 0.8, px: 2, fontWeight: 'bold' }}>
               📸 צלם דיבאג
             </Button>
           </Box>
