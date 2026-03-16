@@ -302,6 +302,28 @@ export class OrdersService {
       },
     });
   }
+  async updateDoorCount(orderId: number, doorCount: number | null) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { doorCount },
+      include: { orderLines: true, zone: true },
+    });
+  }
+
+  async updateHandleCount(orderId: number, handleCount: number | null) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { handleCount },
+      include: { orderLines: true, zone: true },
+    });
+  }
+
   async updateLineQuantity(lineId: number, quantity: number) {
     const line = await prisma.orderLine.findUnique({
       where: { id: lineId },

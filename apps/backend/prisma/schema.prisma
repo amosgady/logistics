@@ -201,6 +201,10 @@ model Order {
   // Pallets
   palletCount   Int     @default(1) @map("pallet_count")
 
+  // Installation counts
+  doorCount     Int?    @map("door_count")
+  handleCount   Int?    @map("handle_count")
+
   // Delivery note PDF
   deliveryNoteUrl       String? @map("delivery_note_url")
   signedDeliveryNoteUrl String? @map("signed_delivery_note_url")

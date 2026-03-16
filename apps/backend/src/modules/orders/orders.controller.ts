@@ -184,6 +184,20 @@ export const ordersController = {
     res.json({ success: true, data: order });
   }),
 
+  updateDoorCount: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+    const { doorCount } = req.body;
+    const order = await ordersService.updateDoorCount(orderId, doorCount ?? null);
+    res.json({ success: true, data: order });
+  }),
+
+  updateHandleCount: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+    const { handleCount } = req.body;
+    const order = await ordersService.updateHandleCount(orderId, handleCount ?? null);
+    res.json({ success: true, data: order });
+  }),
+
   updateLineQuantity: asyncHandler(async (req: Request, res: Response) => {
     const lineId = parseInt(req.params.lineId as string);
     const { quantity } = req.body;

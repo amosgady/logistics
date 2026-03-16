@@ -82,4 +82,10 @@ export const orderApi = {
 
   updateDriverNote: (orderId: number, driverNote: string) =>
     api.patch(`/orders/${orderId}/driver-note`, { driverNote }).then((r) => r.data),
+
+  updateDoorCount: (orderId: number, doorCount: number | null) =>
+    api.patch(`/orders/${orderId}/door-count`, { doorCount }).then((r) => r.data),
+
+  updateHandleCount: (orderId: number, handleCount: number | null) =>
+    api.patch(`/orders/${orderId}/handle-count`, { handleCount }).then((r) => r.data),
 };

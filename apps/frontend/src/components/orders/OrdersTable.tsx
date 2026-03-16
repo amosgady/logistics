@@ -78,6 +78,8 @@ interface Order {
   elevator: boolean | null;
   department: string | null;
   palletCount: number;
+  doorCount: number | null;
+  handleCount: number | null;
   zone: { id: number; nameHe: string } | null;
   coordinationStatus: string;
   sentToDriver: boolean;
@@ -148,6 +150,67 @@ function EditablePalletCount({ order }: { order: Order }) {
       onClick={() => { setValue(String(order.palletCount)); setEditing(true); }}
     >
       {order.palletCount}
+      <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
+    </Box>
+  );
+}
+
+function EditableOptionalCount({ order, field, updateFn }: { order: Order; field: 'doorCount' | 'handleCount'; updateFn: (orderId: number, value: number | null) => Promise<any> }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(order[field] != null ? String(order[field]) : '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: (val: number | null) => updateFn(order.id, val),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    const trimmed = value.trim();
+    if (trimmed === '') {
+      if (order[field] != null) mutation.mutate(null);
+    } else {
+      const num = parseInt(trimmed);
+      if (!isNaN(num) && num >= 0 && num !== order[field]) {
+        mutation.mutate(num);
+      }
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TextField
+        inputRef={inputRef}
+        type="number"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') setEditing(false);
+        }}
+        size="small"
+        variant="standard"
+        inputProps={{ min: 0, style: { textAlign: 'center', width: 40 } }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
+      onClick={() => { setValue(order[field] != null ? String(order[field]) : ''); setEditing(true); }}
+    >
+      {order[field] != null ? order[field] : '-'}
       <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
     </Box>
   );
@@ -561,6 +624,8 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
         <TableCell align="center">{order.orderLines?.length || 0}</TableCell>
         <TableCell align="center"><EditablePalletCount order={order} /></TableCell>
+        <TableCell align="center"><EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} /></TableCell>
+        <TableCell align="center"><EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} /></TableCell>
         <TableCell align="center">
           {order.deliveryNoteUrl ? (
             order.signedDeliveryNoteUrl ? (
@@ -593,7 +658,7 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
         </TableCell>
       </TableRow>
       <TableRow>
-        <TableCell colSpan={17} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
+        <TableCell colSpan={19} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
@@ -665,6 +730,8 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
               <TableCell>הערה לנהג</TableCell>
               <SortableTableCell label="פריטים" sortKey="orderLines.length" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <SortableTableCell label="משטחים" sortKey="palletCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
+              <SortableTableCell label="דלתות" sortKey="doorCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
+              <SortableTableCell label="ידיות" sortKey="handleCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
               <TableCell align="center">תעודה</TableCell>
               <TableCell align="center">מדיה</TableCell>
             </TableRow>
@@ -672,7 +739,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={17} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={19} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">אין הזמנות</Typography>
                 </TableCell>
               </TableRow>
