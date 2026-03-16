@@ -10,6 +10,5 @@ router.use(requireRole('CHECKER', 'ADMIN', 'COORDINATOR'));
 router.get('/orders', checkerController.searchOrders);
 router.get('/orders/:orderId/lines', checkerController.getOrderLines);
 router.patch('/lines/:lineId/check', checkerController.toggleLineCheck);
-router.post('/decode-barcode', checkerController.decodeBarcode);
 
 export default router;
