@@ -5,7 +5,8 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, IconButton, Chip, Alert, Snackbar,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, PersonOff as DeactivateIcon } from '@mui/icons-material';
+import Tooltip from '@mui/material/Tooltip';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi, UserRecord } from '../services/userApi';
 import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS, ROLE_LABELS } from '../constants/departments';
@@ -63,12 +64,21 @@ export default function UsersPage() {
     onError: () => setSnackbar({ message: 'שגיאה בעדכון משתמש', severity: 'error' }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: userApi.delete,
+  const deactivateMutation = useMutation({
+    mutationFn: userApi.deactivate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       setSnackbar({ message: 'משתמש הושבת', severity: 'success' });
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: userApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      setSnackbar({ message: 'משתמש נמחק לצמיתות', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה במחיקת משתמש', severity: 'error' }),
   });
 
   const handleOpen = (user?: UserRecord) => {
@@ -175,10 +185,21 @@ export default function UsersPage() {
                 <TableCell>
                   <IconButton size="small" onClick={() => handleOpen(user)}><EditIcon fontSize="small" /></IconButton>
                   {user.isActive && (
-                    <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(user.id)}>
+                    <Tooltip title="השבת משתמש">
+                      <IconButton size="small" color="warning" onClick={() => deactivateMutation.mutate(user.id)}>
+                        <DeactivateIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <Tooltip title="מחק לצמיתות">
+                    <IconButton size="small" color="error" onClick={() => {
+                      if (window.confirm('האם אתה בטוח שברצונך למחוק את המשתמש לצמיתות? פעולה זו בלתי הפיכה.')) {
+                        deleteMutation.mutate(user.id);
+                      }
+                    }}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
-                  )}
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))}

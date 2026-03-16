@@ -5,7 +5,8 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, IconButton, Chip, Alert, Snackbar,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, PersonOff as DeactivateIcon } from '@mui/icons-material';
+import Tooltip from '@mui/material/Tooltip';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { driverManagementApi, DriverRecord } from '../services/driverManagementApi';
 import { truckApi } from '../services/truckApi';
@@ -57,12 +58,21 @@ export default function DriversManagementPage() {
     onError: () => setSnackbar({ message: 'שגיאה בעדכון נהג', severity: 'error' }),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: driverManagementApi.delete,
+  const deactivateMutation = useMutation({
+    mutationFn: driverManagementApi.deactivate,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['drivers-management'] });
       setSnackbar({ message: 'נהג הושבת', severity: 'success' });
     },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: driverManagementApi.delete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['drivers-management'] });
+      setSnackbar({ message: 'נהג נמחק לצמיתות', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה במחיקת נהג', severity: 'error' }),
   });
 
   const handleOpen = (driver?: DriverRecord) => {
@@ -170,10 +180,21 @@ export default function DriversManagementPage() {
                   <TableCell>
                     <IconButton size="small" onClick={() => handleOpen(driver)}><EditIcon fontSize="small" /></IconButton>
                     {driver.user.isActive && (
-                      <IconButton size="small" color="error" onClick={() => deleteMutation.mutate(driver.id)}>
+                      <Tooltip title="השבת נהג">
+                        <IconButton size="small" color="warning" onClick={() => deactivateMutation.mutate(driver.id)}>
+                          <DeactivateIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="מחק לצמיתות">
+                      <IconButton size="small" color="error" onClick={() => {
+                        if (window.confirm('האם אתה בטוח שברצונך למחוק את הנהג לצמיתות? פעולה זו בלתי הפיכה.')) {
+                          deleteMutation.mutate(driver.id);
+                        }
+                      }}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
-                    )}
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
               );

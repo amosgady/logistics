@@ -34,6 +34,7 @@ export interface CheckerOrderDetail {
   phone: string;
   deliveryDate: string;
   department: string | null;
+  driverNote: string | null;
   orderLines: CheckerOrderLine[];
 }
 

@@ -127,7 +127,7 @@ export class DriversService {
     });
   }
 
-  async delete(profileId: number) {
+  async deactivate(profileId: number) {
     const profile = await prisma.driverProfile.findUnique({ where: { id: profileId } });
     if (!profile) throw new AppError(404, 'NOT_FOUND', 'נהג לא נמצא');
 
@@ -137,6 +137,17 @@ export class DriversService {
         data: { isActive: false },
       });
       await tx.user.update({ where: { id: profile.userId }, data: { isActive: false } });
+    });
+  }
+
+  async delete(profileId: number) {
+    const profile = await prisma.driverProfile.findUnique({ where: { id: profileId } });
+    if (!profile) throw new AppError(404, 'NOT_FOUND', 'נהג לא נמצא');
+
+    return prisma.$transaction(async (tx) => {
+      await tx.truckAssignment.deleteMany({ where: { driverProfileId: profileId } });
+      await tx.driverProfile.delete({ where: { id: profileId } });
+      await tx.user.delete({ where: { id: profile.userId } });
     });
   }
 }

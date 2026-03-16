@@ -19,6 +19,12 @@ export const usersController = {
     res.json({ success: true, data: user });
   }),
 
+  deactivate: asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    await usersService.deactivate(id);
+    res.json({ success: true });
+  }),
+
   delete: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     await usersService.delete(id);

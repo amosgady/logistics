@@ -33,6 +33,9 @@ export const driverManagementApi = {
   update: (id: number, data: Record<string, any>) =>
     api.put(`/drivers/${id}`, data).then((r) => r.data),
 
+  deactivate: (id: number) =>
+    api.patch(`/drivers/${id}/deactivate`).then((r) => r.data),
+
   delete: (id: number) =>
     api.delete(`/drivers/${id}`).then((r) => r.data),
 };

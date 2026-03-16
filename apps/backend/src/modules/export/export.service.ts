@@ -187,6 +187,13 @@ export class ExportService {
 
     if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
 
+    // Only allow WMS export for APPROVED orders
+    const nonApprovedOrders = route.orders.filter((o) => o.status !== 'APPROVED');
+    if (nonApprovedOrders.length > 0) {
+      const orderNumbers = nonApprovedOrders.map((o) => o.orderNumber).join(', ');
+      throw new AppError(400, 'INVALID_STATUS', `לא ניתן לשלוח ל-WMS הזמנות שאינן בסטטוס מאושר: ${orderNumbers}`);
+    }
+
     const vehicleName = route.truck?.name
       || route.installerProfile?.user?.fullName
       || `מסלול-${route.id}`;

@@ -19,6 +19,12 @@ export const driversController = {
     res.json({ success: true, data: driver });
   }),
 
+  deactivate: asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    await driversService.deactivate(id);
+    res.json({ success: true });
+  }),
+
   delete: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     await driversService.delete(id);

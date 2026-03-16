@@ -62,7 +62,7 @@ export class UsersService {
     });
   }
 
-  async delete(id: number) {
+  async deactivate(id: number) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'משתמש לא נמצא');
 
@@ -70,6 +70,16 @@ export class UsersService {
       where: { id },
       data: { isActive: false },
     });
+  }
+
+  async delete(id: number) {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) throw new AppError(404, 'NOT_FOUND', 'משתמש לא נמצא');
+
+    // Delete related records first
+    await prisma.driverProfile.deleteMany({ where: { userId: id } });
+    await prisma.installerProfile.deleteMany({ where: { userId: id } });
+    await prisma.user.delete({ where: { id } });
   }
 }
 

@@ -85,6 +85,7 @@ export class CheckerService {
         phone: true,
         deliveryDate: true,
         department: true,
+        driverNote: true,
         orderLines: {
           orderBy: { lineNumber: 'asc' },
           select: {

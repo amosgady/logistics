@@ -25,6 +25,9 @@ export const userApi = {
   update: (id: number, data: Record<string, any>) =>
     api.put(`/users/${id}`, data).then((r) => r.data),
 
+  deactivate: (id: number) =>
+    api.patch(`/users/${id}/deactivate`).then((r) => r.data),
+
   delete: (id: number) =>
     api.delete(`/users/${id}`).then((r) => r.data),
 };

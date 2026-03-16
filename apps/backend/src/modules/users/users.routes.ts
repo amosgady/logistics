@@ -10,6 +10,7 @@ router.use(requireRole('ADMIN'));
 router.get('/', usersController.getAll);
 router.post('/', usersController.create);
 router.put('/:id', usersController.update);
+router.patch('/:id/deactivate', usersController.deactivate);
 router.delete('/:id', usersController.delete);
 
 export default router;

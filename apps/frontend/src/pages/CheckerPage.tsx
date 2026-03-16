@@ -332,6 +332,11 @@ export default function CheckerPage() {
               <Typography variant="body2"><strong>כתובת:</strong> {orderDetail.address}, {orderDetail.city}</Typography>
               <Typography variant="body2"><strong>טלפון:</strong> {orderDetail.phone}</Typography>
               <Typography variant="body2"><strong>תאריך:</strong> {formatDate(orderDetail.deliveryDate)}</Typography>
+              {orderDetail.driverNote && (
+                <Alert severity="info" sx={{ mt: 1, py: 0.5 }} icon={false}>
+                  <Typography variant="body2"><strong>הערה:</strong> {orderDetail.driverNote}</Typography>
+                </Alert>
+              )}
             </Box>
           )}
           <Divider sx={{ mb: 2 }} />
@@ -347,8 +352,8 @@ export default function CheckerPage() {
                   icon={<UncheckedIcon sx={{ fontSize: 32, color: '#bdbdbd' }} />}
                   checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />} />
                 <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="body1" fontWeight="bold" noWrap>{line.product}</Typography>
-                  {line.description && <Typography variant="body2" color="text.secondary" noWrap>{line.description}</Typography>}
+                  <Typography variant="body1" fontWeight="bold" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.product}</Typography>
+                  {line.description && <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.description}</Typography>}
                   <Typography variant="body2" color="text.secondary">כמות: {line.quantity} | משקל: {line.weight} ק"ג</Typography>
                 </Box>
                 <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
