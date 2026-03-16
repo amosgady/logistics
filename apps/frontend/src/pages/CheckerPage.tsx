@@ -661,9 +661,8 @@ export default function CheckerPage() {
       results.push(`PH:E-${e?.message?.slice(0, 30)}`);
     }
 
-    // 2. Set results and CLOSE the scanner overlay so results stay visible
-    const resultText = results.join(' | ');
-    setScannerDebug(resultText);
+    // 2. Show browser results first
+    setScannerDebug(results.join(' | '));
 
     // Stop scanner and close overlay
     if (html5QrCodeRef.current) {
@@ -675,7 +674,28 @@ export default function CheckerPage() {
     setScannerOpen(false);
     setTorchOn(false);
     setHasTorch(false);
-  }, []);
+
+    // 3. Try SERVER-SIDE decoding (sharp + ZXing WASM on server)
+    try {
+      // Use the high-res photo if available, otherwise the video frame
+      const imageToSend = canvas.toDataURL('image/jpeg', 0.9);
+      results.push('SRV:sending...');
+      setScannerDebug(results.join(' | '));
+
+      const serverResult = await checkerApi.decodeBarcode(imageToSend);
+      if (serverResult.decoded) {
+        results.push(`SRV:"${serverResult.decoded}"`);
+        setScannerDebug(results.join(' | '));
+        handleBarcodeDetected(serverResult.decoded);
+        return;
+      }
+      results.push(`SRV:${serverResult.debug}`);
+    } catch (e: any) {
+      results.push(`SRV:E-${e?.message?.slice(0, 40)}`);
+    }
+
+    setScannerDebug(results.join(' | '));
+  }, [handleBarcodeDetected]);
 
   // Cleanup
   useEffect(() => {

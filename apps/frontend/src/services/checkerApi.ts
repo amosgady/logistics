@@ -46,4 +46,7 @@ export const checkerApi = {
 
   toggleLineCheck: (lineId: number, checked: boolean) =>
     api.patch(`/checker/lines/${lineId}/check`, { checked }).then((r) => r.data.data as { lineId: number; checked: boolean; allLinesChecked: boolean }),
+
+  decodeBarcode: (imageBase64: string) =>
+    api.post('/checker/decode-barcode', { image: imageBase64 }).then((r) => r.data.data as { decoded: string | null; debug: string }),
 };
