@@ -214,6 +214,15 @@ export default function CheckerPage() {
     onError: () => setSnackbar({ message: 'שגיאה בעדכון', severity: 'error' }),
   });
 
+  const noteMutation = useMutation({
+    mutationFn: ({ orderId, checkerNote }: { orderId: number; checkerNote: string }) =>
+      checkerApi.updateCheckerNote(orderId, checkerNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשמירת הערה', severity: 'error' }),
+  });
+
   const handleSearch = () => setSearchQuery(searchInput);
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSearch(); };
 
@@ -337,6 +346,23 @@ export default function CheckerPage() {
                   <Typography variant="body2"><strong>הערה:</strong> {orderDetail.driverNote}</Typography>
                 </Alert>
               )}
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={4}
+                label="הערת בודק"
+                placeholder="כתוב הערה..."
+                defaultValue={orderDetail.checkerNote || ''}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val !== (orderDetail.checkerNote || '')) {
+                    noteMutation.mutate({ orderId: orderDetail.id, checkerNote: val });
+                  }
+                }}
+                sx={{ mt: 1.5, bgcolor: '#fff' }}
+                size="small"
+              />
             </Box>
           )}
           <Divider sx={{ mb: 2 }} />

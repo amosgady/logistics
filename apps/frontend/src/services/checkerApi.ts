@@ -35,6 +35,7 @@ export interface CheckerOrderDetail {
   deliveryDate: string;
   department: string | null;
   driverNote: string | null;
+  checkerNote: string | null;
   orderLines: CheckerOrderLine[];
 }
 
@@ -47,4 +48,7 @@ export const checkerApi = {
 
   toggleLineCheck: (lineId: number, checked: boolean) =>
     api.patch(`/checker/lines/${lineId}/check`, { checked }).then((r) => r.data.data as { lineId: number; checked: boolean; allLinesChecked: boolean }),
+
+  updateCheckerNote: (orderId: number, checkerNote: string) =>
+    api.patch(`/checker/orders/${orderId}/checker-note`, { checkerNote }).then((r) => r.data.data),
 };

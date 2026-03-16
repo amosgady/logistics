@@ -212,6 +212,9 @@ model Order {
   // Note for driver/installer
   driverNote    String?  @map("driver_note")
 
+  // Note from checker/inspector
+  checkerNote   String?  @map("checker_note")
+
   // Export flags
   sentToDriver  Boolean @default(false) @map("sent_to_driver")
   exportedToCsv Boolean @default(false) @map("exported_to_csv")

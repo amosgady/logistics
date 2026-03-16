@@ -26,4 +26,11 @@ export const checkerController = {
     const result = await checkerService.toggleLineCheck(lineId, checked);
     res.json({ success: true, data: result });
   }),
+
+  updateCheckerNote: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const { checkerNote } = req.body;
+    const result = await checkerService.updateCheckerNote(orderId, checkerNote ?? null);
+    res.json({ success: true, data: result });
+  }),
 };

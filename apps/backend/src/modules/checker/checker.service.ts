@@ -86,6 +86,7 @@ export class CheckerService {
         deliveryDate: true,
         department: true,
         driverNote: true,
+        checkerNote: true,
         orderLines: {
           orderBy: { lineNumber: 'asc' },
           select: {
@@ -135,6 +136,17 @@ export class CheckerService {
       checked: updated.checkedByInspector,
       allLinesChecked,
     };
+  }
+
+  async updateCheckerNote(orderId: number, checkerNote: string | null) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { checkerNote },
+      select: { id: true, checkerNote: true },
+    });
   }
 }
 
