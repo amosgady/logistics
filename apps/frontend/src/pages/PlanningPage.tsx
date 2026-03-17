@@ -112,6 +112,14 @@ function formatMinutes(minutes: number): string {
   return h > 0 ? `${h} שע' ${m} דק'` : `${m} דק'`;
 }
 
+function openStreetView(address: string, city: string, lat?: number | null, lng?: number | null) {
+  if (lat && lng) {
+    window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`, '_blank');
+  } else {
+    window.open(`https://www.google.com/maps/search/${encodeURIComponent(`${address}, ${city}, ישראל`)}`, '_blank');
+  }
+}
+
 function RouteCard({
   route,
   onRemoveOrder,
@@ -295,7 +303,18 @@ function RouteCard({
                 primary={`${order.orderNumber} - ${order.customerName}`}
                 secondary={
                   <>
-                    {order.city} | {calcOrderWeight(order).toFixed(0)} ק"ג
+                    <Box
+                      component="span"
+                      sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                      title="Street View"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        openStreetView(order.address, order.city, order.latitude, order.longitude);
+                      }}
+                    >
+                      {order.city}
+                    </Box>
+                    {' '}| {calcOrderWeight(order).toFixed(0)} ק"ג
                     {order.estimatedArrival && (
                       <> | הגעה: {new Date(order.estimatedArrival).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</>
                     )}
@@ -708,7 +727,18 @@ export default function PlanningPage() {
                                             {order.orderNumber} - {order.customerName}
                                           </Typography>
                                           <Typography variant="caption" color="text.secondary">
-                                            {order.address}, {order.city} | {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
+                                            <Box
+                                              component="span"
+                                              sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                                              title="Street View"
+                                              onClick={(e: React.MouseEvent) => {
+                                                e.stopPropagation();
+                                                openStreetView(order.address, order.city, order.latitude, order.longitude);
+                                              }}
+                                            >
+                                              {order.address}, {order.city}
+                                            </Box>
+                                            {' '}| {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
                                           </Typography>
                                         </Box>
                                         <Tooltip title="שייך למשאית">
@@ -778,7 +808,17 @@ export default function PlanningPage() {
                                       {order.orderNumber} - {order.customerName}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                      {order.address}, {order.city}
+                                      <Box
+                                        component="span"
+                                        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                                        title="Street View"
+                                        onClick={(e: React.MouseEvent) => {
+                                          e.stopPropagation();
+                                          openStreetView(order.address, order.city, order.latitude, order.longitude);
+                                        }}
+                                      >
+                                        {order.address}, {order.city}
+                                      </Box>
                                     </Typography>
                                   </Box>
                                   <Tooltip title="שייך למתקין">
@@ -985,7 +1025,20 @@ export default function PlanningPage() {
                             <td style={{ padding: '6px 4px' }}>{stop.orderNumber}</td>
                             <td style={{ padding: '6px 4px' }}>{stop.customerName}</td>
                             <td style={{ padding: '6px 4px' }}>
-                              {stop.address ? `${stop.address}, ${stop.city}` : stop.city}
+                              <Box
+                                component="span"
+                                sx={{
+                                  cursor: 'pointer',
+                                  color: 'primary.main',
+                                  '&:hover': { textDecoration: 'underline' },
+                                }}
+                                title="לחץ לפתיחת Street View"
+                                onClick={() => {
+                                  openStreetView(stop.address || '', stop.city, stop.latitude, stop.longitude);
+                                }}
+                              >
+                                {stop.address ? `${stop.address}, ${stop.city}` : stop.city}
+                              </Box>
                             </td>
                             <td style={{ padding: '6px 4px', fontSize: '0.85em', color: stop.geocodedAddress && !stop.geocodedAddress.includes(stop.address) ? '#e65100' : '#666' }}>
                               {stop.geocodedAddress || '-'}
