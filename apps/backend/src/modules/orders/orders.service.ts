@@ -150,6 +150,14 @@ export class OrdersService {
     return results;
   }
 
+  async bulkUpdateDeliveryDate(orderIds: number[], deliveryDate: string) {
+    await prisma.order.updateMany({
+      where: { id: { in: orderIds } },
+      data: { deliveryDate: new Date(deliveryDate) },
+    });
+    return { updated: orderIds.length };
+  }
+
   async updateDeliveryDate(orderId: number, deliveryDate: string) {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
 

@@ -57,6 +57,9 @@ export const orderApi = {
   bulkDelete: (orderIds: number[]) =>
     api.post('/orders/bulk-delete', { orderIds }).then((r) => r.data),
 
+  bulkUpdateDeliveryDate: (orderIds: number[], deliveryDate: string) =>
+    api.post('/orders/bulk-delivery-date', { orderIds, deliveryDate }).then((r) => r.data),
+
   updatePalletCount: (orderId: number, palletCount: number) =>
     api.patch(`/orders/${orderId}/pallet-count`, { palletCount }).then((r) => r.data),
 

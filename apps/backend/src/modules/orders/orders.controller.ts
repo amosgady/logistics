@@ -88,6 +88,12 @@ export const ordersController = {
     res.json({ success: true, data: result });
   }),
 
+  bulkUpdateDeliveryDate: asyncHandler(async (req: Request, res: Response) => {
+    const { orderIds, deliveryDate } = req.body;
+    const result = await ordersService.bulkUpdateDeliveryDate(orderIds, deliveryDate);
+    res.json({ success: true, data: result });
+  }),
+
   updateDeliveryDate: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const { deliveryDate } = req.body;

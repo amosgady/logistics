@@ -5,6 +5,11 @@ import {
   Typography,
   Alert,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   Upload as ImportIcon,
@@ -12,23 +17,44 @@ import {
   Cancel as CancelIcon,
   Undo as RevertIcon,
   Delete as DeleteIcon,
+  CalendarMonth as CalendarIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
 import CsvImportDialog from '../components/orders/CsvImportDialog';
 import DeleteConfirmDialog from '../components/orders/DeleteConfirmDialog';
-import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate } from '../hooks/useOrders';
+import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, useBulkUpdateDeliveryDate } from '../hooks/useOrders';
 import { useOrderStore } from '../store/orderStore';
+import { zoneApi } from '../services/zoneApi';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function OrdersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
+  const [bulkDate, setBulkDate] = useState('');
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const { data, isLoading, error } = useOrders();
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
+  const bulkDeliveryDateMutation = useBulkUpdateDeliveryDate();
   const deliveryDateMutation = useUpdateDeliveryDate();
   const selectedOrderIds = useOrderStore((s) => s.selectedOrderIds);
+  const queryClient = useQueryClient();
+
+  const reassignZonesMutation = useMutation({
+    mutationFn: () => zoneApi.reassignZonesPending(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      const { assigned, unmatched } = result.data;
+      setSnackbar({
+        message: `שויכו ${assigned} הזמנות לאזורים${unmatched > 0 ? `. ${unmatched} ללא התאמה` : ''}`,
+        severity: unmatched > 0 ? 'warning' : 'success',
+      });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשיוך אזורים', severity: 'error' }),
+  });
 
   const orders = data?.data || [];
   const total = data?.meta?.total || 0;
@@ -115,6 +141,24 @@ export default function OrdersPage() {
     }
   };
 
+  const handleBulkDeliveryDate = async () => {
+    if (selectedOrderIds.size === 0 || !bulkDate) return;
+    try {
+      const result = await bulkDeliveryDateMutation.mutateAsync({
+        orderIds: Array.from(selectedOrderIds),
+        deliveryDate: new Date(bulkDate).toISOString(),
+      });
+      setBulkDateDialogOpen(false);
+      setBulkDate('');
+      setSnackbar({
+        message: `תאריך אספקה עודכן ל-${result.data.updated} הזמנות`,
+        severity: 'success',
+      });
+    } catch {
+      setSnackbar({ message: 'שגיאה בעדכון תאריך אספקה', severity: 'error' });
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -122,6 +166,13 @@ export default function OrdersPage() {
         <Box sx={{ display: 'flex', gap: 1 }}>
           {selectedOrderIds.size > 0 && (
             <>
+              <Button
+                variant="outlined"
+                startIcon={<CalendarIcon />}
+                onClick={() => setBulkDateDialogOpen(true)}
+              >
+                שנה תאריך אספקה ({selectedOrderIds.size})
+              </Button>
               <Button
                 variant="contained"
                 startIcon={<MoveIcon />}
@@ -162,6 +213,14 @@ export default function OrdersPage() {
             </>
           )}
           <Button
+            variant="outlined"
+            startIcon={<MapIcon />}
+            onClick={() => reassignZonesMutation.mutate()}
+            disabled={reassignZonesMutation.isPending}
+          >
+            שיוך אזורים
+          </Button>
+          <Button
             variant="contained"
             startIcon={<ImportIcon />}
             onClick={() => setImportOpen(true)}
@@ -200,6 +259,31 @@ export default function OrdersPage() {
         isLoading={bulkDeleteMutation.isPending}
         count={selectedOrderIds.size}
       />
+
+      <Dialog open={bulkDateDialogOpen} onClose={() => setBulkDateDialogOpen(false)}>
+        <DialogTitle>שינוי תאריך אספקה ל-{selectedOrderIds.size} הזמנות</DialogTitle>
+        <DialogContent>
+          <TextField
+            type="date"
+            value={bulkDate}
+            onChange={(e) => setBulkDate(e.target.value)}
+            fullWidth
+            sx={{ mt: 1 }}
+            InputLabelProps={{ shrink: true }}
+            label="תאריך אספקה חדש"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBulkDateDialogOpen(false)}>ביטול</Button>
+          <Button
+            variant="contained"
+            onClick={handleBulkDeliveryDate}
+            disabled={!bulkDate || bulkDeliveryDateMutation.isPending}
+          >
+            עדכן
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={!!snackbar}

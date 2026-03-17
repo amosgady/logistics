@@ -33,9 +33,30 @@ export const zonesController = {
     res.json({ success: true });
   }),
 
+  delete: asyncHandler(async (req: Request, res: Response) => {
+    await zonesService.delete(parseInt(req.params.id as string));
+    res.json({ success: true });
+  }),
+
+  replaceCities: asyncHandler(async (req: Request, res: Response) => {
+    const result = await zonesService.replaceCities(parseInt(req.params.id as string), req.body.cities);
+    res.json({ success: true, data: result });
+  }),
+
+  importCityZones: asyncHandler(async (req: Request, res: Response) => {
+    const { rows } = req.body;
+    const result = await zonesService.importCityZones(rows);
+    res.json({ success: true, data: result });
+  }),
+
   assignZones: asyncHandler(async (req: Request, res: Response) => {
     const { orderIds } = req.body;
     const result = await zonesService.assignZonesToOrders(orderIds);
+    res.json({ success: true, data: result });
+  }),
+
+  reassignZonesPending: asyncHandler(async (_req: Request, res: Response) => {
+    const result = await zonesService.reassignZonesPending();
     res.json({ success: true, data: result });
   }),
 };

@@ -1,4 +1,4 @@
-import { useState, Fragment, useRef, useEffect } from 'react';
+import { useState, Fragment, useRef, useEffect, useCallback, ReactNode } from 'react';
 import {
   Table,
   TableBody,
@@ -24,6 +24,7 @@ import {
   Photo as PhotoIcon,
   PictureAsPdf as PdfIcon,
   Delete as DeleteIcon,
+  DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -31,9 +32,10 @@ import StatusChip from '../common/StatusChip';
 import SortableTableCell from '../common/SortableTableCell';
 import DeliveryMediaDialog from '../common/DeliveryMediaDialog';
 import { useOrderStore } from '../../store/orderStore';
+import { useAuthStore } from '../../store/authStore';
 import { DEPARTMENT_LABELS } from '../../constants/departments';
 import { orderApi } from '../../services/orderApi';
-import { useSortable } from '../../hooks/useSortable';
+import { useSortable, SortConfig } from '../../hooks/useSortable';
 
 interface OrderLine {
   id: number;
@@ -98,6 +100,64 @@ interface Props {
   loading: boolean;
   onUpdateDeliveryDate?: (id: number, deliveryDate: string) => void;
 }
+
+// --- Column definition ---
+interface ColumnDef {
+  id: string;
+  label: string;
+  sortKey?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+const ALL_COLUMNS: ColumnDef[] = [
+  { id: 'orderNumber', label: "מס' הזמנה", sortKey: 'orderNumber' },
+  { id: 'orderDate', label: 'תאריך הזמנה', sortKey: 'orderDate' },
+  { id: 'status', label: 'סטטוס', sortKey: 'status' },
+  { id: 'customerName', label: 'שם לקוח', sortKey: 'customerName' },
+  { id: 'address', label: 'כתובת', sortKey: 'city' },
+  { id: 'phone', label: 'טלפון', sortKey: 'phone' },
+  { id: 'deliveryDate', label: 'תאריך אספקה', sortKey: 'deliveryDate' },
+  { id: 'department', label: 'מחלקה', sortKey: 'department' },
+  { id: 'zone', label: 'אזור', sortKey: 'zone.nameHe' },
+  { id: 'wms', label: 'WMS', sortKey: 'exportedToCsv', align: 'center' },
+  { id: 'checker', label: 'בודק', sortKey: 'sentToChecker', align: 'center' },
+  { id: 'driverNote', label: 'הערה לנהג' },
+  { id: 'items', label: 'פריטים', sortKey: 'orderLines.length', align: 'center' },
+  { id: 'pallets', label: 'משטחים', sortKey: 'palletCount', align: 'center' },
+  { id: 'doors', label: 'דלתות', sortKey: 'doorCount', align: 'center' },
+  { id: 'handles', label: 'ידיות', sortKey: 'handleCount', align: 'center' },
+  { id: 'deliveryNote', label: 'תעודה', align: 'center' },
+  { id: 'media', label: 'מדיה', align: 'center' },
+];
+
+const DEFAULT_COLUMN_ORDER = ALL_COLUMNS.map((c) => c.id);
+
+function getStorageKey(userId: number | undefined) {
+  return `orders-column-order-${userId || 'default'}`;
+}
+
+function loadColumnOrder(userId: number | undefined): string[] {
+  try {
+    const saved = localStorage.getItem(getStorageKey(userId));
+    if (saved) {
+      const parsed = JSON.parse(saved) as string[];
+      const validIds = new Set(ALL_COLUMNS.map((c) => c.id));
+      const filtered = parsed.filter((id) => validIds.has(id));
+      // Add any new columns that weren't in saved order
+      for (const col of ALL_COLUMNS) {
+        if (!filtered.includes(col.id)) filtered.push(col.id);
+      }
+      return filtered;
+    }
+  } catch { /* ignore */ }
+  return DEFAULT_COLUMN_ORDER;
+}
+
+function saveColumnOrder(userId: number | undefined, order: string[]) {
+  localStorage.setItem(getStorageKey(userId), JSON.stringify(order));
+}
+
+// --- Editable components ---
 
 function EditablePalletCount({ order }: { order: Order }) {
   const queryClient = useQueryClient();
@@ -565,13 +625,167 @@ function EditableDeliveryDate({ order, onUpdate }: { order: Order; onUpdate?: (i
   );
 }
 
-function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliveryDate?: (id: number, date: string) => void }) {
+// --- Cell renderer ---
+function renderCellContent(
+  colId: string,
+  order: Order,
+  onUpdateDeliveryDate?: (id: number, date: string) => void,
+): ReactNode {
+  switch (colId) {
+    case 'orderNumber':
+      return order.orderNumber;
+    case 'orderDate':
+      return format(new Date(order.orderDate), 'dd/MM/yyyy');
+    case 'status':
+      return <StatusChip status={order.status} />;
+    case 'customerName':
+      return (
+        <>
+          {order.customerName}
+          {order.contactPerson && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              איש קשר: {order.contactPerson}
+            </Typography>
+          )}
+        </>
+      );
+    case 'address':
+      return <EditableAddress order={order} />;
+    case 'phone':
+      return (
+        <>
+          {order.phone}
+          {order.phone2 && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              {order.phone2}
+            </Typography>
+          )}
+        </>
+      );
+    case 'deliveryDate':
+      return <EditableDeliveryDate order={order} onUpdate={onUpdateDeliveryDate} />;
+    case 'department':
+      return order.department ? (DEPARTMENT_LABELS[order.department] || order.department) : '-';
+    case 'zone':
+      return order.zone?.nameHe || 'לא מוגדר';
+    case 'wms':
+      return order.exportedToCsv ? 'כן' : 'לא';
+    case 'checker':
+      return order.sentToChecker ? 'כן' : 'לא';
+    case 'driverNote':
+      return <EditableDriverNote order={order} />;
+    case 'items':
+      return order.orderLines?.length || 0;
+    case 'pallets':
+      return <EditablePalletCount order={order} />;
+    case 'doors':
+      return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
+    case 'handles':
+      return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
+    case 'deliveryNote':
+      return order.deliveryNoteUrl ? (
+        order.signedDeliveryNoteUrl ? (
+          <Tooltip title="צפה בתעודה חתומה">
+            <IconButton size="small" color="success" onClick={() => window.open(order.signedDeliveryNoteUrl!, '_blank')}>
+              <PdfIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip title="צפה בתעודת משלוח">
+            <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
+              <PdfIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )
+      ) : (
+        <Typography variant="caption" color="text.disabled">-</Typography>
+      );
+    case 'media':
+      return null; // handled specially in OrderRow
+    default:
+      return null;
+  }
+}
+
+// --- Draggable header ---
+function DraggableHeader({
+  col,
+  sortConfig,
+  onSort,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  dragOverId,
+}: {
+  col: ColumnDef;
+  sortConfig: SortConfig | null;
+  onSort: (key: string) => void;
+  onDragStart: (id: string) => void;
+  onDragOver: (e: React.DragEvent, id: string) => void;
+  onDrop: (id: string) => void;
+  dragOverId: string | null;
+}) {
+  const isDragOver = dragOverId === col.id;
+
+  if (col.sortKey) {
+    return (
+      <SortableTableCell
+        label={col.label}
+        sortKey={col.sortKey}
+        sortConfig={sortConfig}
+        onSort={onSort}
+        align={col.align}
+        draggable
+        onDragStart={() => onDragStart(col.id)}
+        onDragOver={(e: React.DragEvent) => onDragOver(e, col.id)}
+        onDrop={() => onDrop(col.id)}
+        onDragEnd={() => onDrop('')}
+        sx={{
+          cursor: 'grab',
+          borderRight: isDragOver ? '2px solid #1976d2' : undefined,
+          '&:active': { cursor: 'grabbing' },
+        }}
+      />
+    );
+  }
+
+  return (
+    <TableCell
+      align={col.align}
+      draggable
+      onDragStart={() => onDragStart(col.id)}
+      onDragOver={(e: React.DragEvent) => onDragOver(e, col.id)}
+      onDrop={() => onDrop(col.id)}
+      onDragEnd={() => onDrop('')}
+      sx={{
+        cursor: 'grab',
+        borderRight: isDragOver ? '2px solid #1976d2' : undefined,
+        '&:active': { cursor: 'grabbing' },
+      }}
+    >
+      {col.label}
+    </TableCell>
+  );
+}
+
+// --- Order row ---
+function OrderRow({
+  order,
+  columnOrder,
+  onUpdateDeliveryDate,
+}: {
+  order: Order;
+  columnOrder: string[];
+  onUpdateDeliveryDate?: (id: number, date: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
   const { selectedOrderIds, toggleSelect } = useOrderStore();
   const isSelected = selectedOrderIds.has(order.id);
 
   const hasMedia = order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0);
+  const colMap = Object.fromEntries(ALL_COLUMNS.map((c) => [c.id, c]));
+  const totalCols = columnOrder.length + 2; // +2 for checkbox and expand
 
   return (
     <Fragment>
@@ -591,74 +805,33 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
             {expanded ? <CollapseIcon /> : <ExpandIcon />}
           </IconButton>
         </TableCell>
-        <TableCell>{order.orderNumber}</TableCell>
-        <TableCell><StatusChip status={order.status} /></TableCell>
-        <TableCell>
-          {order.customerName}
-          {order.contactPerson && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              איש קשר: {order.contactPerson}
-            </Typography>
-          )}
-        </TableCell>
-        <TableCell>
-          <EditableAddress order={order} />
-        </TableCell>
-        <TableCell>
-          {order.phone}
-          {order.phone2 && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              {order.phone2}
-            </Typography>
-          )}
-        </TableCell>
-        <TableCell>
-          <EditableDeliveryDate order={order} onUpdate={onUpdateDeliveryDate} />
-        </TableCell>
-        <TableCell>{order.department ? (DEPARTMENT_LABELS[order.department] || order.department) : '-'}</TableCell>
-        <TableCell>{order.zone?.nameHe || 'לא מוגדר'}</TableCell>
-        <TableCell align="center">{order.exportedToCsv ? 'כן' : 'לא'}</TableCell>
-        <TableCell align="center">{order.sentToChecker ? 'כן' : 'לא'}</TableCell>
-        <TableCell>
-          <EditableDriverNote order={order} />
-        </TableCell>
-        <TableCell align="center">{order.orderLines?.length || 0}</TableCell>
-        <TableCell align="center"><EditablePalletCount order={order} /></TableCell>
-        <TableCell align="center"><EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} /></TableCell>
-        <TableCell align="center"><EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} /></TableCell>
-        <TableCell align="center">
-          {order.deliveryNoteUrl ? (
-            order.signedDeliveryNoteUrl ? (
-              <Tooltip title="צפה בתעודה חתומה">
-                <IconButton size="small" color="success" onClick={() => window.open(order.signedDeliveryNoteUrl!, '_blank')}>
-                  <PdfIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Tooltip title="צפה בתעודת משלוח">
-                <IconButton size="small" color="error" onClick={() => window.open(order.deliveryNoteUrl!, '_blank')}>
-                  <PdfIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )
-          ) : (
-            <Typography variant="caption" color="text.disabled">-</Typography>
-          )}
-        </TableCell>
-        <TableCell align="center">
-          {hasMedia ? (
-            <Tooltip title="צפה בחתימה ותמונות">
-              <IconButton size="small" color="primary" onClick={() => setMediaDialogOpen(true)}>
-                <PhotoIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          ) : (
-            order.delivery ? <Typography variant="caption" color="text.disabled">-</Typography> : null
-          )}
-        </TableCell>
+        {columnOrder.map((colId) => {
+          const col = colMap[colId];
+          if (!col) return null;
+          if (colId === 'media') {
+            return (
+              <TableCell key={colId} align="center">
+                {hasMedia ? (
+                  <Tooltip title="צפה בחתימה ותמונות">
+                    <IconButton size="small" color="primary" onClick={() => setMediaDialogOpen(true)}>
+                      <PhotoIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  order.delivery ? <Typography variant="caption" color="text.disabled">-</Typography> : null
+                )}
+              </TableCell>
+            );
+          }
+          return (
+            <TableCell key={colId} align={col.align}>
+              {renderCellContent(colId, order, onUpdateDeliveryDate)}
+            </TableCell>
+          );
+        })}
       </TableRow>
       <TableRow>
-        <TableCell colSpan={19} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
+        <TableCell colSpan={totalCols} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
@@ -680,9 +853,46 @@ function OrderRow({ order, onUpdateDeliveryDate }: { order: Order; onUpdateDeliv
   );
 }
 
+// --- Main table ---
 export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDate }: Props) {
   const { selectedOrderIds, selectAll, clearSelection, filters, setFilters } = useOrderStore();
+  const userId = useAuthStore((s) => s.user?.id);
   const { sortedItems, sortConfig, handleSort } = useSortable(orders);
+
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => loadColumnOrder(userId));
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  // Update column order when userId changes (after login)
+  useEffect(() => {
+    setColumnOrder(loadColumnOrder(userId));
+  }, [userId]);
+
+  const handleDragStart = useCallback((id: string) => {
+    setDragId(id);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    setDragOverId(id);
+  }, []);
+
+  const handleDrop = useCallback((targetId: string) => {
+    if (dragId && targetId && dragId !== targetId) {
+      setColumnOrder((prev) => {
+        const newOrder = [...prev];
+        const fromIdx = newOrder.indexOf(dragId);
+        const toIdx = newOrder.indexOf(targetId);
+        if (fromIdx === -1 || toIdx === -1) return prev;
+        newOrder.splice(fromIdx, 1);
+        newOrder.splice(toIdx, 0, dragId);
+        saveColumnOrder(userId, newOrder);
+        return newOrder;
+      });
+    }
+    setDragId(null);
+    setDragOverId(null);
+  }, [dragId, userId]);
 
   const allSelected = orders.length > 0 && orders.every((o) => selectedOrderIds.has(o.id));
   const someSelected = orders.some((o) => selectedOrderIds.has(o.id));
@@ -694,6 +904,9 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
       selectAll(orders.map((o) => o.id));
     }
   };
+
+  const colMap = Object.fromEntries(ALL_COLUMNS.map((c) => [c.id, c]));
+  const totalCols = columnOrder.length + 2;
 
   if (loading) {
     return (
@@ -717,35 +930,39 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
                 />
               </TableCell>
               <TableCell padding="none" sx={{ width: 40 }} />
-              <SortableTableCell label="מס' הזמנה" sortKey="orderNumber" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="סטטוס" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="שם לקוח" sortKey="customerName" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="כתובת" sortKey="city" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="טלפון" sortKey="phone" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="תאריך אספקה" sortKey="deliveryDate" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="אזור" sortKey="zone.nameHe" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="WMS" sortKey="exportedToCsv" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <SortableTableCell label="בודק" sortKey="sentToChecker" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <TableCell>הערה לנהג</TableCell>
-              <SortableTableCell label="פריטים" sortKey="orderLines.length" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <SortableTableCell label="משטחים" sortKey="palletCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <SortableTableCell label="דלתות" sortKey="doorCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <SortableTableCell label="ידיות" sortKey="handleCount" sortConfig={sortConfig} onSort={handleSort} align="center" />
-              <TableCell align="center">תעודה</TableCell>
-              <TableCell align="center">מדיה</TableCell>
+              {columnOrder.map((colId) => {
+                const col = colMap[colId];
+                if (!col) return null;
+                return (
+                  <DraggableHeader
+                    key={colId}
+                    col={col}
+                    sortConfig={sortConfig}
+                    onSort={handleSort}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    dragOverId={dragOverId}
+                  />
+                );
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
             {sortedItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={19} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={totalCols} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">אין הזמנות</Typography>
                 </TableCell>
               </TableRow>
             ) : (
               sortedItems.map((order) => (
-                <OrderRow key={order.id} order={order} onUpdateDeliveryDate={onUpdateDeliveryDate} />
+                <OrderRow
+                  key={order.id}
+                  order={order}
+                  columnOrder={columnOrder}
+                  onUpdateDeliveryDate={onUpdateDeliveryDate}
+                />
               ))
             )}
           </TableBody>

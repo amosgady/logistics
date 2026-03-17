@@ -68,6 +68,20 @@ export function useUpdateDeliveryDate() {
   });
 }
 
+export function useBulkUpdateDeliveryDate() {
+  const queryClient = useQueryClient();
+  const clearSelection = useOrderStore((s) => s.clearSelection);
+
+  return useMutation({
+    mutationFn: ({ orderIds, deliveryDate }: { orderIds: number[]; deliveryDate: string }) =>
+      orderApi.bulkUpdateDeliveryDate(orderIds, deliveryDate),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      clearSelection();
+    },
+  });
+}
+
 export function useBulkDelete() {
   const queryClient = useQueryClient();
   const clearSelection = useOrderStore((s) => s.clearSelection);
