@@ -48,6 +48,7 @@ interface OrderLine {
   totalPrice: string | null;
   weight: string;
   currentStock: number;
+  checkerNote: string | null;
 }
 
 interface DeliveryPhoto {
@@ -502,6 +503,7 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
             <TableCell>סה"כ</TableCell>
             <TableCell>משקל</TableCell>
             <TableCell align="center">מלאי</TableCell>
+            <TableCell>הערת בודק</TableCell>
             {isPending && <TableCell align="center">פעולות</TableCell>}
           </TableRow>
         </TableHead>
@@ -527,6 +529,9 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
               </TableCell>
               <TableCell>{Number(line.weight)} ק"ג</TableCell>
               <TableCell align="center">{line.currentStock}</TableCell>
+              <TableCell sx={{ color: line.checkerNote ? 'warning.main' : 'text.secondary', fontStyle: line.checkerNote ? 'normal' : 'italic' }}>
+                {line.checkerNote || '-'}
+              </TableCell>
               {isPending && (
                 <TableCell align="center">
                   <IconButton size="small" color="error" onClick={() => handleDelete(line.id, line.product)}>

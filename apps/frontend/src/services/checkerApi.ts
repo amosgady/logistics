@@ -23,6 +23,7 @@ export interface CheckerOrderLine {
   weight: string;
   checkedByInspector: boolean;
   checkedAt: string | null;
+  checkerNote: string | null;
 }
 
 export interface CheckerOrderDetail {
@@ -36,6 +37,7 @@ export interface CheckerOrderDetail {
   department: string | null;
   driverNote: string | null;
   checkerNote: string | null;
+  palletCount: number;
   orderLines: CheckerOrderLine[];
 }
 
@@ -51,4 +53,10 @@ export const checkerApi = {
 
   updateCheckerNote: (orderId: number, checkerNote: string) =>
     api.patch(`/checker/orders/${orderId}/checker-note`, { checkerNote }).then((r) => r.data.data),
+
+  updateLineCheckerNote: (lineId: number, checkerNote: string) =>
+    api.patch(`/checker/lines/${lineId}/checker-note`, { checkerNote }).then((r) => r.data.data),
+
+  updateOrderPalletCount: (orderId: number, palletCount: number) =>
+    api.patch(`/checker/orders/${orderId}/pallet-count`, { palletCount }).then((r) => r.data.data),
 };

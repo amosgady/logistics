@@ -223,6 +223,25 @@ export default function CheckerPage() {
     onError: () => setSnackbar({ message: 'שגיאה בשמירת הערה', severity: 'error' }),
   });
 
+  const lineNoteMutation = useMutation({
+    mutationFn: ({ lineId, checkerNote }: { lineId: number; checkerNote: string }) =>
+      checkerApi.updateLineCheckerNote(lineId, checkerNote),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשמירת הערת שורה', severity: 'error' }),
+  });
+
+  const palletMutation = useMutation({
+    mutationFn: ({ orderId, palletCount }: { orderId: number; palletCount: number }) =>
+      checkerApi.updateOrderPalletCount(orderId, palletCount),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
+      setSnackbar({ message: 'כמות משטחים עודכנה', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בעדכון משטחים', severity: 'error' }),
+  });
+
   const handleSearch = () => setSearchQuery(searchInput);
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSearch(); };
 
@@ -341,6 +360,23 @@ export default function CheckerPage() {
               <Typography variant="body2"><strong>כתובת:</strong> {orderDetail.address}, {orderDetail.city}</Typography>
               <Typography variant="body2"><strong>טלפון:</strong> {orderDetail.phone}</Typography>
               <Typography variant="body2"><strong>תאריך:</strong> {formatDate(orderDetail.deliveryDate)}</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                <Typography variant="body2"><strong>משטחים:</strong></Typography>
+                <TextField
+                  type="number"
+                  size="small"
+                  defaultValue={orderDetail.palletCount}
+                  key={`pallet-${orderDetail.id}-${orderDetail.palletCount}`}
+                  onBlur={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 0 && val !== orderDetail.palletCount) {
+                      palletMutation.mutate({ orderId: orderDetail.id, palletCount: val });
+                    }
+                  }}
+                  inputProps={{ min: 0, style: { textAlign: 'center', width: 50, padding: '4px 8px' } }}
+                  sx={{ bgcolor: '#fff' }}
+                />
+              </Box>
               {orderDetail.driverNote && (
                 <Alert severity="info" sx={{ mt: 1, py: 0.5 }} icon={false}>
                   <Typography variant="body2"><strong>הערה:</strong> {orderDetail.driverNote}</Typography>
@@ -371,18 +407,34 @@ export default function CheckerPage() {
               mb: 1, border: line.checkedByInspector ? '2px solid #4caf50' : '1px solid #e0e0e0',
               bgcolor: line.checkedByInspector ? '#f1f8e9' : 'white',
             }}>
-              <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 }, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Checkbox checked={line.checkedByInspector}
-                  onChange={() => toggleMutation.mutate({ lineId: line.id, checked: !line.checkedByInspector })}
-                  sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
-                  icon={<UncheckedIcon sx={{ fontSize: 32, color: '#bdbdbd' }} />}
-                  checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />} />
-                <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-                  <Typography variant="body1" fontWeight="bold" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.product}</Typography>
-                  {line.description && <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.description}</Typography>}
-                  <Typography variant="body2" color="text.secondary">כמות: {line.quantity} | משקל: {line.weight} ק"ג</Typography>
+              <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Checkbox checked={line.checkedByInspector}
+                    onChange={() => toggleMutation.mutate({ lineId: line.id, checked: !line.checkedByInspector })}
+                    sx={{ '& .MuiSvgIcon-root': { fontSize: 32 } }}
+                    icon={<UncheckedIcon sx={{ fontSize: 32, color: '#bdbdbd' }} />}
+                    checkedIcon={<CheckCircleIcon sx={{ fontSize: 32, color: '#4caf50' }} />} />
+                  <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                    <Typography variant="body1" fontWeight="bold" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.product}</Typography>
+                    {line.description && <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.description}</Typography>}
+                    <Typography variant="body2" color="text.secondary">כמות: {line.quantity} | משקל: {line.weight} ק"ג</Typography>
+                  </Box>
+                  <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
                 </Box>
-                <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="הערת בודק לשורה..."
+                  defaultValue={line.checkerNote || ''}
+                  key={`line-note-${line.id}-${line.checkerNote}`}
+                  onBlur={(e) => {
+                    const val = e.target.value.trim();
+                    if (val !== (line.checkerNote || '')) {
+                      lineNoteMutation.mutate({ lineId: line.id, checkerNote: val });
+                    }
+                  }}
+                  sx={{ mt: 0.5, ml: 5, bgcolor: '#fff', '& .MuiInputBase-input': { py: 0.5, fontSize: '0.85rem' } }}
+                />
               </CardContent>
             </Card>
           ))}

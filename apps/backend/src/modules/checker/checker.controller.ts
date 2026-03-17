@@ -33,4 +33,18 @@ export const checkerController = {
     const result = await checkerService.updateCheckerNote(orderId, checkerNote ?? null);
     res.json({ success: true, data: result });
   }),
+
+  updateLineCheckerNote: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const lineId = parseInt(req.params.lineId as string);
+    const { checkerNote } = req.body;
+    const result = await checkerService.updateLineCheckerNote(lineId, checkerNote ?? null);
+    res.json({ success: true, data: result });
+  }),
+
+  updateOrderPalletCount: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const { palletCount } = req.body;
+    const result = await checkerService.updateOrderPalletCount(orderId, palletCount);
+    res.json({ success: true, data: result });
+  }),
 };

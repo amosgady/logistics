@@ -87,6 +87,7 @@ export class CheckerService {
         department: true,
         driverNote: true,
         checkerNote: true,
+        palletCount: true,
         orderLines: {
           orderBy: { lineNumber: 'asc' },
           select: {
@@ -98,6 +99,7 @@ export class CheckerService {
             weight: true,
             checkedByInspector: true,
             checkedAt: true,
+            checkerNote: true,
           },
         },
       },
@@ -146,6 +148,28 @@ export class CheckerService {
       where: { id: orderId },
       data: { checkerNote },
       select: { id: true, checkerNote: true },
+    });
+  }
+
+  async updateLineCheckerNote(lineId: number, checkerNote: string | null) {
+    const line = await prisma.orderLine.findUnique({ where: { id: lineId } });
+    if (!line) throw new AppError(404, 'NOT_FOUND', 'שורת הזמנה לא נמצאה');
+
+    return prisma.orderLine.update({
+      where: { id: lineId },
+      data: { checkerNote },
+      select: { id: true, checkerNote: true },
+    });
+  }
+
+  async updateOrderPalletCount(orderId: number, palletCount: number) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { palletCount },
+      select: { id: true, palletCount: true },
     });
   }
 }

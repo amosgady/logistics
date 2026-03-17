@@ -263,6 +263,7 @@ model OrderLine {
 
   checkedByInspector Boolean  @default(false) @map("checked_by_inspector")
   checkedAt          DateTime? @map("checked_at")
+  checkerNote        String?  @map("checker_note")
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
