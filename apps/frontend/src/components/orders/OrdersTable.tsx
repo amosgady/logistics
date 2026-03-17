@@ -25,6 +25,7 @@ import {
   PictureAsPdf as PdfIcon,
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
+  StickyNote2 as NoteIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -789,6 +790,7 @@ function OrderRow({
   const isSelected = selectedOrderIds.has(order.id);
 
   const hasMedia = order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0);
+  const hasCheckerNotes = order.orderLines?.some((l) => l.checkerNote);
   const colMap = Object.fromEntries(ALL_COLUMNS.map((c) => [c.id, c]));
   const totalCols = columnOrder.length + 2; // +2 for checkbox and expand
 
@@ -806,9 +808,16 @@ function OrderRow({
           />
         </TableCell>
         <TableCell padding="none">
-          <IconButton size="small" onClick={() => setExpanded(!expanded)}>
-            {expanded ? <CollapseIcon /> : <ExpandIcon />}
-          </IconButton>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton size="small" onClick={() => setExpanded(!expanded)}>
+              {expanded ? <CollapseIcon /> : <ExpandIcon />}
+            </IconButton>
+            {hasCheckerNotes && (
+              <Tooltip title="יש הערות בודק בשורות">
+                <NoteIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+              </Tooltip>
+            )}
+          </Box>
         </TableCell>
         {columnOrder.map((colId) => {
           const col = colMap[colId];
