@@ -43,7 +43,7 @@ export const coordinationApi = {
         const text = await error.response.data.text();
         try {
           const json = JSON.parse(text);
-          throw new Error(json.message || 'שגיאה ביצוא WMS');
+          throw new Error(json.error?.message || json.message || 'שגיאה ביצוא WMS');
         } catch (e) {
           if (e instanceof SyntaxError) throw new Error(text || 'שגיאה ביצוא WMS');
           throw e;
@@ -61,4 +61,10 @@ export const coordinationApi = {
 
   unsendFromChecker: (orderId: number) =>
     api.post('/coordination/unsend-from-checker', { orderId }).then((r) => r.data),
+
+  unsendWmsRoute: (routeId: number) =>
+    api.post('/coordination/unsend-wms-route', { routeId }).then((r) => r.data),
+
+  unsendCheckerRoute: (routeId: number) =>
+    api.post('/coordination/unsend-checker-route', { routeId }).then((r) => r.data),
 };

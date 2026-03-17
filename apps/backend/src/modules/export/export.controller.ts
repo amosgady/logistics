@@ -52,4 +52,16 @@ export const exportController = {
     const result = await exportService.unsendFromChecker(orderId);
     res.json({ success: true, data: result });
   }),
+
+  unsendWmsRoute: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { routeId } = req.body;
+    const result = await exportService.unsendWmsRoute(routeId);
+    res.json({ success: true, data: result });
+  }),
+
+  unsendCheckerRoute: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { routeId } = req.body;
+    const result = await exportService.unsendCheckerRoute(routeId);
+    res.json({ success: true, data: result });
+  }),
 };

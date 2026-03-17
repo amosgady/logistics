@@ -12,7 +12,9 @@ router.post('/unsend-from-driver', exportController.unsendFromDriver);
 router.post('/unsend-order', exportController.unsendOrder);
 router.post('/export-wms', exportController.exportWmsCsv);
 router.post('/unsend-wms', exportController.unsendWmsExport);
+router.post('/unsend-wms-route', exportController.unsendWmsRoute);
 router.post('/send-to-checker', exportController.sendToChecker);
 router.post('/unsend-from-checker', exportController.unsendFromChecker);
+router.post('/unsend-checker-route', exportController.unsendCheckerRoute);
 
 export default router;

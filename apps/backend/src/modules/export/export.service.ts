@@ -264,6 +264,30 @@ export class ExportService {
     return { orderId, orderNumber: order.orderNumber };
   }
 
+  async unsendWmsRoute(routeId: number) {
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: { orders: true, truck: true, installerProfile: { include: { user: true } } },
+    });
+    if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    const exported = route.orders.filter((o) => o.exportedToCsv);
+    if (exported.length === 0) {
+      throw new AppError(400, 'NO_EXPORTED', 'אין הזמנות שנשלחו ל-WMS במסלול זה');
+    }
+
+    const count = await prisma.order.updateMany({
+      where: { routeId, exportedToCsv: true },
+      data: { exportedToCsv: false },
+    });
+
+    const vehicleName = route.truck?.name
+      || route.installerProfile?.user?.fullName
+      || `מסלול ${route.id}`;
+
+    return { revertedCount: count.count, truckName: vehicleName };
+  }
+
   async sendToChecker(routeId: number) {
     const route = await prisma.route.findUnique({
       where: { id: routeId },
@@ -293,6 +317,30 @@ export class ExportService {
     });
 
     return { orderId, orderNumber: order.orderNumber };
+  }
+
+  async unsendCheckerRoute(routeId: number) {
+    const route = await prisma.route.findUnique({
+      where: { id: routeId },
+      include: { orders: true, truck: true, installerProfile: { include: { user: true } } },
+    });
+    if (!route) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    const sentToChecker = route.orders.filter((o) => o.sentToChecker);
+    if (sentToChecker.length === 0) {
+      throw new AppError(400, 'NO_SENT', 'אין הזמנות שנשלחו לבודק במסלול זה');
+    }
+
+    const count = await prisma.order.updateMany({
+      where: { routeId, sentToChecker: true },
+      data: { sentToChecker: false },
+    });
+
+    const vehicleName = route.truck?.name
+      || route.installerProfile?.user?.fullName
+      || `מסלול ${route.id}`;
+
+    return { revertedCount: count.count, truckName: vehicleName };
   }
 }
 

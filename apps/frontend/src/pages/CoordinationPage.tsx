@@ -484,6 +484,36 @@ export default function CoordinationPage() {
     onError: () => setSnackbar({ message: 'שגיאה בביטול שליחה לבודק', severity: 'error' }),
   });
 
+  const unsendWmsRouteMutation = useMutation({
+    mutationFn: coordinationApi.unsendWmsRoute,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({
+        message: `בוטלה שליחה ל-WMS של ${result.data.revertedCount} הזמנות - ${result.data.truckName}`,
+        severity: 'success',
+      });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error?.message || 'שגיאה בביטול שליחה ל-WMS';
+      setSnackbar({ message, severity: 'error' });
+    },
+  });
+
+  const unsendCheckerRouteMutation = useMutation({
+    mutationFn: coordinationApi.unsendCheckerRoute,
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({
+        message: `בוטלה שליחה לבודק של ${result.data.revertedCount} הזמנות - ${result.data.truckName}`,
+        severity: 'success',
+      });
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.error?.message || 'שגיאה בביטול שליחה לבודק';
+      setSnackbar({ message, severity: 'error' });
+    },
+  });
+
   const unsendFromDriverMutation = useMutation({
     mutationFn: coordinationApi.unsendFromDriver,
     onSuccess: (result) => {
@@ -750,6 +780,8 @@ export default function CoordinationPage() {
           const allSent = route.orders.every((o) => o.sentToDriver);
           const anySent = route.orders.some((o) => o.status === 'SENT_TO_DRIVER');
           const allExported = route.orders.every((o) => o.exportedToCsv);
+          const anyExported = route.orders.some((o) => o.exportedToCsv);
+          const anySentToChecker = route.orders.some((o) => o.sentToChecker);
 
           return (
             <Card key={route.id} sx={{ mb: 3 }}>
@@ -798,64 +830,87 @@ export default function CoordinationPage() {
                   unsendPending={unsendOrderMutation.isPending}
                 />
 
-                {/* Action buttons */}
-                <Box sx={{ display: 'flex', gap: 2, mt: 2, justifyContent: 'flex-end' }}>
-                  {anySent && (
-                    <Button
-                      variant="outlined"
-                      color="warning"
-                      startIcon={unsendFromDriverMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
-                      onClick={() => unsendFromDriverMutation.mutate(route.id)}
-                      disabled={unsendFromDriverMutation.isPending}
-                    >
-                      ביטול שליחה לכולם
-                    </Button>
-                  )}
-                  {!allSent && (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      startIcon={sendToDriverMutation.isPending ? <CircularProgress size={16} /> : <SendIcon />}
-                      onClick={() => sendToDriverMutation.mutate(route.id)}
-                      disabled={!readyToSend || sendToDriverMutation.isPending}
-                    >
-                      שלח לנהג
-                    </Button>
-                  )}
+                {/* Action buttons - RTL right to left: שלח SMS, שלח ל WMS, שלח לנהג, שלח לבודק, ביטול שליחה לנהג, ביטול שליחה ל WMS, ביטול שליחה לבודק */}
+                <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
                   <Button
                     variant="outlined"
                     color="info"
+                    size="small"
                     startIcon={sendRouteSmsMutation.isPending ? <CircularProgress size={16} /> : <SmsIcon />}
                     onClick={() => sendRouteSmsMutation.mutate(route.id)}
                     disabled={route.orders.length === 0 || sendRouteSmsMutation.isPending}
                   >
-                    שלח SMS לכל הלקוחות
+                    שלח SMS
                   </Button>
                   <Button
-                    variant="outlined"
+                    variant="contained"
+                    color="primary"
+                    size="small"
                     startIcon={exportWmsMutation.isPending ? <CircularProgress size={16} /> : <ArrowForwardIcon />}
                     onClick={() => exportWmsMutation.mutate(route.id)}
                     disabled={route.orders.length === 0 || exportWmsMutation.isPending}
-                    color="secondary"
                   >
-                    {allExported ? 'שלח ל WMS שוב' : 'שלח ל WMS'}
+                    שלח ל WMS
                   </Button>
                   <Button
-                    variant="outlined"
-                    color="success"
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    startIcon={sendToDriverMutation.isPending ? <CircularProgress size={16} /> : <SendIcon />}
+                    onClick={() => sendToDriverMutation.mutate(route.id)}
+                    disabled={route.orders.length === 0 || !allExported || sendToDriverMutation.isPending}
+                  >
+                    שלח לנהג
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
                     startIcon={sendToCheckerMutation.isPending ? <CircularProgress size={16} /> : <FactCheckIcon />}
                     onClick={() => sendToCheckerMutation.mutate(route.id)}
-                    disabled={!allExported || sendToCheckerMutation.isPending}
+                    disabled={sendToCheckerMutation.isPending}
                   >
                     שלח לבודק
                   </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={unsendFromDriverMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
+                    onClick={() => unsendFromDriverMutation.mutate(route.id)}
+                    disabled={unsendFromDriverMutation.isPending}
+                  >
+                    ביטול שליחה לנהג
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={unsendWmsRouteMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
+                    onClick={() => unsendWmsRouteMutation.mutate(route.id)}
+                    disabled={unsendWmsRouteMutation.isPending}
+                  >
+                    ביטול שליחה ל WMS
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    size="small"
+                    startIcon={unsendCheckerRouteMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
+                    onClick={() => unsendCheckerRouteMutation.mutate(route.id)}
+                    disabled={unsendCheckerRouteMutation.isPending}
+                  >
+                    ביטול שליחה לבודק
+                  </Button>
                 </Box>
 
-                {!readyToSend && !allSent && (
+                {!allSent && (!readyToSend || !allExported) && (
                   <Alert severity="info" sx={{ mt: 1, py: 0 }}>
                     {progress.coordinated < progress.total
                       ? `יש לתאם ${progress.total - progress.coordinated} הזמנות לפני שליחה לנהג`
-                      : 'כל ההזמנות צריכות להיות בסטטוס "מאושר" לפני שליחה לנהג'}
+                      : !readyToSend
+                      ? 'כל ההזמנות צריכות להיות בסטטוס "מאושר" לפני שליחה לנהג'
+                      : 'יש לשלוח ל-WMS לפני שליחה לנהג'}
                   </Alert>
                 )}
               </CardContent>
