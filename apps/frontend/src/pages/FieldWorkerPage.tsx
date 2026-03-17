@@ -110,6 +110,7 @@ interface Order {
   longitude: number | null;
   coordinationNotes: string | null;
   driverNote: string | null;
+  palletCount: number;
   doorCount: number | null;
   handleCount: number | null;
   deliveryNoteUrl: string | null;
@@ -463,7 +464,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                     הזמנה #{order.orderNumber}
                   </Typography>
 
-                  {(order.floor != null || order.elevator != null || order.contactPerson || order.doorCount != null || order.handleCount != null) && (
+                  {(order.floor != null || order.elevator != null || order.contactPerson || order.palletCount > 0 || order.doorCount != null || order.handleCount != null) && (
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
                       {order.floor != null && (
                         <Chip label={`קומה ${order.floor}`} size="small" variant="outlined" />
@@ -478,6 +479,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                       )}
                       {order.contactPerson && (
                         <Chip label={`איש קשר: ${order.contactPerson}`} size="small" variant="outlined" />
+                      )}
+                      {order.palletCount > 0 && (
+                        <Chip label={`משטחים: ${order.palletCount}`} size="small" variant="outlined" color="info" />
                       )}
                       {order.doorCount != null && (
                         <Chip label={`דלתות: ${order.doorCount}`} size="small" variant="outlined" color="primary" />
