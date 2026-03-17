@@ -69,6 +69,12 @@ export class ZonesService {
       data: { zoneId: null },
     });
 
+    // Unlink installer profiles from this zone
+    await prisma.installerProfile.updateMany({
+      where: { zoneId: id },
+      data: { zoneId: null },
+    });
+
     // Delete all cities, then the zone
     await prisma.zoneCity.deleteMany({ where: { zoneId: id } });
     await prisma.zone.delete({ where: { id } });
