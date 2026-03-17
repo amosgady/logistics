@@ -868,7 +868,7 @@ export default function CoordinationPage() {
                     size="small"
                     startIcon={sendToCheckerMutation.isPending ? <CircularProgress size={16} /> : <FactCheckIcon />}
                     onClick={() => sendToCheckerMutation.mutate(route.id)}
-                    disabled={sendToCheckerMutation.isPending}
+                    disabled={!allExported || sendToCheckerMutation.isPending}
                   >
                     שלח לבודק
                   </Button>
