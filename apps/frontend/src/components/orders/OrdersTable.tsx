@@ -90,6 +90,7 @@ interface Order {
   exportedToCsv: boolean;
   sentToChecker: boolean;
   driverNote: string | null;
+  checkerNote: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
@@ -124,6 +125,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'wms', label: 'WMS', sortKey: 'exportedToCsv', align: 'center' },
   { id: 'checker', label: 'בודק', sortKey: 'sentToChecker', align: 'center' },
   { id: 'driverNote', label: 'הערה לנהג' },
+  { id: 'checkerNote', label: 'הערת בודק' },
   { id: 'items', label: 'פריטים', sortKey: 'orderLines.length', align: 'center' },
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount', align: 'center' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount', align: 'center' },
@@ -680,6 +682,12 @@ function renderCellContent(
       return order.sentToChecker ? 'כן' : 'לא';
     case 'driverNote':
       return <EditableDriverNote order={order} />;
+    case 'checkerNote':
+      return order.checkerNote ? (
+        <Typography variant="body2" sx={{ color: 'warning.main', maxWidth: 200, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+          {order.checkerNote}
+        </Typography>
+      ) : <Typography variant="caption" color="text.disabled">-</Typography>;
     case 'items':
       return order.orderLines?.length || 0;
     case 'pallets':
