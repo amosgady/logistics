@@ -1,4 +1,4 @@
-import { Client, FindPlaceFromTextResponseData, PlaceInputType } from '@googlemaps/google-maps-services-js';
+import { Client } from '@googlemaps/google-maps-services-js';
 import { env } from '../config/env';
 import prisma from '../utils/prisma';
 
@@ -20,22 +20,70 @@ export class GeocodingService {
     }
 
     try {
-      const fullAddress = `${address}, ${city}, ישראל`;
+      // Build multiple address format variations to try
+      const addressVariations = this.buildAddressVariations(address, city);
 
-      // 1. Try Geocoding API first (most precise)
-      const geoResult = await this.tryGeocode(fullAddress, city);
-      if (geoResult.valid) return geoResult;
+      let lastResult: GeocodeOutput = { valid: false, lat: null, lng: null, formattedAddress: null, locationType: null };
 
-      // 2. Fallback: Places API findPlaceFromText (works like Google Maps search bar)
-      const placesResult = await this.tryFindPlace(fullAddress, city);
-      if (placesResult.valid) return placesResult;
+      for (const variation of addressVariations) {
+        const geoResult = await this.tryGeocode(variation, city);
+        if (geoResult.valid) {
+          console.log(`[Geocoding] Found via variation: "${variation}"`);
+          return geoResult;
+        }
+        // Keep the first result for fallback display
+        if (!lastResult.formattedAddress && geoResult.formattedAddress) {
+          lastResult = geoResult;
+        }
+      }
 
-      // 3. Return whatever geocoding gave us (with formattedAddress for display)
-      return geoResult;
+      return lastResult;
     } catch (err) {
       console.error('Geocoding error:', err);
       return { valid: false, lat: null, lng: null, formattedAddress: null, locationType: null };
     }
+  }
+
+  /**
+   * Build multiple address format variations for the Geocoding API.
+   * Google's Geocoding API sometimes fails with certain Hebrew address formats
+   * but succeeds with slightly different phrasing.
+   */
+  private buildAddressVariations(address: string, city: string): string[] {
+    const variations: string[] = [];
+    const trimmedAddress = address.trim();
+    const trimmedCity = city.trim();
+
+    // 1. Original: "address, city, ישראל"
+    variations.push(`${trimmedAddress}, ${trimmedCity}, ישראל`);
+
+    // 2. With "רחוב" prefix if not already present
+    if (!trimmedAddress.startsWith('רחוב ') && !trimmedAddress.startsWith('רח׳ ') && !trimmedAddress.startsWith("רח' ")) {
+      variations.push(`רחוב ${trimmedAddress}, ${trimmedCity}, ישראל`);
+    }
+
+    // 3. Without "ישראל" suffix (sometimes helps)
+    variations.push(`${trimmedAddress}, ${trimmedCity}`);
+
+    // 4. Street name only without house number (for streets Google doesn't have numbers for)
+    const streetOnly = trimmedAddress.replace(/\s+\d+.*$/, '').trim();
+    if (streetOnly !== trimmedAddress) {
+      variations.push(`${streetOnly}, ${trimmedCity}, ישראל`);
+      // Also try with "רחוב" prefix + no number
+      if (!streetOnly.startsWith('רחוב ') && !streetOnly.startsWith('רח׳ ') && !streetOnly.startsWith("רח' ")) {
+        variations.push(`רחוב ${streetOnly}, ${trimmedCity}, ישראל`);
+      }
+    }
+
+    // 5. With "שד'" prefix for boulevards (שדרות) if address looks like a named road
+    if (!trimmedAddress.startsWith('שד׳ ') && !trimmedAddress.startsWith("שד' ") && !trimmedAddress.startsWith('שדרות ')) {
+      // Only add this if it doesn't already have a street prefix
+      if (!trimmedAddress.startsWith('רחוב ') && !trimmedAddress.startsWith('רח׳ ') && !trimmedAddress.startsWith("רח' ")) {
+        variations.push(`שדרות ${trimmedAddress}, ${trimmedCity}, ישראל`);
+      }
+    }
+
+    return variations;
   }
 
   private async tryGeocode(fullAddress: string, city: string): Promise<GeocodeOutput> {
@@ -67,47 +115,6 @@ export class GeocodingService {
       formattedAddress: formatted,
       locationType: locationType || null,
     };
-  }
-
-  private async tryFindPlace(fullAddress: string, city: string): Promise<GeocodeOutput> {
-    try {
-      const response = await mapsClient.findPlaceFromText({
-        params: {
-          input: fullAddress,
-          inputtype: PlaceInputType.textQuery,
-          fields: ['formatted_address', 'geometry', 'name'],
-          language: 'he' as any,
-          key: env.GOOGLE_MAPS_API_KEY,
-        },
-      });
-
-      const candidates = response.data.candidates || [];
-      if (candidates.length === 0) {
-        return { valid: false, lat: null, lng: null, formattedAddress: null, locationType: 'PLACES_NOT_FOUND' };
-      }
-
-      const place = candidates[0];
-      const lat = place.geometry?.location?.lat;
-      const lng = place.geometry?.location?.lng;
-      const formatted = place.formatted_address || place.name || '';
-
-      if (lat == null || lng == null) {
-        return { valid: false, lat: null, lng: null, formattedAddress: formatted, locationType: 'PLACES_NO_COORDS' };
-      }
-
-      const isAcceptable = this.isAddressInCity(formatted, city);
-
-      return {
-        valid: isAcceptable,
-        lat: isAcceptable ? lat : null,
-        lng: isAcceptable ? lng : null,
-        formattedAddress: formatted,
-        locationType: 'PLACES_API',
-      };
-    } catch (err) {
-      console.error('Places API fallback error:', err);
-      return { valid: false, lat: null, lng: null, formattedAddress: null, locationType: null };
-    }
   }
 
   /** Check that the formatted address actually contains the expected city name */
