@@ -22,6 +22,7 @@ import {
   Undo as UndoIcon,
   Photo as PhotoIcon,
   Sms as SmsIcon,
+  Link as LinkIcon,
   DateRange as DateRangeIcon,
   Comment as CommentIcon,
   PictureAsPdf as PdfIcon,
@@ -116,7 +117,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   onToggleCoordination: (order: Order) => void;
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
-  onSendSms: (orderId: number, phone?: string) => void;
+  onSendSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') => void;
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
@@ -130,21 +131,23 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   const { sortedItems, sortConfig, handleSort } = useSortable(orders);
   const [smsMenuAnchor, setSmsMenuAnchor] = useState<null | HTMLElement>(null);
   const [smsMenuOrder, setSmsMenuOrder] = useState<Order | null>(null);
+  const [smsMenuMethod, setSmsMenuMethod] = useState<'LINK' | 'REPLY'>('LINK');
 
-  const handleSmsClick = (event: React.MouseEvent<HTMLElement>, order: Order) => {
+  const handleSmsClick = (event: React.MouseEvent<HTMLElement>, order: Order, method: 'LINK' | 'REPLY') => {
     if (order.phone2) {
       // Has 2 phones – show selection menu
       setSmsMenuAnchor(event.currentTarget);
       setSmsMenuOrder(order);
+      setSmsMenuMethod(method);
     } else {
       // Only 1 phone – send directly
-      onSendSms(order.id);
+      onSendSms(order.id, undefined, method);
     }
   };
 
   const handleSmsMenuSelect = (phone: string) => {
     if (smsMenuOrder) {
-      onSendSms(smsMenuOrder.id, phone);
+      onSendSms(smsMenuOrder.id, phone, smsMenuMethod);
     }
     setSmsMenuAnchor(null);
     setSmsMenuOrder(null);
@@ -205,11 +208,18 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
               </TableCell>
               <TableCell>
                 {order.phone ? (
-                  <Tooltip title={order.phone2 ? 'בחר מספר לשליחת SMS' : 'שלח SMS תזכורת'}>
-                    <IconButton size="small" color="info" onClick={(e) => handleSmsClick(e, order)} disabled={sendSmsPending}>
-                      <SmsIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <Box sx={{ display: 'flex', gap: 0.25 }}>
+                    <Tooltip title="SMS קישור">
+                      <IconButton size="small" color="info" onClick={(e) => handleSmsClick(e, order, 'LINK')} disabled={sendSmsPending}>
+                        <LinkIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="SMS 1/2">
+                      <IconButton size="small" color="info" onClick={(e) => handleSmsClick(e, order, 'REPLY')} disabled={sendSmsPending}>
+                        <SmsIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
                 ) : '-'}
               </TableCell>
               <TableCell>
@@ -546,8 +556,8 @@ export default function CoordinationPage() {
 
   // SMS mutations
   const sendOrderSmsMutation = useMutation({
-    mutationFn: ({ orderId, phone }: { orderId: number; phone?: string }) =>
-      smsApi.sendOrderSms(orderId, phone),
+    mutationFn: ({ orderId, phone, method }: { orderId: number; phone?: string; method?: 'LINK' | 'REPLY' }) =>
+      smsApi.sendOrderSms(orderId, phone, method),
     onSuccess: (result) => {
       if (result.data?.success) {
         setSnackbar({ message: `SMS נשלח ל-${result.data.phone}`, severity: 'success' });
@@ -838,7 +848,7 @@ export default function CoordinationPage() {
                   onToggleCoordination={toggleCoordination}
                   onEditNotes={(order) => setNotesDialog({ orderId: order.id, notes: order.coordinationNotes || '' })}
                   onUnsendOrder={(orderId) => unsendOrderMutation.mutate(orderId)}
-                  onSendSms={(orderId, phone?) => sendOrderSmsMutation.mutate({ orderId, phone })}
+                  onSendSms={(orderId, phone?, method?) => sendOrderSmsMutation.mutate({ orderId, phone, method })}
                   onViewMedia={(order) => setMediaDialog({ order })}
                   onUploadPdf={(orderId, file) => uploadPdfMutation.mutate({ orderId, file })}
                   onDeletePdf={(orderId) => deletePdfMutation.mutate(orderId)}
