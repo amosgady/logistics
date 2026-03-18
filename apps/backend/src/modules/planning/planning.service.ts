@@ -38,6 +38,7 @@ export class PlanningService {
           lte: endOfDay,
         },
       },
+      orderBy: { id: 'asc' },
       include: {
         truck: true,
         installerProfile: {
