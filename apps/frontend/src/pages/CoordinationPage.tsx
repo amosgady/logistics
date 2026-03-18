@@ -878,7 +878,7 @@ export default function CoordinationPage() {
                     size="small"
                     startIcon={unsendFromDriverMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
                     onClick={() => unsendFromDriverMutation.mutate(route.id)}
-                    disabled={unsendFromDriverMutation.isPending}
+                    disabled={!anySent || unsendFromDriverMutation.isPending}
                   >
                     ביטול שליחה לנהג
                   </Button>
@@ -888,7 +888,7 @@ export default function CoordinationPage() {
                     size="small"
                     startIcon={unsendWmsRouteMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
                     onClick={() => unsendWmsRouteMutation.mutate(route.id)}
-                    disabled={unsendWmsRouteMutation.isPending}
+                    disabled={!anyExported || unsendWmsRouteMutation.isPending}
                   >
                     ביטול שליחה ל WMS
                   </Button>
@@ -898,7 +898,7 @@ export default function CoordinationPage() {
                     size="small"
                     startIcon={unsendCheckerRouteMutation.isPending ? <CircularProgress size={16} /> : <UndoIcon />}
                     onClick={() => unsendCheckerRouteMutation.mutate(route.id)}
-                    disabled={unsendCheckerRouteMutation.isPending}
+                    disabled={!anySentToChecker || unsendCheckerRouteMutation.isPending}
                   >
                     ביטול שליחה לבודק
                   </Button>
