@@ -909,7 +909,7 @@ export default function CoordinationPage() {
                     {progress.coordinated < progress.total
                       ? `יש לתאם ${progress.total - progress.coordinated} הזמנות לפני שליחה לנהג`
                       : !readyToSend
-                      ? 'כל ההזמנות צריכות להיות בסטטוס "מאושר" לפני שליחה לנהג'
+                      ? 'כל ההזמנות צריכות להיות בסטטוס "מתואם" לפני שליחה לנהג'
                       : 'יש לשלוח ל-WMS לפני שליחה לנהג'}
                   </Alert>
                 )}

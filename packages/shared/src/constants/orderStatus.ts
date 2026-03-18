@@ -18,7 +18,7 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   PENDING: 'בהמתנה',
   PLANNING: 'בתכנון',
   IN_COORDINATION: 'בתיאום',
-  APPROVED: 'מאושר',
+  APPROVED: 'מתואם',
   SENT_TO_DRIVER: 'נשלח לנהג',
   COMPLETED: 'הושלם',
   CANCELLED: 'בוטל',

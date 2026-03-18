@@ -4,7 +4,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: 'default' | 'primary
   PENDING: { label: 'בהמתנה', color: 'warning' },
   PLANNING: { label: 'בתכנון', color: 'info' },
   IN_COORDINATION: { label: 'בתיאום', color: 'default' },
-  APPROVED: { label: 'מאושר', color: 'primary' },
+  APPROVED: { label: 'מתואם', color: 'primary' },
   SENT_TO_DRIVER: { label: 'נשלח לנהג', color: 'secondary' },
   COMPLETED: { label: 'הושלם', color: 'success' },
   CANCELLED: { label: 'בוטל', color: 'error' },

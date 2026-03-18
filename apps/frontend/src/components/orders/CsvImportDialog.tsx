@@ -107,7 +107,7 @@ const STATUS_LABELS: Record<string, string> = {
   PENDING: 'ממתינה',
   PLANNING: 'בתכנון',
   IN_COORDINATION: 'בתיאום',
-  APPROVED: 'מאושרת',
+  APPROVED: 'מתואמת',
   SENT_TO_DRIVER: 'נשלחה לנהג',
   COMPLETED: 'הושלמה',
   CANCELLED: 'בוטלה',

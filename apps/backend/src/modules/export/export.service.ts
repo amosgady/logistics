@@ -38,7 +38,7 @@ export class ExportService {
     const notApproved = route.orders.filter((o) => o.status !== 'APPROVED');
     if (notApproved.length > 0) {
       throw new AppError(400, 'NOT_ALL_APPROVED',
-        `${notApproved.length} הזמנות לא בסטטוס מאושר`,
+        `${notApproved.length} הזמנות לא בסטטוס מתואם`,
         { orderIds: notApproved.map((o) => o.id) }
       );
     }
@@ -196,7 +196,7 @@ export class ExportService {
     const nonApprovedOrders = route.orders.filter((o) => o.status !== 'APPROVED');
     if (nonApprovedOrders.length > 0) {
       const orderNumbers = nonApprovedOrders.map((o) => o.orderNumber).join(', ');
-      throw new AppError(400, 'INVALID_STATUS', `לא ניתן לשלוח ל-WMS הזמנות שאינן בסטטוס מאושר: ${orderNumbers}`);
+      throw new AppError(400, 'INVALID_STATUS', `לא ניתן לשלוח ל-WMS הזמנות שאינן בסטטוס מתואם: ${orderNumbers}`);
     }
 
     const vehicleName = route.truck?.name

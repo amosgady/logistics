@@ -82,7 +82,7 @@ function OrderStatusChip({ status }: { status: string }) {
     case 'SENT_TO_DRIVER':
       return <Chip icon={<TruckIcon />} label="בדרך" size="small" color="info" />;
     case 'APPROVED':
-      return <Chip icon={<PendingIcon />} label="מאושר" size="small" color="default" />;
+      return <Chip icon={<PendingIcon />} label="מתואם" size="small" color="default" />;
     default:
       return <Chip label={status} size="small" />;
   }
