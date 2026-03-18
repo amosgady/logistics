@@ -276,6 +276,33 @@ export class ExportService {
       throw new AppError(400, 'NO_EXPORTED', 'אין הזמנות שנשלחו ל-WMS במסלול זה');
     }
 
+    // Also unsend from driver (revert SENT_TO_DRIVER -> APPROVED)
+    const sentToDriverOrders = route.orders.filter((o) => o.status === 'SENT_TO_DRIVER');
+    for (const order of sentToDriverOrders) {
+      await prisma.$transaction(async (tx) => {
+        await tx.orderStatusHistory.create({
+          data: {
+            orderId: order.id,
+            fromStatus: order.status,
+            toStatus: 'APPROVED',
+            changedBy: 0,
+            reason: 'ביטול שליחה ל-WMS (אוטומטי)',
+          },
+        });
+        await tx.order.update({
+          where: { id: order.id },
+          data: { status: 'APPROVED', sentToDriver: false },
+        });
+      });
+    }
+
+    // Also unsend from checker
+    await prisma.order.updateMany({
+      where: { routeId, sentToChecker: true },
+      data: { sentToChecker: false },
+    });
+
+    // Unsend WMS
     const count = await prisma.order.updateMany({
       where: { routeId, exportedToCsv: true },
       data: { exportedToCsv: false },
