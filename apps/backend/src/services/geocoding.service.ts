@@ -37,17 +37,23 @@ export class GeocodingService {
       const result = response.data.results[0];
       const { lat, lng } = result.geometry.location;
       const locationType = String(result.geometry.location_type || '');
+      const formatted = result.formatted_address || '';
 
-      // ROOFTOP = exact building, RANGE_INTERPOLATED = interpolated on street,
-      // GEOMETRIC_CENTER = center of street/area, APPROXIMATE = city/region level.
-      // All are acceptable — APPROXIMATE is less precise but still usable for routing.
-      const isAcceptable = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE'].includes(locationType);
+      // Check that Google actually found the city — if the formatted address
+      // is just "ישראל" or doesn't contain the city name, the result is too vague.
+      const cityNormalized = city.trim().replace(/[-–]/g, ' ');
+      const formattedNormalized = formatted.replace(/[-–]/g, ' ');
+      const cityFound = formattedNormalized.includes(cityNormalized)
+        || formattedNormalized.includes(city.trim());
+
+      const isAcceptable = cityFound
+        && ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE'].includes(locationType);
 
       return {
         valid: isAcceptable,
-        lat,
-        lng,
-        formattedAddress: result.formatted_address,
+        lat: isAcceptable ? lat : null,
+        lng: isAcceptable ? lng : null,
+        formattedAddress: formatted,
         locationType: locationType || null,
       };
     } catch (err) {
