@@ -519,7 +519,7 @@ export class CsvImportService {
     };
 
     const defaultDeliveryDate = new Date();
-    defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 3);
+    defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 2);
 
     for (const [orderNumber, lines] of orderGroups) {
       try {
