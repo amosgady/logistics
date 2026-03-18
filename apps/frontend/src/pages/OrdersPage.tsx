@@ -77,6 +77,12 @@ export default function OrdersPage() {
       return order?.status === 'PLANNING';
     });
 
+  const allSelectedPending = selectedOrderIds.size > 0 &&
+    Array.from(selectedOrderIds).every((id) => {
+      const order = orders.find((o: any) => o.id === id);
+      return order?.status === 'PENDING';
+    });
+
   const handleMoveToPlanning = async () => {
     if (selectedOrderIds.size === 0) return;
     try {
@@ -183,8 +189,8 @@ export default function OrdersPage() {
                 variant="contained"
                 startIcon={<MoveIcon />}
                 onClick={handleMoveToPlanning}
-                disabled={bulkStatusMutation.isPending || hasLockedOrders}
-                title={hasLockedOrders ? 'לא ניתן לשנות סטטוס להזמנות שנשלחו לנהג או הושלמו' : ''}
+                disabled={bulkStatusMutation.isPending || !allSelectedPending}
+                title={!allSelectedPending ? 'העברה לתכנון אפשרית רק מסטטוס בהמתנה' : ''}
               >
                 העבר לתכנון ({selectedOrderIds.size})
               </Button>
