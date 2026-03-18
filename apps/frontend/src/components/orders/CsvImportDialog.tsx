@@ -195,9 +195,19 @@ export default function CsvImportDialog({ open, onClose }: Props) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
-      const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-      if (result.errors.length > 0) {
-        setParseError('שגיאה בפענוח הקובץ: ' + result.errors[0].message);
+      // First try strict parsing; if quoting errors occur, retry with relaxed quoting
+      let result = Papa.parse(text, { header: true, skipEmptyLines: true });
+      const hasQuoteErrors = result.errors.some((e) => e.type === 'Quotes');
+      if (hasQuoteErrors) {
+        // Strip problematic inner quotes and re-parse
+        const cleanedText = text.replace(/(?<=,)"((?:[^"\n]*"[^",\n]+)+)"(?=,|\r?\n|$)/g, (_match, inner) => {
+          return '"' + inner.replace(/"/g, "'") + '"';
+        });
+        result = Papa.parse(cleanedText, { header: true, skipEmptyLines: true });
+      }
+      const fatalErrors = result.errors.filter((e) => e.type !== 'Quotes' && e.type !== 'FieldMismatch');
+      if (fatalErrors.length > 0) {
+        setParseError('שגיאה בפענוח הקובץ: ' + fatalErrors[0].message);
         return;
       }
       if (result.data.length === 0) {

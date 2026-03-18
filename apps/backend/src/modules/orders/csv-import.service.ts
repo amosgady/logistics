@@ -354,13 +354,26 @@ export class CsvImportService {
 
   /** Parse CSV content into mapped rows grouped by orderNumber */
   private parseCsv(csvContent: string) {
-    const parsed = Papa.parse(csvContent, {
+    let parsed = Papa.parse(csvContent, {
       header: true,
       skipEmptyLines: true,
     }) as Papa.ParseResult<CsvRow>;
 
-    if (parsed.errors.length > 0) {
-      throw new AppError(400, 'CSV_PARSE_ERROR', 'שגיאה בפענוח קובץ CSV', parsed.errors);
+    // If quoting errors, clean inner quotes and retry
+    const hasQuoteErrors = parsed.errors.some((e) => e.type === 'Quotes');
+    if (hasQuoteErrors) {
+      const cleanedCsv = csvContent.replace(/(?<=,)"((?:[^"\n]*"[^",\n]+)+)"(?=,|\r?\n|$)/g, (_match, inner) => {
+        return '"' + inner.replace(/"/g, "'") + '"';
+      });
+      parsed = Papa.parse(cleanedCsv, {
+        header: true,
+        skipEmptyLines: true,
+      }) as Papa.ParseResult<CsvRow>;
+    }
+
+    const fatalErrors = parsed.errors.filter((e) => e.type !== 'Quotes' && e.type !== 'FieldMismatch');
+    if (fatalErrors.length > 0) {
+      throw new AppError(400, 'CSV_PARSE_ERROR', 'שגיאה בפענוח קובץ CSV', fatalErrors);
     }
 
     if (parsed.data.length === 0) {
