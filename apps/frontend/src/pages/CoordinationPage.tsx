@@ -71,6 +71,7 @@ interface Order {
   customerResponse: 'PENDING' | 'CONFIRMED' | 'DECLINED';
   customerNotes: string | null;
   respondedAt: string | null;
+  smsReplySessions: { replyBody: string | null; repliedAt: string | null; status: string }[];
   sentToDriver: boolean;
   exportedToCsv: boolean;
   sentToChecker: boolean;
@@ -223,7 +224,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                 ) : '-'}
               </TableCell>
               <TableCell>
-                <CustomerResponseChip response={order.customerResponse} notes={order.customerNotes} />
+                <CustomerResponseChip response={order.customerResponse} notes={order.customerNotes} smsReply={order.smsReplySessions?.[0]?.replyBody} />
               </TableCell>
               <TableCell>
                 {order.timeWindow ? (
@@ -376,8 +377,9 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   );
 }
 
-function CustomerResponseChip({ response, notes }: { response: string; notes: string | null }) {
+function CustomerResponseChip({ response, notes, smsReply }: { response: string; notes: string | null; smsReply?: string | null }) {
   const hasNotes = Boolean(notes && notes.trim());
+  const hasReply = Boolean(smsReply && smsReply.trim());
 
   const chip = (() => {
     if (response === 'CONFIRMED') {
@@ -389,23 +391,37 @@ function CustomerResponseChip({ response, notes }: { response: string; notes: st
     return <Chip label="ממתין" size="small" color="default" variant="outlined" />;
   })();
 
-  if (!hasNotes) {
+  if (!hasNotes && !hasReply) {
     return chip;
   }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
       {chip}
-      <Tooltip title={notes!}>
-        <Chip
-          icon={<CommentIcon sx={{ fontSize: 12 }} />}
-          label="הערה"
-          size="small"
-          color="warning"
-          variant="outlined"
-          sx={{ cursor: 'pointer', height: 18, '& .MuiChip-label': { fontSize: '0.65rem', px: 0.3 }, '& .MuiChip-icon': { ml: 0.3 } }}
-        />
-      </Tooltip>
+      {hasReply && (
+        <Tooltip title={`תשובת SMS: ${smsReply}`}>
+          <Chip
+            icon={<SmsIcon sx={{ fontSize: 12 }} />}
+            label={smsReply!.length > 10 ? smsReply!.slice(0, 10) + '...' : smsReply!}
+            size="small"
+            color="info"
+            variant="outlined"
+            sx={{ cursor: 'pointer', height: 18, '& .MuiChip-label': { fontSize: '0.65rem', px: 0.3 }, '& .MuiChip-icon': { ml: 0.3 } }}
+          />
+        </Tooltip>
+      )}
+      {hasNotes && (
+        <Tooltip title={notes!}>
+          <Chip
+            icon={<CommentIcon sx={{ fontSize: 12 }} />}
+            label="הערה"
+            size="small"
+            color="warning"
+            variant="outlined"
+            sx={{ cursor: 'pointer', height: 18, '& .MuiChip-label': { fontSize: '0.65rem', px: 0.3 }, '& .MuiChip-icon': { ml: 0.3 } }}
+          />
+        </Tooltip>
+      )}
     </Box>
   );
 }

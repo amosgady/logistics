@@ -26,6 +26,12 @@ export class PlanningService {
       include: {
         orderLines: true,
         zone: { select: { id: true, name: true, nameHe: true } },
+        smsReplySessions: {
+          where: { replyBody: { not: null } },
+          orderBy: { sentAt: 'desc' },
+          take: 1,
+          select: { replyBody: true, repliedAt: true, status: true },
+        },
       },
       orderBy: [{ zoneId: 'asc' }, { city: 'asc' }],
     });
@@ -51,6 +57,12 @@ export class PlanningService {
             orderLines: true,
             zone: { select: { id: true, name: true, nameHe: true } },
             delivery: { include: { photos: true } },
+            smsReplySessions: {
+              where: { replyBody: { not: null } },
+              orderBy: { sentAt: 'desc' },
+              take: 1,
+              select: { replyBody: true, repliedAt: true, status: true },
+            },
           },
           orderBy: { routeSequence: 'asc' },
         },
