@@ -71,6 +71,12 @@ export default function OrdersPage() {
       return order?.status === 'SENT_TO_DRIVER' || order?.status === 'COMPLETED';
     });
 
+  const allSelectedInPlanning = selectedOrderIds.size > 0 &&
+    Array.from(selectedOrderIds).every((id) => {
+      const order = orders.find((o: any) => o.id === id);
+      return order?.status === 'PLANNING';
+    });
+
   const handleMoveToPlanning = async () => {
     if (selectedOrderIds.size === 0) return;
     try {
@@ -196,8 +202,8 @@ export default function OrdersPage() {
                 variant="outlined"
                 startIcon={<RevertIcon />}
                 onClick={handleRevertToPending}
-                disabled={bulkStatusMutation.isPending || hasLockedOrders}
-                title={hasLockedOrders ? 'לא ניתן לשנות סטטוס להזמנות שנשלחו לנהג או הושלמו' : ''}
+                disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
+                title={!allSelectedInPlanning ? 'ניתן להחזיר להמתנה רק הזמנות בסטטוס בתכנון' : ''}
               >
                 החזר להמתנה ({selectedOrderIds.size})
               </Button>
