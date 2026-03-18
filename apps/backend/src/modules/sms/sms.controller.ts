@@ -10,7 +10,8 @@ export const smsController = {
   sendOrderSms: asyncHandler(async (req: AuthRequest, res: Response) => {
     const orderId = parseInt(req.params.orderId as string);
     const targetPhone = req.body?.phone as string | undefined;
-    const result = await smsModuleService.sendOrderSms(orderId, req.user!.userId, targetPhone);
+    const method = req.body?.method as 'LINK' | 'REPLY' | undefined;
+    const result = await smsModuleService.sendOrderSms(orderId, req.user!.userId, targetPhone, method);
     res.json({ success: true, data: result });
   }),
 
@@ -19,7 +20,8 @@ export const smsController = {
    */
   sendRouteSms: asyncHandler(async (req: AuthRequest, res: Response) => {
     const routeId = parseInt(req.params.routeId as string);
-    const result = await smsModuleService.sendRouteSms(routeId, req.user!.userId);
+    const method = req.body?.method as 'LINK' | 'REPLY' | undefined;
+    const result = await smsModuleService.sendRouteSms(routeId, req.user!.userId, method);
     res.json({ success: true, data: result });
   }),
 

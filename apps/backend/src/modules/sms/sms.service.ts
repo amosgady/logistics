@@ -11,7 +11,7 @@ export class SmsModuleService {
    * Send SMS with confirmation link or reply-based (1/2) for a single order.
    * @param targetPhone – optional override; if not given, sends to order.phone
    */
-  async sendOrderSms(orderId: number, sentBy: number, targetPhone?: string) {
+  async sendOrderSms(orderId: number, sentBy: number, targetPhone?: string, methodOverride?: 'LINK' | 'REPLY') {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -42,7 +42,7 @@ export class SmsModuleService {
     const smsSettings = await prisma.smsSettings.findFirst({
       where: { isActive: true },
     });
-    const confirmationMethod = smsSettings?.confirmationMethod || 'LINK';
+    const confirmationMethod = methodOverride || smsSettings?.confirmationMethod || 'LINK';
 
     let message: string;
 
@@ -136,7 +136,7 @@ export class SmsModuleService {
   /**
    * Send SMS to all orders in a route.
    */
-  async sendRouteSms(routeId: number, sentBy: number) {
+  async sendRouteSms(routeId: number, sentBy: number, methodOverride?: 'LINK' | 'REPLY') {
     const route = await prisma.route.findUnique({
       where: { id: routeId },
       include: {
@@ -169,8 +169,6 @@ export class SmsModuleService {
       error?: string;
     }[] = [];
 
-    const template = await smsProvider.getTemplate();
-
     for (const order of route.orders) {
       if (!order.phone) {
         results.push({
@@ -183,36 +181,23 @@ export class SmsModuleService {
         continue;
       }
 
-      const message = smsProvider.expandTemplate(template, {
-        customerName: order.customerName,
-        deliveryDate: new Date(order.deliveryDate).toLocaleDateString('he-IL'),
-        timeWindow: order.timeWindow || undefined,
-        address: order.address,
-        city: order.city,
-        orderNumber: order.orderNumber,
-      });
-
-      const result = await smsProvider.send([order.phone], message);
-
-      await prisma.smsLog.create({
-        data: {
+      try {
+        const result = await this.sendOrderSms(order.id, sentBy, undefined, methodOverride);
+        results.push({
           orderId: order.id,
+          orderNumber: order.orderNumber,
+          phone: result.phone,
+          success: true,
+        });
+      } catch (err: any) {
+        results.push({
+          orderId: order.id,
+          orderNumber: order.orderNumber,
           phone: order.phone,
-          message,
-          status: result.success ? 'SENT' : 'FAILED',
-          providerRef: result.providerRef || null,
-          errorMsg: result.error || null,
-          sentBy,
-        },
-      });
-
-      results.push({
-        orderId: order.id,
-        orderNumber: order.orderNumber,
-        phone: order.phone,
-        success: result.success,
-        error: result.error,
-      });
+          success: false,
+          error: err.message,
+        });
+      }
 
       // Small delay between sends to avoid rate limiting
       await new Promise((r) => setTimeout(r, 100));

@@ -579,15 +579,33 @@ export default function CoordinationPage() {
     onError: () => setSnackbar({ message: 'שגיאה במחיקת תעודת משלוח', severity: 'error' }),
   });
 
-  const sendRouteSmsMutation = useMutation({
-    mutationFn: smsApi.sendRouteSms,
+  const sendRouteSmsLinkMutation = useMutation({
+    mutationFn: (routeId: number) => smsApi.sendRouteSms(routeId, 'LINK'),
     onSuccess: (result) => {
       const { sentCount, failedCount, total } = result.data;
       if (failedCount === 0) {
-        setSnackbar({ message: `נשלחו ${sentCount} הודעות SMS בהצלחה`, severity: 'success' });
+        setSnackbar({ message: `נשלחו ${sentCount} הודעות SMS (קישור) בהצלחה`, severity: 'success' });
       } else {
         setSnackbar({
-          message: `נשלחו ${sentCount}/${total} הודעות, ${failedCount} נכשלו`,
+          message: `נשלחו ${sentCount}/${total} הודעות (קישור), ${failedCount} נכשלו`,
+          severity: 'warning',
+        });
+      }
+    },
+    onError: (error: any) => {
+      setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בשליחת SMS', severity: 'error' });
+    },
+  });
+
+  const sendRouteSmsReplyMutation = useMutation({
+    mutationFn: (routeId: number) => smsApi.sendRouteSms(routeId, 'REPLY'),
+    onSuccess: (result) => {
+      const { sentCount, failedCount, total } = result.data;
+      if (failedCount === 0) {
+        setSnackbar({ message: `נשלחו ${sentCount} הודעות SMS (1/2) בהצלחה`, severity: 'success' });
+      } else {
+        setSnackbar({
+          message: `נשלחו ${sentCount}/${total} הודעות (1/2), ${failedCount} נכשלו`,
           severity: 'warning',
         });
       }
@@ -836,11 +854,21 @@ export default function CoordinationPage() {
                     variant="outlined"
                     color="info"
                     size="small"
-                    startIcon={sendRouteSmsMutation.isPending ? <CircularProgress size={16} /> : <SmsIcon />}
-                    onClick={() => sendRouteSmsMutation.mutate(route.id)}
-                    disabled={route.orders.length === 0 || sendRouteSmsMutation.isPending}
+                    startIcon={sendRouteSmsLinkMutation.isPending ? <CircularProgress size={16} /> : <SmsIcon />}
+                    onClick={() => sendRouteSmsLinkMutation.mutate(route.id)}
+                    disabled={route.orders.length === 0 || sendRouteSmsLinkMutation.isPending || sendRouteSmsReplyMutation.isPending}
                   >
-                    שלח SMS
+                    SMS קישור
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="info"
+                    size="small"
+                    startIcon={sendRouteSmsReplyMutation.isPending ? <CircularProgress size={16} /> : <SmsIcon />}
+                    onClick={() => sendRouteSmsReplyMutation.mutate(route.id)}
+                    disabled={route.orders.length === 0 || sendRouteSmsReplyMutation.isPending || sendRouteSmsLinkMutation.isPending}
+                  >
+                    SMS 1/2
                   </Button>
                   <Button
                     variant="contained"

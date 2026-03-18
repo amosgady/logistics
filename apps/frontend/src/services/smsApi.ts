@@ -39,13 +39,13 @@ export interface SmsReminderConfig {
 }
 
 export const smsApi = {
-  // Send SMS for single order (optionally to a specific phone)
-  sendOrderSms: (orderId: number, phone?: string) =>
-    api.post(`/sms/send/order/${orderId}`, phone ? { phone } : {}).then((r) => r.data),
+  // Send SMS for single order (optionally to a specific phone, optionally with method override)
+  sendOrderSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') =>
+    api.post(`/sms/send/order/${orderId}`, { ...(phone && { phone }), ...(method && { method }) }).then((r) => r.data),
 
-  // Send SMS for all orders in a route
-  sendRouteSms: (routeId: number) =>
-    api.post(`/sms/send/route/${routeId}`).then((r) => r.data),
+  // Send SMS for all orders in a route (optionally with method override)
+  sendRouteSms: (routeId: number, method?: 'LINK' | 'REPLY') =>
+    api.post(`/sms/send/route/${routeId}`, method ? { method } : {}).then((r) => r.data),
 
   // Send test SMS
   sendTest: (phone: string) =>
