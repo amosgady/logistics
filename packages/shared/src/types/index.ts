@@ -3,6 +3,7 @@ export type UserRole = 'ADMIN' | 'COORDINATOR' | 'DRIVER' | 'INSTALLER';
 export type OrderStatus =
   | 'PENDING'
   | 'PLANNING'
+  | 'ASSIGNED_TO_TRUCK'
   | 'IN_COORDINATION'
   | 'APPROVED'
   | 'SENT_TO_DRIVER'

@@ -17,7 +17,7 @@ export class PlanningService {
     // Get all orders in PLANNING/IN_COORDINATION/APPROVED status for this date
     const orders = await prisma.order.findMany({
       where: {
-        status: { in: ['PLANNING', 'IN_COORDINATION', 'APPROVED'] },
+        status: { in: ['PLANNING', 'ASSIGNED_TO_TRUCK', 'IN_COORDINATION', 'APPROVED'] },
         deliveryDate: {
           gte: startOfDay,
           lte: endOfDay,
@@ -151,12 +151,17 @@ export class PlanningService {
 
     // Assign order to route
     const nextSequence = route.orders.length + 1;
+    const updateData: any = {
+      routeId: route.id,
+      routeSequence: nextSequence,
+    };
+    // Auto-set status to ASSIGNED_TO_TRUCK if currently PLANNING
+    if (order.status === 'PLANNING') {
+      updateData.status = 'ASSIGNED_TO_TRUCK';
+    }
     await prisma.order.update({
       where: { id: orderId },
-      data: {
-        routeId: route.id,
-        routeSequence: nextSequence,
-      },
+      data: updateData,
     });
 
     // Reset optimization flag – route composition changed
@@ -212,12 +217,17 @@ export class PlanningService {
 
     // No weight/pallet capacity check for installers
     const nextSequence = route.orders.length + 1;
+    const updateData: any = {
+      routeId: route.id,
+      routeSequence: nextSequence,
+    };
+    // Auto-set status to ASSIGNED_TO_TRUCK if currently PLANNING
+    if (order.status === 'PLANNING') {
+      updateData.status = 'ASSIGNED_TO_TRUCK';
+    }
     await prisma.order.update({
       where: { id: orderId },
-      data: {
-        routeId: route.id,
-        routeSequence: nextSequence,
-      },
+      data: updateData,
     });
 
     return { routeId: route.id, sequence: nextSequence, warnings: [] as string[] };
@@ -322,7 +332,7 @@ export class PlanningService {
 
     let movedCount = 0;
     for (const order of route.orders) {
-      if (order.status === 'PLANNING') {
+      if (order.status === 'PLANNING' || order.status === 'ASSIGNED_TO_TRUCK') {
         await prisma.order.update({
           where: { id: order.id },
           data: { status: 'IN_COORDINATION' },

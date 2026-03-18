@@ -17,6 +17,7 @@ function getNearDate(): string {
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'בהמתנה' },
   { value: 'PLANNING', label: 'בתכנון' },
+  { value: 'ASSIGNED_TO_TRUCK', label: 'משויך למשאית' },
   { value: 'IN_COORDINATION', label: 'בתיאום' },
   { value: 'APPROVED', label: 'מתואם' },
   { value: 'SENT_TO_DRIVER', label: 'נשלח לנהג' },

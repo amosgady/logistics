@@ -248,7 +248,7 @@ export class OrdersService {
     // automatically move it to APPROVED so "Send to Driver" becomes available.
     const shouldAutoApprove =
       isCoordinating &&
-      (order.status === 'PLANNING' || order.status === 'IN_COORDINATION');
+      (order.status === 'PLANNING' || order.status === 'ASSIGNED_TO_TRUCK' || order.status === 'IN_COORDINATION');
 
     // Revert to IN_COORDINATION when unchecking coordination
     const shouldRevertToCoordination =

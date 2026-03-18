@@ -56,8 +56,8 @@ export class ConfirmationService {
     if (response === 'CONFIRMED') {
       updateData.coordinationStatus = 'COORDINATED';
 
-      // Auto-approve if in PLANNING status
-      if (order.status === 'PLANNING') {
+      // Auto-approve if in PLANNING or ASSIGNED_TO_TRUCK status
+      if (order.status === 'PLANNING' || order.status === 'ASSIGNED_TO_TRUCK') {
         updateData.status = 'APPROVED';
 
         await prisma.orderStatusHistory.create({

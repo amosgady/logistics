@@ -106,6 +106,7 @@ interface NewLine {
 const STATUS_LABELS: Record<string, string> = {
   PENDING: 'ממתינה',
   PLANNING: 'בתכנון',
+  ASSIGNED_TO_TRUCK: 'משויכת למשאית',
   IN_COORDINATION: 'בתיאום',
   APPROVED: 'מתואמת',
   SENT_TO_DRIVER: 'נשלחה לנהג',

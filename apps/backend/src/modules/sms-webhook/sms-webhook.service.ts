@@ -89,7 +89,7 @@ export class SmsWebhookService {
     if (response === 'CONFIRMED') {
       updateData.coordinationStatus = 'COORDINATED';
 
-      if (session.order.status === 'PLANNING') {
+      if (session.order.status === 'PLANNING' || session.order.status === 'ASSIGNED_TO_TRUCK') {
         updateData.status = 'APPROVED';
 
         await prisma.orderStatusHistory.create({

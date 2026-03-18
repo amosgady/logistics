@@ -381,7 +381,7 @@ function RouteCard({
               isSendingToCoordination ||
               route.orders.length === 0 ||
               (route.orders.length > 1 && !route.isOptimized) ||
-              route.orders.every((o) => o.status !== 'PLANNING')
+              route.orders.every((o) => o.status !== 'PLANNING' && o.status !== 'ASSIGNED_TO_TRUCK')
             }
           >
             העבר לתיאום

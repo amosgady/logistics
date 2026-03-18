@@ -93,7 +93,7 @@ export class SmsSchedulerService {
     const orders = await prisma.order.findMany({
       where: {
         deliveryDate: { gte: startOfDay, lte: endOfDay },
-        status: { in: ['APPROVED', 'SENT_TO_DRIVER', 'PLANNING'] },
+        status: { in: ['APPROVED', 'SENT_TO_DRIVER', 'PLANNING', 'ASSIGNED_TO_TRUCK'] },
         phone: { not: '' },
         // Exclude orders that already got this reminder
         NOT: {
