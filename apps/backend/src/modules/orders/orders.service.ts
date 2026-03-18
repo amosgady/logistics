@@ -270,11 +270,11 @@ export class OrdersService {
         });
       }
 
-      // When uncoordinating, reset customer response and expire SMS sessions
+      // When uncoordinating, reset customer response and clear all SMS reply data
       if (isUncoordinating) {
         await tx.smsReplySession.updateMany({
-          where: { orderId, status: 'ACTIVE' },
-          data: { status: 'EXPIRED' },
+          where: { orderId },
+          data: { status: 'EXPIRED', replyBody: null, repliedAt: null },
         });
       }
 
