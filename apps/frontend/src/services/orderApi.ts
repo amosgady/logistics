@@ -66,6 +66,9 @@ export const orderApi = {
   updateAddress: (orderId: number, address: string) =>
     api.patch(`/orders/${orderId}/address`, { address }).then((r) => r.data),
 
+  updateCity: (orderId: number, city: string) =>
+    api.patch(`/orders/${orderId}/city`, { city }).then((r) => r.data),
+
   uploadDeliveryNote: (orderId: number, file: File) => {
     const formData = new FormData();
     formData.append('file', file);

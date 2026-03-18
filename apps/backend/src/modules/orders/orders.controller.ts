@@ -140,6 +140,13 @@ export const ordersController = {
     res.json({ success: true, data: order });
   }),
 
+  updateCity: asyncHandler(async (req: Request, res: Response) => {
+    const orderId = parseInt(req.params.id as string);
+    const { city } = req.body;
+    const order = await ordersService.updateCity(orderId, city);
+    res.json({ success: true, data: order });
+  }),
+
   uploadDeliveryNote: asyncHandler(async (req: Request, res: Response) => {
     const orderId = parseInt(req.params.id as string);
     if (!req.file) {

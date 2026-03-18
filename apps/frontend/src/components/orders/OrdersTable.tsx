@@ -282,61 +282,116 @@ function EditableOptionalCount({ order, field, updateFn }: { order: Order; field
 
 function EditableAddress({ order }: { order: Order }) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(order.address);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [editingCity, setEditingCity] = useState(false);
+  const [addressValue, setAddressValue] = useState(order.address);
+  const [cityValue, setCityValue] = useState(order.city);
+  const addressRef = useRef<HTMLInputElement>(null);
+  const cityRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
+    if (editingAddress && addressRef.current) {
+      addressRef.current.focus();
+      addressRef.current.select();
     }
-  }, [editing]);
+  }, [editingAddress]);
 
-  const mutation = useMutation({
+  useEffect(() => {
+    if (editingCity && cityRef.current) {
+      cityRef.current.focus();
+      cityRef.current.select();
+    }
+  }, [editingCity]);
+
+  const addressMutation = useMutation({
     mutationFn: (address: string) => orderApi.updateAddress(order.id, address),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
   });
 
-  const save = () => {
-    const trimmed = value.trim();
+  const cityMutation = useMutation({
+    mutationFn: (city: string) => orderApi.updateCity(order.id, city),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const saveAddress = () => {
+    const trimmed = addressValue.trim();
     if (trimmed && trimmed !== order.address) {
-      mutation.mutate(trimmed);
+      addressMutation.mutate(trimmed);
     }
-    setEditing(false);
+    setEditingAddress(false);
   };
 
-  if (editing) {
+  const saveCity = () => {
+    const trimmed = cityValue.trim();
+    if (trimmed && trimmed !== order.city) {
+      cityMutation.mutate(trimmed);
+    }
+    setEditingCity(false);
+  };
+
+  if (editingAddress) {
     return (
       <Box>
         <TextField
-          inputRef={inputRef}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onBlur={save}
+          inputRef={addressRef}
+          value={addressValue}
+          onChange={(e) => setAddressValue(e.target.value)}
+          onBlur={saveAddress}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') save();
-            if (e.key === 'Escape') setEditing(false);
+            if (e.key === 'Enter') saveAddress();
+            if (e.key === 'Escape') setEditingAddress(false);
           }}
           size="small"
           variant="standard"
           fullWidth
           inputProps={{ style: { fontSize: 14 } }}
+          placeholder="כתובת"
         />
         <Typography variant="caption" color="text.secondary">{order.city}</Typography>
       </Box>
     );
   }
 
+  if (editingCity) {
+    return (
+      <Box>
+        <Typography variant="body2">{order.address}</Typography>
+        <TextField
+          inputRef={cityRef}
+          value={cityValue}
+          onChange={(e) => setCityValue(e.target.value)}
+          onBlur={saveCity}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') saveCity();
+            if (e.key === 'Escape') setEditingCity(false);
+          }}
+          size="small"
+          variant="standard"
+          fullWidth
+          inputProps={{ style: { fontSize: 13 } }}
+          placeholder="עיר"
+        />
+      </Box>
+    );
+  }
+
   return (
-    <Box
-      sx={{ cursor: 'pointer', '&:hover .edit-icon': { opacity: 1 } }}
-      onClick={() => { setValue(order.address); setEditing(true); }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-        <span>{order.address}, {order.city}</span>
+    <Box sx={{ '&:hover .edit-icon': { opacity: 1 } }}>
+      <Box
+        sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5 }}
+        onClick={() => { setAddressValue(order.address); setEditingAddress(true); }}
+      >
+        <span>{order.address}</span>
         <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
       </Box>
+      <Typography
+        variant="caption"
+        color="text.secondary"
+        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+        onClick={() => { setCityValue(order.city); setEditingCity(true); }}
+      >
+        {order.city}
+      </Typography>
       {(order.floor != null || order.elevator != null) && (
         <Typography variant="caption" color="text.secondary" display="block">
           {order.floor != null && `קומה ${order.floor}`}

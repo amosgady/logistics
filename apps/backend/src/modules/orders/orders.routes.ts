@@ -43,6 +43,7 @@ router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.
 router.patch('/:id/coordination', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordination);
 router.patch('/:id/pallet-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePalletCount);
 router.patch('/:id/address', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateAddress);
+router.patch('/:id/city', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCity);
 router.patch('/:id/driver-note', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDriverNote);
 router.patch('/:id/door-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDoorCount);
 router.patch('/:id/handle-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateHandleCount);

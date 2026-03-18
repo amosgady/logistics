@@ -310,6 +310,24 @@ export class OrdersService {
       },
     });
   }
+  async updateCity(orderId: number, city: string) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+    if (!city || !city.trim()) throw new AppError(400, 'INVALID', 'עיר לא יכולה להיות ריקה');
+
+    // Reset geocoding so it will be re-geocoded on next optimization
+    return prisma.order.update({
+      where: { id: orderId },
+      data: {
+        city: city.trim(),
+        latitude: null,
+        longitude: null,
+        geocodeValid: null,
+        geocodedAddress: null,
+      },
+    });
+  }
+
   async updateDoorCount(orderId: number, doorCount: number | null) {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
