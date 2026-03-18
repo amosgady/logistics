@@ -255,12 +255,6 @@ export class PlanningService {
       },
     });
 
-    // Reset optimization flag – route composition changed
-    await prisma.route.update({
-      where: { id: routeId },
-      data: { isOptimized: false },
-    });
-
     // Re-sequence remaining orders in route
     const remainingOrders = await prisma.order.findMany({
       where: { routeId },
@@ -273,6 +267,16 @@ export class PlanningService {
         data: { routeSequence: i + 1 },
       });
     }
+
+    // Reset optimization data – route composition changed
+    await prisma.route.update({
+      where: { id: routeId },
+      data: {
+        isOptimized: false,
+        totalDistanceKm: null,
+        totalTimeMinutes: null,
+      },
+    });
   }
 
   async reorderRoute(routeId: number, orderIds: number[]) {
