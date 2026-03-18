@@ -39,9 +39,9 @@ export class GeocodingService {
       const locationType = String(result.geometry.location_type || '');
 
       // ROOFTOP = exact building, RANGE_INTERPOLATED = interpolated on street,
-      // GEOMETRIC_CENTER = center of street/area – all acceptable for delivery routing.
-      // Only APPROXIMATE (city/region level) is too imprecise.
-      const isAcceptable = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER'].includes(locationType);
+      // GEOMETRIC_CENTER = center of street/area, APPROXIMATE = city/region level.
+      // All are acceptable — APPROXIMATE is less precise but still usable for routing.
+      const isAcceptable = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE'].includes(locationType);
 
       return {
         valid: isAcceptable,

@@ -107,9 +107,8 @@ export class RouteOptimizerService {
       }
     }
 
-    // Build waypoints from orders that have coordinates (include inaccurate ones too)
+    // Build waypoints from orders that have coordinates
     const ordersWithCoords = route.orders.filter((o) => o.latitude && o.longitude);
-    const ordersWithInvalidGeocode = route.orders.filter((o) => o.latitude && o.longitude && o.geocodeValid === false);
     const ordersWithoutCoords = route.orders.filter((o) => !o.latitude || !o.longitude);
 
     const suspiciousAddresses = [
@@ -118,12 +117,6 @@ export class RouteOptimizerService {
         orderNumber: o.orderNumber,
         address: `${o.address}, ${o.city}`,
         reason: 'לא נמצאו קואורדינטות',
-      })),
-      ...ordersWithInvalidGeocode.map((o) => ({
-        orderId: o.id,
-        orderNumber: o.orderNumber,
-        address: `${o.address}, ${o.city}`,
-        reason: 'כתובת לא מדויקת (ברמת עיר בלבד)',
       })),
     ];
 
