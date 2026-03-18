@@ -429,6 +429,7 @@ export default function PlanningPage() {
       planningApi.assignOrderToTruck(orderId, truckId, planDate),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       if (result.data.warnings?.length > 0) {
         setSnackbar({ message: result.data.warnings.join(' | '), severity: 'warning' });
       }
@@ -441,6 +442,7 @@ export default function PlanningPage() {
       planningApi.assignOrderToInstaller(orderId, installerProfileId, planDate),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
     onError: () => setSnackbar({ message: 'שגיאה בשיוך הזמנה למתקין', severity: 'error' }),
   });
@@ -449,6 +451,7 @@ export default function PlanningPage() {
     mutationFn: planningApi.removeOrderFromTruck,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });
 
@@ -456,6 +459,7 @@ export default function PlanningPage() {
     mutationFn: (orderIds: number[]) => zoneApi.assignZonesToOrders(orderIds),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setSnackbar({
         message: `שויכו ${result.data.assigned} הזמנות לאזורים. ${result.data.unmatched} ללא התאמה.`,
         severity: result.data.unmatched > 0 ? 'warning' : 'success',
@@ -467,6 +471,7 @@ export default function PlanningPage() {
     mutationFn: planningApi.optimizeRoute,
     onSuccess: (result, routeId) => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setOptimizedRouteId(routeId);
       setOptimizingRouteId(null);
       const data = result.data;
@@ -502,6 +507,7 @@ export default function PlanningPage() {
     mutationFn: planningApi.approveOvertime,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setSnackbar({ message: 'שעות נוספות אושרו', severity: 'success' });
     },
   });
@@ -510,6 +516,7 @@ export default function PlanningPage() {
     mutationFn: planningApi.sendToCoordination,
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setSnackbar({
         message: `${result.data.movedCount} הזמנות הועברו לתיאום`,
         severity: 'success',
@@ -525,6 +532,7 @@ export default function PlanningPage() {
     mutationFn: planningApi.assignTimeWindows,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setSnackbar({ message: 'חלונות זמן עודכנו', severity: 'success' });
     },
   });
@@ -534,6 +542,7 @@ export default function PlanningPage() {
       planningApi.reorderRoute(routeId, orderIds),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
       setOriginalStops(manualStops ? [...manualStops] : null);
       setSnackbar({ message: 'סדר המסלול נשמר בהצלחה', severity: 'success' });
     },
