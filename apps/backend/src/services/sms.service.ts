@@ -123,7 +123,7 @@ export class SmsService {
   /**
    * Send SMS via 019 JSON API.
    */
-  async send(phones: string[], message: string): Promise<SendResult> {
+  async send(phones: string[], message: string, senderOverride?: string): Promise<SendResult> {
     const creds = await this.getCredentials();
     if (!creds) {
       return { success: false, error: 'SMS not configured – missing credentials' };
@@ -147,7 +147,7 @@ export class SmsService {
         user: {
           username: creds.username,
         },
-        source: creds.sender,
+        source: senderOverride || creds.sender,
         destinations: {
           phone: cleanPhones.map((p) => ({ _: p })),
         },

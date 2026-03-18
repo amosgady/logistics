@@ -6,6 +6,7 @@ export interface SmsSettings {
   inforuPassword: string;
   apiToken?: string;
   senderName: string;
+  replySenderPhone?: string;
   messageTemplate: string;
   isActive: boolean;
   confirmationMethod?: 'LINK' | 'REPLY';

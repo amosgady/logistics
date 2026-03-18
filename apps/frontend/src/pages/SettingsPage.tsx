@@ -93,6 +93,7 @@ export default function SettingsPage() {
     inforuPassword: '',
     apiToken: '',
     senderName: 'Delivery',
+    replySenderPhone: '',
     messageTemplate: DEFAULT_SMS_TEMPLATE,
     isActive: true,
     confirmationMethod: 'LINK',
@@ -108,6 +109,7 @@ export default function SettingsPage() {
         inforuPassword: smsData.data.inforuPassword || '',
         apiToken: smsData.data.apiToken || '',
         senderName: smsData.data.senderName || 'Delivery',
+        replySenderPhone: smsData.data.replySenderPhone || '',
         messageTemplate: smsData.data.messageTemplate || DEFAULT_SMS_TEMPLATE,
         isActive: smsData.data.isActive !== false,
         confirmationMethod: smsData.data.confirmationMethod || 'LINK',
@@ -368,11 +370,19 @@ export default function SettingsPage() {
                 sx={{ flex: 1 }}
               />
               <TextField
-                label="שם שולח"
+                label="שם שולח (קישור)"
                 size="small"
                 value={smsForm.senderName}
                 onChange={(e) => updateSmsField('senderName', e.target.value)}
-                helperText="עד 11 תווים באנגלית"
+                helperText="עד 11 תווים באנגלית, למשל perfectline"
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="מספר שולח (SMS 1/2)"
+                size="small"
+                value={smsForm.replySenderPhone || ''}
+                onChange={(e) => updateSmsField('replySenderPhone', e.target.value)}
+                helperText="מספר טלפון לשליחת SMS עם תשובה"
                 sx={{ flex: 1 }}
               />
             </Box>

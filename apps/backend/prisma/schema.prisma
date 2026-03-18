@@ -449,6 +449,7 @@ model SmsSettings {
   inforuPassword     String             @map("inforu_password")
   apiToken           String?            @map("api_token")
   senderName         String             @default("Delivery") @map("sender_name")
+  replySenderPhone   String?            @map("reply_sender_phone")
   messageTemplate    String             @map("message_template")
   isActive           Boolean            @default(true) @map("is_active")
   confirmationMethod ConfirmationMethod @default(LINK) @map("confirmation_method")

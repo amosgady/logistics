@@ -109,8 +109,11 @@ export class SmsModuleService {
       },
     });
 
-    // Send SMS
-    const result = await smsProvider.send([phoneToUse], message);
+    // Send SMS - use replySenderPhone for REPLY method, senderName for LINK
+    const senderOverride = confirmationMethod === 'REPLY' && (smsSettings as any)?.replySenderPhone
+      ? (smsSettings as any).replySenderPhone
+      : undefined;
+    const result = await smsProvider.send([phoneToUse], message, senderOverride);
 
     // Log
     await prisma.smsLog.create({
@@ -252,6 +255,7 @@ export class SmsModuleService {
     inforuPassword: string;
     apiToken?: string | null;
     senderName: string;
+    replySenderPhone?: string | null;
     messageTemplate: string;
     isActive: boolean;
     confirmationMethod?: 'LINK' | 'REPLY';
@@ -275,6 +279,9 @@ export class SmsModuleService {
     }
     if (data.replyTemplate !== undefined) {
       updateData.replyTemplate = data.replyTemplate;
+    }
+    if (data.replySenderPhone !== undefined) {
+      updateData.replySenderPhone = data.replySenderPhone;
     }
 
     if (existing) {
