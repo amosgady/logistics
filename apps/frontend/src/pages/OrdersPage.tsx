@@ -59,29 +59,33 @@ export default function OrdersPage() {
   const orders = data?.data || [];
   const total = data?.meta?.total || 0;
 
-  const allSelectedDeletable = selectedOrderIds.size > 0 &&
+  // Check if some selected orders are NOT on the current page (cross-page selection)
+  const hasCrossPageSelection = selectedOrderIds.size > 0 &&
+    Array.from(selectedOrderIds).some((id) => !orders.find((o: any) => o.id === id));
+
+  const allSelectedDeletable = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
     Array.from(selectedOrderIds).every((id) => {
       const order = orders.find((o: any) => o.id === id);
       return order?.status === 'PENDING' || order?.status === 'CANCELLED';
-    });
+    }));
 
-  const hasLockedOrders = selectedOrderIds.size > 0 &&
+  const hasLockedOrders = !hasCrossPageSelection && selectedOrderIds.size > 0 &&
     Array.from(selectedOrderIds).some((id) => {
       const order = orders.find((o: any) => o.id === id);
       return order?.status === 'SENT_TO_DRIVER' || order?.status === 'COMPLETED';
     });
 
-  const allSelectedInPlanning = selectedOrderIds.size > 0 &&
+  const allSelectedInPlanning = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
     Array.from(selectedOrderIds).every((id) => {
       const order = orders.find((o: any) => o.id === id);
       return order?.status === 'PLANNING';
-    });
+    }));
 
-  const allSelectedPending = selectedOrderIds.size > 0 &&
+  const allSelectedPending = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
     Array.from(selectedOrderIds).every((id) => {
       const order = orders.find((o: any) => o.id === id);
       return order?.status === 'PENDING';
-    });
+    }));
 
   const handleMoveToPlanning = async () => {
     if (selectedOrderIds.size === 0) return;
