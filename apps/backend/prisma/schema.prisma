@@ -332,6 +332,7 @@ model Route {
   isOptimized        Boolean  @default(false) @map("is_optimized")
   isFinalized        Boolean  @default(false) @map("is_finalized")
   coordinatorName    String?  @map("coordinator_name")
+  driverName         String?  @map("driver_name")
   color              String?  @map("color")
   createdAt          DateTime @default(now()) @map("created_at")
 

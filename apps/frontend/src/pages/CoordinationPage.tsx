@@ -842,6 +842,9 @@ export default function CoordinationPage() {
                     {route.color && (
                       <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="default" />
                     )}
+                    {(route as any).driverName && (
+                      <Chip label={`נהג: ${(route as any).driverName}`} size="small" variant="outlined" />
+                    )}
                     <Chip label={`${route.orders.length} הזמנות`} size="small" />
                     {route.totalTimeMinutes && (
                       <Chip

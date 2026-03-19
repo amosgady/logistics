@@ -401,6 +401,13 @@ export class PlanningService {
       data: { color },
     });
   }
+
+  async setDriverName(routeId: number, driverName: string | null) {
+    await prisma.route.update({
+      where: { id: routeId },
+      data: { driverName },
+    });
+  }
 }
 
 export const planningService = new PlanningService();

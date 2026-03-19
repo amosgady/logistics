@@ -92,6 +92,7 @@ interface Route {
   isOptimized: boolean;
   color: string | null;
   roundNumber: number;
+  driverName: string | null;
 }
 
 function getNearDate(): string {
@@ -138,6 +139,7 @@ function RouteCard({
   truckColors,
   onSetColor,
   onAddRound,
+  onSetDriverName,
 }: {
   route: Route;
   onRemoveOrder: (orderId: number) => void;
@@ -150,6 +152,7 @@ function RouteCard({
   truckColors: { department: string; color: string }[];
   onSetColor: (color: string | null) => void;
   onAddRound: () => void;
+  onSetDriverName: (name: string | null) => void;
 }) {
   const isInstaller = !!route.installerProfile;
   const ownerName = isInstaller ? route.installerProfile!.user.fullName : route.truck?.name || '';
@@ -218,6 +221,19 @@ function RouteCard({
                   ))}
                 </Select>
               </FormControl>
+            )}
+            {!isInstaller && (
+              <TextField
+                size="small"
+                placeholder="שם נהג"
+                defaultValue={route.driverName || ''}
+                onBlur={(e) => {
+                  const val = e.target.value.trim();
+                  if (val !== (route.driverName || '')) onSetDriverName(val || null);
+                }}
+                sx={{ width: 120 }}
+                InputProps={{ sx: { height: 28, fontSize: '0.8rem' } }}
+              />
             )}
             <Chip label={`${route.orders.length} הזמנות`} size="small" />
           </Box>
@@ -624,6 +640,14 @@ export default function PlanningPage() {
       setSnackbar({ message: 'סבב חדש נוסף בהצלחה', severity: 'success' });
     },
     onError: () => setSnackbar({ message: 'שגיאה בהוספת סבב', severity: 'error' }),
+  });
+
+  const setDriverNameMutation = useMutation({
+    mutationFn: ({ routeId, driverName }: { routeId: number; driverName: string | null }) =>
+      planningApi.setDriverName(routeId, driverName),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
   });
 
   const setRouteColorMutation = useMutation({
@@ -1083,6 +1107,7 @@ export default function PlanningPage() {
                     truckColors={truckColors}
                     onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                     onAddRound={() => addRoundMutation.mutate(route.id)}
+                    onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}
                   />
                 ))
               )}
@@ -1114,6 +1139,7 @@ export default function PlanningPage() {
                       truckColors={truckColors}
                       onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                       onAddRound={() => addRoundMutation.mutate(route.id)}
+                    onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}
                     />
                   ))
                 )}

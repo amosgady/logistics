@@ -19,6 +19,7 @@ router.post('/routes/:routeId/send-to-coordination', planningController.sendToCo
 router.post('/geocode', planningController.geocodeOrders);
 router.post('/geo-sort', planningController.geoSort);
 router.patch('/routes/:routeId/color', planningController.setRouteColor);
+router.patch('/routes/:routeId/driver-name', planningController.setDriverName);
 router.post('/routes/:routeId/add-round', planningController.addRound);
 
 export default router;

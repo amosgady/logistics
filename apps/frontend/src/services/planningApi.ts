@@ -37,6 +37,9 @@ export const planningApi = {
   setRouteColor: (routeId: number, color: string | null) =>
     api.patch(`/planning/routes/${routeId}/color`, { color }).then((r) => r.data),
 
+  setDriverName: (routeId: number, driverName: string | null) =>
+    api.patch(`/planning/routes/${routeId}/driver-name`, { driverName }).then((r) => r.data),
+
   addRound: (routeId: number) =>
     api.post(`/planning/routes/${routeId}/add-round`).then((r) => r.data),
 };
