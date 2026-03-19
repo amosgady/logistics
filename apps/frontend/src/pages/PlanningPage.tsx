@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
+import { settingsApi } from '../services/settingsApi';
 import { zoneApi } from '../services/zoneApi';
 import { INSTALLER_DEPARTMENTS, INSTALLER_DEPARTMENT_LABELS, DEPARTMENT_LABELS } from '../constants/departments';
 import { useDateStore } from '../store/dateStore';
@@ -440,7 +441,7 @@ export default function PlanningPage() {
 
   const { data: truckColorsData } = useQuery({
     queryKey: ['truck-colors'],
-    queryFn: () => import('../services/settingsApi').then((m) => m.settingsApi.getTruckColors()),
+    queryFn: () => settingsApi.getTruckColors(),
   });
   const truckColors: string[] = truckColorsData?.data || [];
 
