@@ -182,6 +182,9 @@ model Order {
   zoneId       Int?    @map("zone_id")
   zoneOverride Boolean @default(false) @map("zone_override")
 
+  // Geo sorting
+  geoSortOrder     Int?       @map("geo_sort_order")
+
   // Planning
   routeId          Int?       @map("route_id")
   routeSequence    Int?       @map("route_sequence")

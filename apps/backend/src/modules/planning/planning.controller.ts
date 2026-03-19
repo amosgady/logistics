@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { planningService } from './planning.service';
 import { routeOptimizerService } from './route-optimizer.service';
 import { geocodingService } from '../../services/geocoding.service';
+import { geoSortService } from './geo-sort.service';
 import { asyncHandler } from '../../utils/asyncHandler';
 
 export const planningController = {
@@ -63,6 +64,12 @@ export const planningController = {
   sendToCoordination: asyncHandler(async (req: Request, res: Response) => {
     const routeId = parseInt(req.params.routeId as string);
     const result = await planningService.sendToCoordination(routeId);
+    res.json({ success: true, data: result });
+  }),
+
+  geoSort: asyncHandler(async (req: Request, res: Response) => {
+    const { orderIds } = req.body;
+    const result = await geoSortService.geoSortOrders({ orderIds });
     res.json({ success: true, data: result });
   }),
 };

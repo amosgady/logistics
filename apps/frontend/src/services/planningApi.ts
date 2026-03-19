@@ -30,4 +30,7 @@ export const planningApi = {
 
   sendToCoordination: (routeId: number) =>
     api.post(`/planning/routes/${routeId}/send-to-coordination`).then((r) => r.data),
+
+  geoSort: (orderIds: number[]) =>
+    api.post('/planning/geo-sort', { orderIds }).then((r) => r.data),
 };

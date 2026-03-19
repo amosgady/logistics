@@ -17,5 +17,6 @@ router.post('/routes/:routeId/optimize', planningController.optimizeRoute);
 router.post('/routes/:routeId/approve-overtime', planningController.approveOvertime);
 router.post('/routes/:routeId/send-to-coordination', planningController.sendToCoordination);
 router.post('/geocode', planningController.geocodeOrders);
+router.post('/geo-sort', planningController.geoSort);
 
 export default router;

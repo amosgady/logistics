@@ -63,6 +63,9 @@ interface Order {
   timeWindow: string | null;
   routeSequence: number | null;
   estimatedArrival: string | null;
+  geoSortOrder: number | null;
+  latitude: number | null;
+  longitude: number | null;
   palletCount: number;
   zone: { id: number; name: string; nameHe: string } | null;
   orderLines: OrderLine[];
@@ -537,6 +540,20 @@ export default function PlanningPage() {
     },
   });
 
+  const geoSortMutation = useMutation({
+    mutationFn: (orderIds: number[]) => planningApi.geoSort(orderIds),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      const noCoords = result.data?.noCoordinates?.length || 0;
+      const msg = noCoords > 0
+        ? `סידור גיאוגרפי בוצע. ${noCoords} הזמנות ללא קואורדינטות`
+        : 'סידור גיאוגרפי בוצע בהצלחה';
+      setSnackbar({ message: msg, severity: noCoords > 0 ? 'warning' : 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בסידור גיאוגרפי', severity: 'error' }),
+  });
+
   const reorderMutation = useMutation({
     mutationFn: ({ routeId, orderIds }: { routeId: number; orderIds: number[] }) =>
       planningApi.reorderRoute(routeId, orderIds),
@@ -605,6 +622,14 @@ export default function PlanningPage() {
     assignInstallerMutation.mutate({ orderId, installerProfileId: selectedInstaller as number });
   };
 
+  const handleGeoSort = (orderIds: number[]) => {
+    if (orderIds.length < 2) {
+      setSnackbar({ message: 'נדרשות לפחות 2 הזמנות לסידור גיאוגרפי', severity: 'warning' });
+      return;
+    }
+    geoSortMutation.mutate(orderIds);
+  };
+
   const handleAssignZones = () => {
     const ids = unassignedOrders.map((o) => o.id);
     if (ids.length === 0) return;
@@ -624,7 +649,7 @@ export default function PlanningPage() {
     deliveryByDept.get(dept)!.push(order);
   }
 
-  // For each department group, build zone sub-groups
+  // For each department group, build zone sub-groups (sorted by geoSortOrder if available)
   const deptZoneGroups = new Map<string, Map<string, Order[]>>();
   for (const [dept, orders] of deliveryByDept.entries()) {
     const zoneMap = new Map<string, Order[]>();
@@ -632,6 +657,15 @@ export default function PlanningPage() {
       const zoneName = order.zone?.nameHe || 'לא מוגדר';
       if (!zoneMap.has(zoneName)) zoneMap.set(zoneName, []);
       zoneMap.get(zoneName)!.push(order);
+    }
+    // Sort orders within each zone by geoSortOrder
+    for (const [, zoneOrders] of zoneMap.entries()) {
+      zoneOrders.sort((a, b) => {
+        if (a.geoSortOrder != null && b.geoSortOrder != null) return a.geoSortOrder - b.geoSortOrder;
+        if (a.geoSortOrder != null) return -1;
+        if (b.geoSortOrder != null) return 1;
+        return 0;
+      });
     }
     deptZoneGroups.set(dept, zoneMap);
   }
@@ -703,69 +737,115 @@ export default function PlanningPage() {
                       {Array.from(deptZoneGroups.entries()).map(([dept, zoneMap]) => {
                         const deptLabel = dept === '_NONE_' ? 'ללא מחלקה' : (DEPARTMENT_LABELS[dept] || dept);
                         const deptOrders = deliveryByDept.get(dept) || [];
+                        const deptGeoSorted = deptOrders.every((o) => o.geoSortOrder != null);
                         const deptTrucks = trucks.filter((t: any) =>
                           dept === '_NONE_' ? !t.department : t.department === dept
                         );
                         return (
                           <Box key={dept} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                              <Chip label={`${deptLabel} (${deptOrders.length})`} color="primary" size="small" variant="outlined" />
-                              <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>בחר משאית</InputLabel>
-                                <Select
-                                  value={selectedTruckByDept[dept] || ''}
-                                  label="בחר משאית"
-                                  onChange={(e) => setSelectedTruckByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Chip label={`${deptLabel} (${deptOrders.length})`} color="primary" size="small" variant="outlined" />
+                                {deptGeoSorted && <Chip label="מסודר גיאוגרפית" color="success" size="small" icon={<PlaceIcon />} />}
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Button
+                                  size="small"
+                                  variant={deptGeoSorted ? 'outlined' : 'contained'}
+                                  color="success"
+                                  startIcon={<PlaceIcon />}
+                                  onClick={() => handleGeoSort(deptOrders.map((o) => o.id))}
+                                  disabled={deptOrders.length < 2 || geoSortMutation.isPending}
                                 >
-                                  {deptTrucks.map((t: any) => (
-                                    <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
+                                  {geoSortMutation.isPending ? 'מסדר...' : 'סידור גיאוגרפי'}
+                                </Button>
+                                <FormControl size="small" sx={{ minWidth: 150 }}>
+                                  <InputLabel>בחר משאית</InputLabel>
+                                  <Select
+                                    value={selectedTruckByDept[dept] || ''}
+                                    label="בחר משאית"
+                                    onChange={(e) => setSelectedTruckByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
+                                  >
+                                    {deptTrucks.map((t: any) => (
+                                      <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                                    ))}
+                                  </Select>
+                                </FormControl>
+                              </Box>
                             </Box>
+                            {!deptGeoSorted && (
+                              <Alert severity="info" sx={{ mb: 1, py: 0 }}>
+                                יש לבצע סידור גיאוגרפי לפני שיוך למשאית
+                              </Alert>
+                            )}
 
-                            {Array.from(zoneMap.entries()).map(([zoneName, orders]) => (
+                            {Array.from(zoneMap.entries()).map(([zoneName, orders]) => {
+                              const zoneGeoSorted = orders.every((o) => o.geoSortOrder != null);
+                              return (
                               <Box key={zoneName} sx={{ mb: 1 }}>
-                                <Chip label={`${zoneName} (${orders.length})`} color="primary" size="small" sx={{ mb: 0.5 }} />
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                  <Chip label={`${zoneName} (${orders.length})`} color="primary" size="small" />
+                                  {!deptGeoSorted && orders.length >= 2 && (
+                                    <Button
+                                      size="small"
+                                      variant="text"
+                                      color="success"
+                                      sx={{ minWidth: 'auto', fontSize: '0.7rem' }}
+                                      startIcon={<PlaceIcon sx={{ fontSize: '0.9rem !important' }} />}
+                                      onClick={() => handleGeoSort(orders.map((o) => o.id))}
+                                      disabled={geoSortMutation.isPending}
+                                    >
+                                      סדר אזור
+                                    </Button>
+                                  )}
+                                </Box>
                                 {orders.map((order) => (
                                   <Card key={order.id} variant="outlined" sx={{ mb: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
                                     <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
                                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Box>
-                                          <Typography variant="body2" fontWeight="bold">
-                                            {order.orderNumber} - {order.customerName}
-                                          </Typography>
-                                          <Typography variant="caption" color="text.secondary">
-                                            <Box
-                                              component="span"
-                                              sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
-                                              title="Street View"
-                                              onClick={(e: React.MouseEvent) => {
-                                                e.stopPropagation();
-                                                openStreetView(order.address, order.city, order.latitude, order.longitude);
-                                              }}
-                                            >
-                                              {order.address}, {order.city}
-                                            </Box>
-                                            {' '}| {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
-                                          </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          {order.geoSortOrder != null && (
+                                            <Chip label={order.geoSortOrder} size="small" color="success" sx={{ minWidth: 28, fontWeight: 'bold' }} />
+                                          )}
+                                          <Box>
+                                            <Typography variant="body2" fontWeight="bold">
+                                              {order.orderNumber} - {order.customerName}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary">
+                                              <Box
+                                                component="span"
+                                                sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                                                title="Street View"
+                                                onClick={(e: React.MouseEvent) => {
+                                                  e.stopPropagation();
+                                                  openStreetView(order.address, order.city, order.latitude, order.longitude);
+                                                }}
+                                              >
+                                                {order.address}, {order.city}
+                                              </Box>
+                                              {' '}| {calcOrderWeight(order).toFixed(0)} ק"ג | {calcOrderPallets(order)} משטחים
+                                            </Typography>
+                                          </Box>
                                         </Box>
-                                        <Tooltip title="שייך למשאית">
+                                        <Tooltip title={!deptGeoSorted && !zoneGeoSorted ? 'יש לבצע סידור גיאוגרפי תחילה' : 'שייך למשאית'}>
+                                          <span>
                                           <IconButton
                                             size="small"
                                             color="primary"
                                             onClick={() => handleAssign(order.id, dept)}
-                                            disabled={!selectedTruckByDept[dept] || assignMutation.isPending}
+                                            disabled={!selectedTruckByDept[dept] || assignMutation.isPending || (!deptGeoSorted && !zoneGeoSorted)}
                                           >
                                             <AddIcon />
                                           </IconButton>
+                                          </span>
                                         </Tooltip>
                                       </Box>
                                     </CardContent>
                                   </Card>
                                 ))}
                               </Box>
-                            ))}
+                              );
+                            })}
                           </Box>
                         );
                       })}
