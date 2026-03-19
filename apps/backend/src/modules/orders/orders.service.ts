@@ -220,7 +220,7 @@ export class OrdersService {
   async updateDepartment(orderId: number, department: string) {
     return prisma.order.update({
       where: { id: orderId },
-      data: { department },
+      data: { department: department as any },
       include: { orderLines: true, zone: true },
     });
   }
