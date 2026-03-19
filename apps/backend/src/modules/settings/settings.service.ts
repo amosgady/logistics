@@ -44,6 +44,23 @@ export class SettingsService {
     });
     return row?.waitTimeMinutes ?? DEFAULT_WAIT_TIMES[department] ?? 45;
   }
+
+  // ─── Truck Colors ───
+
+  async getTruckColors(): Promise<string[]> {
+    const row = await prisma.systemSetting.findUnique({ where: { key: 'truckColors' } });
+    if (!row) return [];
+    try { return JSON.parse(row.value); } catch { return []; }
+  }
+
+  async updateTruckColors(colors: string[]): Promise<string[]> {
+    await prisma.systemSetting.upsert({
+      where: { key: 'truckColors' },
+      update: { value: JSON.stringify(colors) },
+      create: { key: 'truckColors', value: JSON.stringify(colors) },
+    });
+    return colors;
+  }
 }
 
 export const settingsService = new SettingsService();

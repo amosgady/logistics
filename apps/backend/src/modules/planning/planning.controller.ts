@@ -72,4 +72,11 @@ export const planningController = {
     const result = await geoSortService.geoSortOrders({ orderIds });
     res.json({ success: true, data: result });
   }),
+
+  setRouteColor: asyncHandler(async (req: Request, res: Response) => {
+    const routeId = parseInt(req.params.routeId as string);
+    const { color } = req.body;
+    await planningService.setRouteColor(routeId, color || null);
+    res.json({ success: true });
+  }),
 };

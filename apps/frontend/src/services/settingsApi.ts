@@ -11,4 +11,10 @@ export const settingsApi = {
 
   updateDepartmentSettings: (settings: DepartmentSetting[]) =>
     api.put('/settings/departments', { settings }).then((r) => r.data),
+
+  getTruckColors: () =>
+    api.get('/settings/truck-colors').then((r) => r.data),
+
+  updateTruckColors: (colors: string[]) =>
+    api.put('/settings/truck-colors', { colors }).then((r) => r.data),
 };

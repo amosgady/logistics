@@ -9,5 +9,7 @@ router.use(requireRole('ADMIN'));
 
 router.get('/departments', settingsController.getDepartmentSettings);
 router.put('/departments', settingsController.updateDepartmentSettings);
+router.get('/truck-colors', settingsController.getTruckColors);
+router.put('/truck-colors', settingsController.updateTruckColors);
 
 export default router;

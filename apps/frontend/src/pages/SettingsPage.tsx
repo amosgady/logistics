@@ -12,6 +12,9 @@ import {
   NotificationsActive as ReminderIcon,
   VpnKey as TokenIcon,
   Security as SecurityIcon,
+  LocalShipping as TruckColorIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, DepartmentSetting } from '../services/settingsApi';
@@ -225,6 +228,46 @@ export default function SettingsPage() {
     onError: () => setSnackbar({ message: 'שגיאה בשינוי הגדרת אימות דו-שלבי', severity: 'error' }),
   });
 
+  // ─── Truck Colors ───
+  const { data: truckColorsData } = useQuery({
+    queryKey: ['truck-colors'],
+    queryFn: settingsApi.getTruckColors,
+  });
+
+  const [truckColors, setTruckColors] = useState<string[]>([]);
+  const [newColor, setNewColor] = useState('');
+  const [truckColorsDirty, setTruckColorsDirty] = useState(false);
+
+  useEffect(() => {
+    if (truckColorsData?.data) {
+      setTruckColors(truckColorsData.data);
+    }
+  }, [truckColorsData]);
+
+  const truckColorsSaveMutation = useMutation({
+    mutationFn: () => settingsApi.updateTruckColors(truckColors),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-colors'] });
+      setTruckColorsDirty(false);
+      setSnackbar({ message: 'צבעי משאית נשמרו', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשמירת צבעי משאית', severity: 'error' }),
+  });
+
+  const addTruckColor = () => {
+    const trimmed = newColor.trim();
+    if (trimmed && !truckColors.includes(trimmed)) {
+      setTruckColors((prev) => [...prev, trimmed]);
+      setNewColor('');
+      setTruckColorsDirty(true);
+    }
+  };
+
+  const removeTruckColor = (color: string) => {
+    setTruckColors((prev) => prev.filter((c) => c !== color));
+    setTruckColorsDirty(true);
+  };
+
   if (isLoading) return <Typography>טוען...</Typography>;
 
   return (
@@ -311,6 +354,54 @@ export default function SettingsPage() {
             </TableBody>
           </Table>
         </TableContainer>
+      </Paper>
+
+      {/* Truck Colors */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TruckColorIcon color="primary" />
+            <Typography variant="h6">צבעי משאית</Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={() => truckColorsSaveMutation.mutate()}
+            disabled={!truckColorsDirty || truckColorsSaveMutation.isPending}
+          >
+            שמור
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          הגדר רשימת צבעים לסימון משאיות במסך התכנון והמעקב.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+          <TextField
+            size="small"
+            value={newColor}
+            onChange={(e) => setNewColor(e.target.value)}
+            placeholder="שם צבע חדש..."
+            onKeyDown={(e) => { if (e.key === 'Enter') addTruckColor(); }}
+            sx={{ width: 200 }}
+          />
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={addTruckColor} disabled={!newColor.trim()}>
+            הוסף
+          </Button>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+          {truckColors.map((color) => (
+            <Chip
+              key={color}
+              label={color}
+              onDelete={() => removeTruckColor(color)}
+              deleteIcon={<DeleteIcon />}
+              variant="outlined"
+            />
+          ))}
+          {truckColors.length === 0 && (
+            <Typography variant="body2" color="text.secondary">לא הוגדרו צבעים עדיין</Typography>
+          )}
+        </Box>
       </Paper>
 
       {/* SMS Settings */}

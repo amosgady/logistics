@@ -359,6 +359,13 @@ export class PlanningService {
 
     return { movedCount, totalOrders: route.orders.length };
   }
+
+  async setRouteColor(routeId: number, color: string | null) {
+    await prisma.route.update({
+      where: { id: routeId },
+      data: { color },
+    });
+  }
 }
 
 export const planningService = new PlanningService();

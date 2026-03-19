@@ -330,6 +330,7 @@ model Route {
   isOptimized        Boolean  @default(false) @map("is_optimized")
   isFinalized        Boolean  @default(false) @map("is_finalized")
   coordinatorName    String?  @map("coordinator_name")
+  color              String?  @map("color")
   createdAt          DateTime @default(now()) @map("created_at")
 
   truck            Truck?            @relation(fields: [truckId], references: [id])
@@ -500,6 +501,13 @@ model SmsLog {
   @@index([sentAt])
   @@index([reminderType, orderId])
   @@map("sms_logs")
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+
+  @@map("system_settings")
 }
 
 model SmsReplySession {

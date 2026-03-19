@@ -89,6 +89,7 @@ interface Route {
   totalTimeMinutes: number | null;
   overtimeApproved: boolean;
   isOptimized: boolean;
+  color: string | null;
 }
 
 function getNearDate(): string {
@@ -132,6 +133,8 @@ function RouteCard({
   onSendToCoordination,
   isOptimizing,
   isSendingToCoordination,
+  truckColors,
+  onSetColor,
 }: {
   route: Route;
   onRemoveOrder: (orderId: number) => void;
@@ -141,6 +144,8 @@ function RouteCard({
   onSendToCoordination: () => void;
   isOptimizing: boolean;
   isSendingToCoordination: boolean;
+  truckColors: string[];
+  onSetColor: (color: string | null) => void;
 }) {
   const isInstaller = !!route.installerProfile;
   const ownerName = isInstaller ? route.installerProfile!.user.fullName : route.truck?.name || '';
@@ -181,8 +186,28 @@ function RouteCard({
                 variant="outlined"
               />
             )}
+            {route.color && (
+              <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="warning" />
+            )}
           </Box>
-          <Chip label={`${route.orders.length} הזמנות`} size="small" />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {truckColors.length > 0 && (
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <Select
+                  value={route.color || ''}
+                  displayEmpty
+                  onChange={(e) => onSetColor(e.target.value || null)}
+                  sx={{ height: 28, fontSize: '0.8rem' }}
+                >
+                  <MenuItem value=""><em>ללא צבע</em></MenuItem>
+                  {truckColors.map((c) => (
+                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            <Chip label={`${route.orders.length} הזמנות`} size="small" />
+          </Box>
         </Box>
 
         {/* Route summary */}
@@ -413,6 +438,12 @@ export default function PlanningPage() {
     queryFn: () => planningApi.getBoard(planDate),
   });
 
+  const { data: truckColorsData } = useQuery({
+    queryKey: ['truck-colors'],
+    queryFn: () => import('../services/settingsApi').then((m) => m.settingsApi.getTruckColors()),
+  });
+  const truckColors: string[] = truckColorsData?.data || [];
+
   const board = data?.data;
   const unassignedOrders: Order[] = board?.unassignedOrders || [];
   const routes: Route[] = board?.routes || [];
@@ -552,6 +583,14 @@ export default function PlanningPage() {
       setSnackbar({ message: msg, severity: noCoords > 0 ? 'warning' : 'success' });
     },
     onError: () => setSnackbar({ message: 'שגיאה בסידור גיאוגרפי', severity: 'error' }),
+  });
+
+  const setRouteColorMutation = useMutation({
+    mutationFn: ({ routeId, color }: { routeId: number; color: string | null }) =>
+      planningApi.setRouteColor(routeId, color),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
   });
 
   const reorderMutation = useMutation({
@@ -991,6 +1030,8 @@ export default function PlanningPage() {
                     onSendToCoordination={() => sendToCoordinationMutation.mutate(route.id)}
                     isOptimizing={optimizingRouteId === route.id}
                     isSendingToCoordination={sendToCoordinationMutation.isPending}
+                    truckColors={truckColors}
+                    onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                   />
                 ))
               )}
@@ -1019,6 +1060,8 @@ export default function PlanningPage() {
                       onSendToCoordination={() => sendToCoordinationMutation.mutate(route.id)}
                       isOptimizing={optimizingRouteId === route.id}
                       isSendingToCoordination={sendToCoordinationMutation.isPending}
+                      truckColors={truckColors}
+                      onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                     />
                   ))
                 )}

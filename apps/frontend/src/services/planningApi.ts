@@ -33,4 +33,7 @@ export const planningApi = {
 
   geoSort: (orderIds: number[]) =>
     api.post('/planning/geo-sort', { orderIds }).then((r) => r.data),
+
+  setRouteColor: (routeId: number, color: string | null) =>
+    api.patch(`/planning/routes/${routeId}/color`, { color }).then((r) => r.data),
 };
