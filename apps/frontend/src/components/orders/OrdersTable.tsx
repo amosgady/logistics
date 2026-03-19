@@ -982,10 +982,16 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
       // Fetch ALL order IDs matching current filters (not just current page)
       setSelectingAll(true);
       try {
-        const result = await orderApi.getAllOrderIds(filters);
-        selectAll(result.data);
-      } catch {
-        // Fallback to current page
+        const { page, pageSize, ...filterParams } = filters;
+        const result = await orderApi.getAllOrderIds(filterParams);
+        const ids: number[] = result.data || result;
+        if (Array.isArray(ids) && ids.length > 0) {
+          selectAll(ids);
+        } else {
+          selectAll(orders.map((o) => o.id));
+        }
+      } catch (e) {
+        console.error('getAllOrderIds failed', e);
         selectAll(orders.map((o) => o.id));
       } finally {
         setSelectingAll(false);
