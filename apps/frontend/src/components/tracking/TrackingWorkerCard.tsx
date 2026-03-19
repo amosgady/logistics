@@ -63,6 +63,7 @@ interface TrackingWorkerData {
   routeId: number;
   routeColor: string | null;
   driverName: string | null;
+  roundNumber: number;
   lastLocation: { lat: number; lng: number; timestamp: string } | null;
   orders: TrackingOrder[];
   completedCount: number;
@@ -115,6 +116,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                 {worker.type === 'DRIVER'
                   ? worker.truckName || 'נהג'
                   : worker.department || 'מתקין'}
+                {worker.roundNumber > 1 && ` | סבב ${worker.roundNumber}`}
                 {worker.driverName && ` | נהג: ${worker.driverName}`}
               </Typography>
             </Box>

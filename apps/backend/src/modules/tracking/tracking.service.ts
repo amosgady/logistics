@@ -109,6 +109,7 @@ export class TrackingService {
         routeId: route.id,
         routeColor: route.color || null,
         driverName: route.driverName || null,
+        roundNumber: route.roundNumber || 1,
         lastLocation: location,
         orders: route.orders,
         completedCount,
