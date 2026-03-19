@@ -974,11 +974,22 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
   const allSelected = orders.length > 0 && orders.every((o) => selectedOrderIds.has(o.id));
   const someSelected = orders.some((o) => selectedOrderIds.has(o.id));
 
-  const handleSelectAll = () => {
-    if (allSelected) {
+  const [selectingAll, setSelectingAll] = useState(false);
+  const handleSelectAll = async () => {
+    if (allSelected || selectedOrderIds.size > 0) {
       clearSelection();
     } else {
-      selectAll(orders.map((o) => o.id));
+      // Fetch ALL order IDs matching current filters (not just current page)
+      setSelectingAll(true);
+      try {
+        const result = await orderApi.getAllOrderIds(filters);
+        selectAll(result.data);
+      } catch {
+        // Fallback to current page
+        selectAll(orders.map((o) => o.id));
+      } finally {
+        setSelectingAll(false);
+      }
     }
   };
 

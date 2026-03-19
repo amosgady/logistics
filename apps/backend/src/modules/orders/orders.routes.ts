@@ -28,6 +28,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.get('/', requireRole('COORDINATOR', 'ADMIN'), ordersController.getOrders);
+router.get('/all-ids', requireRole('COORDINATOR', 'ADMIN'), ordersController.getAllOrderIds);
 router.get('/:id', ordersController.getOrderById);
 router.post('/import', requireRole('COORDINATOR', 'ADMIN'), upload.single('file'), ordersController.importCsv);
 router.post('/import/analyze', requireRole('COORDINATOR', 'ADMIN'), upload.single('file'), ordersController.analyzeCsvImport);

@@ -14,6 +14,19 @@ export const orderApi = {
     return api.get('/orders', { params: cleaned }).then((r) => r.data);
   },
 
+  getAllOrderIds: (params: Record<string, any>) => {
+    const cleaned: Record<string, any> = {};
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null) continue;
+      if (Array.isArray(v)) {
+        if (v.length > 0) cleaned[k] = v.join(',');
+      } else {
+        cleaned[k] = v;
+      }
+    }
+    return api.get('/orders/all-ids', { params: cleaned }).then((r) => r.data);
+  },
+
   getOrderById: (id: number) =>
     api.get(`/orders/${id}`).then((r) => r.data),
 

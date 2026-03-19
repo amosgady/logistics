@@ -78,6 +78,51 @@ export class OrdersService {
     };
   }
 
+  async getAllOrderIds(filters: Omit<OrderFilters, 'page' | 'pageSize'>) {
+    const where: Prisma.OrderWhereInput = {};
+
+    if (filters.status && filters.status.length > 0) {
+      where.status = { in: filters.status };
+    }
+    if (filters.zoneId) {
+      where.zoneId = filters.zoneId;
+    }
+    if (filters.deliveryDateFrom || filters.deliveryDateTo) {
+      where.deliveryDate = {};
+      if (filters.deliveryDateFrom) {
+        where.deliveryDate.gte = new Date(filters.deliveryDateFrom + 'T00:00:00');
+      }
+      if (filters.deliveryDateTo) {
+        where.deliveryDate.lte = new Date(filters.deliveryDateTo + 'T23:59:59.999');
+      }
+    }
+    if (filters.department && filters.department.length > 0) {
+      where.department = { in: filters.department as any[] };
+    }
+    if (filters.search) {
+      where.OR = [
+        { orderNumber: { contains: filters.search, mode: 'insensitive' } },
+        { customerName: { contains: filters.search, mode: 'insensitive' } },
+        { address: { contains: filters.search } },
+        { phone: { contains: filters.search } },
+      ];
+    }
+    if (filters.sentToWms) {
+      where.exportedToCsv = true;
+    }
+    if (filters.sentToChecker) {
+      where.sentToChecker = true;
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      select: { id: true },
+      orderBy: { deliveryDate: 'asc' },
+    });
+
+    return orders.map((o) => o.id);
+  }
+
   async getOrderById(id: number) {
     const order = await prisma.order.findUnique({
       where: { id },

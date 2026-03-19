@@ -36,6 +36,30 @@ export const ordersController = {
     res.json({ success: true, data: result.orders, meta: result.meta });
   }),
 
+  getAllOrderIds: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const authUser = req.user!;
+    const statusParam = req.query.status as string | undefined;
+    const departmentParam = req.query.department as string | undefined;
+
+    const filters: Record<string, any> = {
+      status: statusParam ? statusParam.split(',') : undefined,
+      zoneId: req.query.zoneId ? parseInt(req.query.zoneId as string) : undefined,
+      deliveryDateFrom: req.query.deliveryDateFrom as string,
+      deliveryDateTo: req.query.deliveryDateTo as string,
+      search: req.query.search as string,
+      department: departmentParam ? departmentParam.split(',') : undefined,
+      sentToWms: req.query.sentToWms === 'true' ? true : undefined,
+      sentToChecker: req.query.sentToChecker === 'true' ? true : undefined,
+    };
+
+    if (authUser.role !== 'ADMIN' && authUser.department) {
+      filters.department = [authUser.department];
+    }
+
+    const ids = await ordersService.getAllOrderIds(filters);
+    res.json({ success: true, data: ids });
+  }),
+
   getOrderById: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const order = await ordersService.getOrderById(id);
