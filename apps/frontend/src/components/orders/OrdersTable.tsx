@@ -16,6 +16,8 @@ import {
   CircularProgress,
   TextField,
   Tooltip,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   KeyboardArrowDown as ExpandIcon,
@@ -36,6 +38,7 @@ import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
 import { DEPARTMENT_LABELS } from '../../constants/departments';
 import { orderApi } from '../../services/orderApi';
+import { zoneApi } from '../../services/zoneApi';
 import { useSortable, SortConfig } from '../../hooks/useSortable';
 
 interface OrderLine {
@@ -403,6 +406,39 @@ function EditableAddress({ order }: { order: Order }) {
   );
 }
 
+function EditableZone({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const { data: zonesData } = useQuery({ queryKey: ['zones'], queryFn: zoneApi.getAll, staleTime: 60000 });
+  const zones = zonesData?.data || [];
+
+  const zoneMutation = useMutation({
+    mutationFn: (zoneId: number) => orderApi.updateZone(order.id, zoneId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
+  });
+
+  return (
+    <Select
+      value={order.zone?.id || ''}
+      onChange={(e) => {
+        const val = e.target.value as number;
+        if (val) zoneMutation.mutate(val);
+      }}
+      size="small"
+      variant="standard"
+      displayEmpty
+      sx={{ fontSize: 13, minWidth: 80 }}
+    >
+      <MenuItem value="" disabled>לא מוגדר</MenuItem>
+      {zones.map((z: any) => (
+        <MenuItem key={z.id} value={z.id}>{z.nameHe}</MenuItem>
+      ))}
+    </Select>
+  );
+}
+
 function EditableDriverNote({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -730,7 +766,7 @@ function renderCellContent(
     case 'department':
       return order.department ? (DEPARTMENT_LABELS[order.department] || order.department) : '-';
     case 'zone':
-      return order.zone?.nameHe || 'לא מוגדר';
+      return <EditableZone order={order} />;
     case 'wms':
       return order.exportedToCsv ? 'כן' : 'לא';
     case 'checker':
