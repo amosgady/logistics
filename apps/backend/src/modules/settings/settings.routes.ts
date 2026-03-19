@@ -13,5 +13,7 @@ router.get('/truck-colors', settingsController.getTruckColors);
 router.put('/truck-colors', settingsController.updateTruckColors);
 router.get('/truck-sizes', settingsController.getTruckSizes);
 router.put('/truck-sizes', settingsController.updateTruckSizes);
+router.get('/truck-types', settingsController.getTruckTypes);
+router.put('/truck-types', settingsController.updateTruckTypes);
 
 export default router;

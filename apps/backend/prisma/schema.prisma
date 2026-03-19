@@ -280,6 +280,7 @@ model Truck {
   licensePlate    String    @unique @map("license_plate")
   size            String    @default("גדולה")
   hasCrane        Boolean   @default(false) @map("has_crane")
+  truckType       String?   @map("truck_type")
   maxWeightKg     Decimal   @db.Decimal(10, 2) @map("max_weight_kg")
   maxPallets      Int       @map("max_pallets")
   workHoursPerDay Decimal   @db.Decimal(4, 2) @map("work_hours_per_day")

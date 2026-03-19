@@ -311,6 +311,46 @@ export default function SettingsPage() {
     setTruckSizesDirty(true);
   };
 
+  // ─── Truck Types ───
+  const { data: truckTypesData } = useQuery({
+    queryKey: ['truck-types'],
+    queryFn: settingsApi.getTruckTypes,
+  });
+
+  const [truckTypes, setTruckTypes] = useState<string[]>([]);
+  const [newType, setNewType] = useState('');
+  const [truckTypesDirty, setTruckTypesDirty] = useState(false);
+
+  useEffect(() => {
+    if (truckTypesData?.data) {
+      setTruckTypes(truckTypesData.data);
+    }
+  }, [truckTypesData]);
+
+  const truckTypesSaveMutation = useMutation({
+    mutationFn: () => settingsApi.updateTruckTypes(truckTypes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-types'] });
+      setTruckTypesDirty(false);
+      setSnackbar({ message: 'סוגי משאית נשמרו', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשמירת סוגי משאית', severity: 'error' }),
+  });
+
+  const addTruckType = () => {
+    const trimmed = newType.trim();
+    if (trimmed && !truckTypes.includes(trimmed)) {
+      setTruckTypes((prev) => [...prev, trimmed]);
+      setNewType('');
+      setTruckTypesDirty(true);
+    }
+  };
+
+  const removeTruckType = (index: number) => {
+    setTruckTypes((prev) => prev.filter((_, i) => i !== index));
+    setTruckTypesDirty(true);
+  };
+
   if (isLoading) return <Typography>טוען...</Typography>;
 
   return (
@@ -518,6 +558,54 @@ export default function SettingsPage() {
         ) : (
           <Typography variant="body2" color="text.secondary">לא הוגדרו גדלים עדיין</Typography>
         )}
+        </AccordionDetails>
+      </Accordion>
+
+      {/* Truck Types */}
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TruckColorIcon color="primary" />
+            <Typography variant="h6">סוגי משאית</Typography>
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={() => truckTypesSaveMutation.mutate()} disabled={!truckTypesDirty || truckTypesSaveMutation.isPending}>
+              שמור
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            הגדר את סוגי המשאיות הזמינים. הסוגים יופיעו ברשימה הנפתחת בעריכת משאית.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+            <TextField
+              size="small"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+              placeholder="סוג משאית..."
+              onKeyDown={(e) => { if (e.key === 'Enter') addTruckType(); }}
+              sx={{ width: 200 }}
+            />
+            <Button variant="outlined" startIcon={<AddIcon />} onClick={addTruckType} disabled={!newType.trim()}>
+              הוסף
+            </Button>
+          </Box>
+          {truckTypes.length > 0 ? (
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {truckTypes.map((type, idx) => (
+                <Chip
+                  key={idx}
+                  label={type}
+                  onDelete={() => removeTruckType(idx)}
+                  color="primary"
+                  variant="outlined"
+                />
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">לא הוגדרו סוגים עדיין</Typography>
+          )}
         </AccordionDetails>
       </Accordion>
 

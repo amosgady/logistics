@@ -19,6 +19,7 @@ interface Truck {
   licensePlate: string;
   size: string;
   hasCrane: boolean;
+  truckType: string | null;
   maxWeightKg: string;
   maxPallets: number;
   workHoursPerDay: string;
@@ -33,6 +34,7 @@ const emptyTruck = {
   licensePlate: '',
   size: '',
   hasCrane: false,
+  truckType: '',
   maxWeightKg: 10000,
   maxPallets: 16,
   workHoursPerDay: 10,
@@ -47,6 +49,8 @@ export default function TrucksPage() {
   const trucks: Truck[] = data?.data || [];
   const { data: sizesData } = useQuery({ queryKey: ['truck-sizes'], queryFn: settingsApi.getTruckSizes });
   const truckSizes: string[] = sizesData?.data || ['קטנה', 'גדולה'];
+  const { data: typesData } = useQuery({ queryKey: ['truck-types'], queryFn: settingsApi.getTruckTypes });
+  const truckTypes: string[] = typesData?.data || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
@@ -137,7 +141,7 @@ export default function TrucksPage() {
               <SortableTableCell label="שם" sortKey="name" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="לוחית רישוי" sortKey="licensePlate" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="גודל" sortKey="size" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="מנוף" sortKey="hasCrane" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="סוג" sortKey="truckType" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label={'משקל מקס\' (ק"ג)'} sortKey="maxWeightKg" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="משטחים מקס'" sortKey="maxPallets" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="שעות עבודה" sortKey="workHoursPerDay" sortConfig={sortConfig} onSort={handleSort} />
@@ -158,7 +162,7 @@ export default function TrucksPage() {
                     color="default"
                   />
                 </TableCell>
-                <TableCell>{truck.hasCrane ? 'כן' : 'לא'}</TableCell>
+                <TableCell>{truck.truckType || '-'}</TableCell>
                 <TableCell>{Number(truck.maxWeightKg).toLocaleString()}</TableCell>
                 <TableCell>{truck.maxPallets}</TableCell>
                 <TableCell>{Number(truck.workHoursPerDay)}</TableCell>
@@ -189,10 +193,12 @@ export default function TrucksPage() {
                 <MenuItem key={size} value={size}>{size}</MenuItem>
               ))}
             </TextField>
-            <FormControlLabel
-              control={<Switch checked={form.hasCrane} onChange={(e) => setForm({ ...form, hasCrane: e.target.checked })} />}
-              label="עם מנוף"
-            />
+            <TextField select label="סוג משאית" value={form.truckType || ''} onChange={(e) => setForm({ ...form, truckType: e.target.value })}>
+              <MenuItem value="">ללא</MenuItem>
+              {truckTypes.map((t) => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
+            </TextField>
             <TextField label='משקל מקסימלי (ק"ג)' type="number" value={form.maxWeightKg} onChange={(e) => setForm({ ...form, maxWeightKg: Number(e.target.value) })} />
             <TextField label="כמות משטחים מקסימלית" type="number" value={form.maxPallets} onChange={(e) => setForm({ ...form, maxPallets: Number(e.target.value) })} />
             <TextField label="שעות עבודה ביום" type="number" value={form.workHoursPerDay} onChange={(e) => setForm({ ...form, workHoursPerDay: Number(e.target.value) })} />

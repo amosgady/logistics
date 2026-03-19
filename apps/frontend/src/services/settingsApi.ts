@@ -28,4 +28,10 @@ export const settingsApi = {
 
   updateTruckSizes: (sizes: string[]) =>
     api.put('/settings/truck-sizes', { sizes }).then((r) => r.data),
+
+  getTruckTypes: () =>
+    api.get('/settings/truck-types').then((r) => r.data),
+
+  updateTruckTypes: (types: string[]) =>
+    api.put('/settings/truck-types', { types }).then((r) => r.data),
 };
