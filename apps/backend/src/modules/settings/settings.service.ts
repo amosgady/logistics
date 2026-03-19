@@ -47,13 +47,13 @@ export class SettingsService {
 
   // ─── Truck Colors ───
 
-  async getTruckColors(): Promise<string[]> {
+  async getTruckColors(): Promise<{ department: string; color: string }[]> {
     const row = await prisma.systemSetting.findUnique({ where: { key: 'truckColors' } });
     if (!row) return [];
     try { return JSON.parse(row.value); } catch { return []; }
   }
 
-  async updateTruckColors(colors: string[]): Promise<string[]> {
+  async updateTruckColors(colors: { department: string; color: string }[]): Promise<{ department: string; color: string }[]> {
     await prisma.systemSetting.upsert({
       where: { key: 'truckColors' },
       update: { value: JSON.stringify(colors) },

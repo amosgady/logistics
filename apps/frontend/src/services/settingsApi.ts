@@ -5,6 +5,11 @@ export interface DepartmentSetting {
   waitTimeMinutes: number;
 }
 
+export interface TruckColor {
+  department: string;
+  color: string;
+}
+
 export const settingsApi = {
   getDepartmentSettings: () =>
     api.get('/settings/departments').then((r) => r.data),
@@ -15,6 +20,6 @@ export const settingsApi = {
   getTruckColors: () =>
     api.get('/settings/truck-colors').then((r) => r.data),
 
-  updateTruckColors: (colors: string[]) =>
+  updateTruckColors: (colors: TruckColor[]) =>
     api.put('/settings/truck-colors', { colors }).then((r) => r.data),
 };

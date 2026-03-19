@@ -145,11 +145,17 @@ function RouteCard({
   onSendToCoordination: () => void;
   isOptimizing: boolean;
   isSendingToCoordination: boolean;
-  truckColors: string[];
+  truckColors: { department: string; color: string }[];
   onSetColor: (color: string | null) => void;
 }) {
   const isInstaller = !!route.installerProfile;
   const ownerName = isInstaller ? route.installerProfile!.user.fullName : route.truck?.name || '';
+
+  // Filter colors by route's department
+  const routeDept = isInstaller ? route.installerProfile?.department : route.orders[0]?.department;
+  const availableColors = truckColors
+    .filter((tc) => !routeDept || tc.department === routeDept || !tc.department)
+    .map((tc) => tc.color);
 
   // Truck capacity (only for truck routes)
   const totalWeight = route.orders.reduce((sum, o) => sum + calcOrderWeight(o), 0);
@@ -192,7 +198,7 @@ function RouteCard({
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {truckColors.length > 0 && (
+            {availableColors.length > 0 && (
               <FormControl size="small" sx={{ minWidth: 100 }}>
                 <Select
                   value={route.color || ''}
@@ -201,7 +207,7 @@ function RouteCard({
                   sx={{ height: 28, fontSize: '0.8rem' }}
                 >
                   <MenuItem value=""><em>ללא צבע</em></MenuItem>
-                  {truckColors.map((c) => (
+                  {availableColors.map((c) => (
                     <MenuItem key={c} value={c}>{c}</MenuItem>
                   ))}
                 </Select>
@@ -443,7 +449,7 @@ export default function PlanningPage() {
     queryKey: ['truck-colors'],
     queryFn: () => settingsApi.getTruckColors(),
   });
-  const truckColors: string[] = truckColorsData?.data || [];
+  const truckColors: { department: string; color: string }[] = truckColorsData?.data || [];
 
   const board = data?.data;
   const unassignedOrders: Order[] = board?.unassignedOrders || [];

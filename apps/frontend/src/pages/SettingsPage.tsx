@@ -3,7 +3,8 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, TextField, Button,
   Alert, Snackbar, Switch, FormControlLabel, Divider,
-  CircularProgress, Chip,
+  CircularProgress, Chip, Select, MenuItem, FormControl,
+  InputLabel, IconButton,
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -234,7 +235,8 @@ export default function SettingsPage() {
     queryFn: settingsApi.getTruckColors,
   });
 
-  const [truckColors, setTruckColors] = useState<string[]>([]);
+  const [truckColors, setTruckColors] = useState<{ department: string; color: string }[]>([]);
+  const [newColorDept, setNewColorDept] = useState('');
   const [newColor, setNewColor] = useState('');
   const [truckColorsDirty, setTruckColorsDirty] = useState(false);
 
@@ -255,16 +257,16 @@ export default function SettingsPage() {
   });
 
   const addTruckColor = () => {
-    const trimmed = newColor.trim();
-    if (trimmed && !truckColors.includes(trimmed)) {
-      setTruckColors((prev) => [...prev, trimmed]);
+    const trimmedColor = newColor.trim();
+    if (trimmedColor && newColorDept) {
+      setTruckColors((prev) => [...prev, { department: newColorDept, color: trimmedColor }]);
       setNewColor('');
       setTruckColorsDirty(true);
     }
   };
 
-  const removeTruckColor = (color: string) => {
-    setTruckColors((prev) => prev.filter((c) => c !== color));
+  const removeTruckColor = (index: number) => {
+    setTruckColors((prev) => prev.filter((_, i) => i !== index));
     setTruckColorsDirty(true);
   };
 
@@ -373,35 +375,61 @@ export default function SettingsPage() {
           </Button>
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          הגדר רשימת צבעים לסימון משאיות במסך התכנון והמעקב.
+          הגדר צבעי משאית לפי מחלקה. הצבעים יופיעו במסך התכנון והמעקב.
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
+            <InputLabel>מחלקה</InputLabel>
+            <Select
+              value={newColorDept}
+              label="מחלקה"
+              onChange={(e) => setNewColorDept(e.target.value)}
+            >
+              {Object.entries(DEPARTMENT_LABELS).map(([val, label]) => (
+                <MenuItem key={val} value={val}>{label}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <TextField
             size="small"
             value={newColor}
             onChange={(e) => setNewColor(e.target.value)}
-            placeholder="שם צבע חדש..."
+            placeholder="שם צבע..."
             onKeyDown={(e) => { if (e.key === 'Enter') addTruckColor(); }}
-            sx={{ width: 200 }}
+            sx={{ width: 150 }}
           />
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={addTruckColor} disabled={!newColor.trim()}>
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={addTruckColor} disabled={!newColor.trim() || !newColorDept}>
             הוסף
           </Button>
         </Box>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-          {truckColors.map((color) => (
-            <Chip
-              key={color}
-              label={color}
-              onDelete={() => removeTruckColor(color)}
-              deleteIcon={<DeleteIcon />}
-              variant="outlined"
-            />
-          ))}
-          {truckColors.length === 0 && (
-            <Typography variant="body2" color="text.secondary">לא הוגדרו צבעים עדיין</Typography>
-          )}
-        </Box>
+        {truckColors.length > 0 ? (
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>מחלקה</TableCell>
+                  <TableCell>צבע משאית</TableCell>
+                  <TableCell sx={{ width: 50 }}></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {truckColors.map((tc, idx) => (
+                  <TableRow key={idx} hover>
+                    <TableCell>{DEPARTMENT_LABELS[tc.department] || tc.department}</TableCell>
+                    <TableCell>{tc.color}</TableCell>
+                    <TableCell>
+                      <IconButton size="small" color="error" onClick={() => removeTruckColor(idx)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          <Typography variant="body2" color="text.secondary">לא הוגדרו צבעים עדיין</Typography>
+        )}
       </Paper>
 
       {/* SMS Settings */}
