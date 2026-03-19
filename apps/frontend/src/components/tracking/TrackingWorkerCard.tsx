@@ -62,6 +62,7 @@ interface TrackingWorkerData {
   department: string | null;
   routeId: number;
   routeColor: string | null;
+  driverName: string | null;
   lastLocation: { lat: number; lng: number; timestamp: string } | null;
   orders: TrackingOrder[];
   completedCount: number;
@@ -114,10 +115,11 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                 {worker.type === 'DRIVER'
                   ? worker.truckName || 'נהג'
                   : worker.department || 'מתקין'}
+                {worker.driverName && ` | נהג: ${worker.driverName}`}
               </Typography>
             </Box>
             {worker.routeColor && (
-              <Chip label={worker.routeColor} size="small" color="warning" sx={{ fontWeight: 'bold' }} />
+              <Chip label={worker.routeColor} size="small" color="default" sx={{ fontWeight: 'bold' }} />
             )}
             <Chip
               label={worker.type === 'DRIVER' ? 'נהג' : 'מתקין'}
