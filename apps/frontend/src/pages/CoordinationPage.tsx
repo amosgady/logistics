@@ -92,6 +92,7 @@ interface Route {
   overtimeApproved: boolean;
   isOptimized: boolean;
   isFinalized: boolean;
+  color: string | null;
 }
 
 function formatMinutes(minutes: number): string {
@@ -835,6 +836,9 @@ export default function CoordinationPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TruckIcon color="primary" />
                     <Typography variant="h6">{route.truck?.name || route.installerProfile?.user?.fullName || `מסלול ${route.id}`}</Typography>
+                    {route.color && (
+                      <Chip label={route.color} size="small" sx={{ fontWeight: 'bold', bgcolor: 'warning.light', color: 'warning.contrastText' }} />
+                    )}
                     <Chip label={`${route.orders.length} הזמנות`} size="small" />
                     {route.totalTimeMinutes && (
                       <Chip
