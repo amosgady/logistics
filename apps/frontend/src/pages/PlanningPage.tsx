@@ -865,60 +865,91 @@ export default function PlanningPage() {
 
                       {Array.from(ordersByDept.entries()).map(([dept, orders]) => {
                         const deptInstallers = installers.filter((inst) => inst.department === dept);
+                        const deptGeoSortedInst = orders.every((o) => o.geoSortOrder != null);
+                        const sortedInstOrders = [...orders].sort((a, b) => {
+                          if (a.geoSortOrder != null && b.geoSortOrder != null) return a.geoSortOrder - b.geoSortOrder;
+                          if (a.geoSortOrder != null) return -1;
+                          if (b.geoSortOrder != null) return 1;
+                          return 0;
+                        });
                         return (
                         <Box key={dept} sx={{ mb: 1.5 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
                             <Chip
                               label={`${INSTALLER_DEPARTMENT_LABELS[dept] || dept} (${orders.length})`}
                               color="secondary"
                               size="small"
                             />
-                            <FormControl size="small" sx={{ minWidth: 150 }}>
-                              <InputLabel>בחר מתקין</InputLabel>
-                              <Select
-                                value={selectedInstallerByDept[dept] || ''}
-                                label="בחר מתקין"
-                                onChange={(e) => setSelectedInstallerByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                              <Button
+                                size="small"
+                                variant={deptGeoSortedInst ? 'contained' : 'outlined'}
+                                color="secondary"
+                                startIcon={<PlaceIcon />}
+                                onClick={() => handleGeoSort(orders.map((o) => o.id))}
+                                disabled={orders.length < 2 || geoSortMutation.isPending}
                               >
-                                {deptInstallers.map((inst) => (
-                                  <MenuItem key={inst.id} value={inst.id}>
-                                    {inst.user.fullName}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
+                                {geoSortMutation.isPending ? 'מסדר...' : 'סידור גיאוגרפי'}
+                              </Button>
+                              <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>בחר מתקין</InputLabel>
+                                <Select
+                                  value={selectedInstallerByDept[dept] || ''}
+                                  label="בחר מתקין"
+                                  onChange={(e) => setSelectedInstallerByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
+                                >
+                                  {deptInstallers.map((inst) => (
+                                    <MenuItem key={inst.id} value={inst.id}>
+                                      {inst.user.fullName}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Box>
                           </Box>
-                          {orders.map((order) => (
+                          {!deptGeoSortedInst && orders.length >= 2 && (
+                            <Alert severity="info" sx={{ mb: 0.5, py: 0 }}>
+                              יש לבצע סידור גיאוגרפי לפני שיוך למתקין
+                            </Alert>
+                          )}
+                          {sortedInstOrders.map((order) => (
                             <Card key={order.id} variant="outlined" sx={{ mb: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}>
                               <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <Box>
-                                    <Typography variant="body2" fontWeight="bold">
-                                      {order.orderNumber} - {order.customerName}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      <Box
-                                        component="span"
-                                        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
-                                        title="Street View"
-                                        onClick={(e: React.MouseEvent) => {
-                                          e.stopPropagation();
-                                          openStreetView(order.address, order.city, order.latitude, order.longitude);
-                                        }}
-                                      >
-                                        {order.address}, {order.city}
-                                      </Box>
-                                    </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {order.geoSortOrder != null && (
+                                      <Chip label={order.geoSortOrder} size="small" color="success" sx={{ minWidth: 28, fontWeight: 'bold' }} />
+                                    )}
+                                    <Box>
+                                      <Typography variant="body2" fontWeight="bold">
+                                        {order.orderNumber} - {order.customerName}
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary">
+                                        <Box
+                                          component="span"
+                                          sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline', color: 'primary.main' } }}
+                                          title="Street View"
+                                          onClick={(e: React.MouseEvent) => {
+                                            e.stopPropagation();
+                                            openStreetView(order.address, order.city, order.latitude, order.longitude);
+                                          }}
+                                        >
+                                          {order.address}, {order.city}
+                                        </Box>
+                                      </Typography>
+                                    </Box>
                                   </Box>
-                                  <Tooltip title="שייך למתקין">
+                                  <Tooltip title={!deptGeoSortedInst ? 'יש לבצע סידור גיאוגרפי תחילה' : 'שייך למתקין'}>
+                                    <span>
                                     <IconButton
                                       size="small"
                                       color="secondary"
                                       onClick={() => handleAssignInstaller(order.id, dept)}
-                                      disabled={!selectedInstallerByDept[dept] || assignInstallerMutation.isPending}
+                                      disabled={!deptGeoSortedInst || !selectedInstallerByDept[dept] || assignInstallerMutation.isPending}
                                     >
                                       <AddIcon />
                                     </IconButton>
+                                    </span>
                                   </Tooltip>
                                 </Box>
                               </CardContent>
