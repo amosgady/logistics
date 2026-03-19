@@ -194,7 +194,7 @@ function RouteCard({
               />
             )}
             {route.color && (
-              <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="warning" />
+              <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="default" />
             )}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

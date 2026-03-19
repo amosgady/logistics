@@ -837,7 +837,7 @@ export default function CoordinationPage() {
                     <TruckIcon color="primary" />
                     <Typography variant="h6">{route.truck?.name || route.installerProfile?.user?.fullName || `מסלול ${route.id}`}</Typography>
                     {route.color && (
-                      <Chip label={route.color} size="small" sx={{ fontWeight: 'bold', bgcolor: 'warning.light', color: 'warning.contrastText' }} />
+                      <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="default" />
                     )}
                     <Chip label={`${route.orders.length} הזמנות`} size="small" />
                     {route.totalTimeMinutes && (
