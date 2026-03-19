@@ -433,6 +433,7 @@ export default function PlanningPage() {
   const [selectedTruckByDept, setSelectedTruckByDept] = useState<Record<string, number | ''>>({});
   const [selectedInstallerByDept, setSelectedInstallerByDept] = useState<Record<string, number | ''>>({});
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
   const [layoutMode, setLayoutMode] = useState<'map' | 'equal' | 'list'>('equal'); // map=65/35, equal=50/50, list=35/65
   const [optimizingRouteId, setOptimizingRouteId] = useState<number | null>(null);
@@ -457,9 +458,20 @@ export default function PlanningPage() {
   const trucks = board?.trucks || [];
   const installers: InstallerProfile[] = board?.installers || [];
 
+  // Filter by search term
+  const searchLower = searchTerm.trim().toLowerCase();
+  const filteredUnassigned = searchLower
+    ? unassignedOrders.filter((o) =>
+        o.orderNumber.toLowerCase().includes(searchLower) ||
+        o.customerName.toLowerCase().includes(searchLower) ||
+        o.address.toLowerCase().includes(searchLower) ||
+        o.city.toLowerCase().includes(searchLower)
+      )
+    : unassignedOrders;
+
   // Split unassigned orders
-  const deliveryOrders = unassignedOrders.filter((o) => !isInstallerDepartment(o.department));
-  const installationOrders = unassignedOrders.filter((o) => isInstallerDepartment(o.department));
+  const deliveryOrders = filteredUnassigned.filter((o) => !isInstallerDepartment(o.department));
+  const installationOrders = filteredUnassigned.filter((o) => isInstallerDepartment(o.department));
 
   // Split routes
   const truckRoutes = routes.filter((r) => !!r.truck);
@@ -751,6 +763,15 @@ export default function PlanningPage() {
           </Button>
         </Box>
       </Box>
+
+      <TextField
+        size="small"
+        placeholder="חיפוש לפי מספר הזמנה, לקוח, כתובת, עיר..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        sx={{ mb: 2, width: 400 }}
+        InputProps={{ sx: { borderRadius: 2 } }}
+      />
 
       {isLoading ? (
         <LinearProgress />
