@@ -4,8 +4,9 @@ import {
   TableContainer, TableHead, TableRow, TextField, Button,
   Alert, Snackbar, Switch, FormControlLabel, Divider,
   CircularProgress, Chip, Select, MenuItem, FormControl,
-  InputLabel, IconButton,
+  InputLabel, IconButton, Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material';
+import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import {
   Save as SaveIcon,
   Sms as SmsIcon,
@@ -317,64 +318,65 @@ export default function SettingsPage() {
       <Typography variant="h5" sx={{ mb: 3 }}>הגדרות</Typography>
 
       {/* Two-Factor Authentication */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <SecurityIcon color="primary" />
-          <Typography variant="h6">אימות דו-שלבי (2FA)</Typography>
-          {!twoFactorLoading && (
-            twoFactorData?.data?.twoFactorEnabled ? (
-              <Chip label="מופעל" size="small" color="success" />
-            ) : (
-              <Chip label="כבוי" size="small" color="default" />
-            )
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <SecurityIcon color="primary" />
+            <Typography variant="h6">אימות דו-שלבי (2FA)</Typography>
+            {!twoFactorLoading && (
+              twoFactorData?.data?.twoFactorEnabled ? (
+                <Chip label="מופעל" size="small" color="success" />
+              ) : (
+                <Chip label="כבוי" size="small" color="default" />
+              )
+            )}
+          </Box>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            כשמופעל, בכל התחברות יישלח קוד אימות בן 6 ספרות לאימייל שלך. יש להזין את הקוד כדי לסיים את ההתחברות.
+          </Typography>
+          {twoFactorLoading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={twoFactorData?.data?.twoFactorEnabled ?? false}
+                  onChange={() => twoFactorToggleMutation.mutate()}
+                  disabled={twoFactorToggleMutation.isPending}
+                />
+              }
+              label="הפעל אימות דו-שלבי באימייל"
+            />
           )}
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          כשמופעל, בכל התחברות יישלח קוד אימות בן 6 ספרות לאימייל שלך. יש להזין את הקוד כדי לסיים את ההתחברות.
-        </Typography>
-        {twoFactorLoading ? (
-          <CircularProgress size={24} />
-        ) : (
-          <FormControlLabel
-            control={
-              <Switch
-                checked={twoFactorData?.data?.twoFactorEnabled ?? false}
-                onChange={() => twoFactorToggleMutation.mutate()}
-                disabled={twoFactorToggleMutation.isPending}
-              />
-            }
-            label="הפעל אימות דו-שלבי באימייל"
-          />
-        )}
-      </Paper>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Department wait times */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Typography variant="h6">זמן המתנה לפי מחלקה</Typography>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={!hasChanges || saveMutation.isPending}
-          >
-            שמור שינויים
-          </Button>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          זמן ההמתנה (בדקות) בכל עצירה, משמש לחישוב זמן המסלול באופטימיזציה.
-        </Typography>
-        <TableContainer>
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell>מחלקה</TableCell>
-                <TableCell sx={{ width: 150 }}>זמן המתנה (דקות)</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {Object.keys(editValues).map((dept) => {
-                return (
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={!hasChanges || saveMutation.isPending}>
+              שמור שינויים
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            זמן ההמתנה (בדקות) בכל עצירה, משמש לחישוב זמן המסלול באופטימיזציה.
+          </Typography>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>מחלקה</TableCell>
+                  <TableCell sx={{ width: 150 }}>זמן המתנה (דקות)</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {Object.keys(editValues).map((dept) => (
                   <TableRow key={dept} hover>
                     <TableCell>{DEPARTMENT_LABELS[dept] || dept}</TableCell>
                     <TableCell>
@@ -391,32 +393,30 @@ export default function SettingsPage() {
                       />
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Truck Colors */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TruckColorIcon color="primary" />
             <Typography variant="h6">צבעי משאית</Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={() => truckColorsSaveMutation.mutate()}
-            disabled={!truckColorsDirty || truckColorsSaveMutation.isPending}
-          >
-            שמור
-          </Button>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          הגדר צבעי משאית לפי מחלקה. הצבעים יופיעו במסך התכנון והמעקב.
-        </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={() => truckColorsSaveMutation.mutate()} disabled={!truckColorsDirty || truckColorsSaveMutation.isPending}>
+              שמור
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            הגדר צבעי משאית לפי מחלקה. הצבעים יופיעו במסך התכנון והמעקב.
+          </Typography>
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <InputLabel>מחלקה</InputLabel>
@@ -470,27 +470,26 @@ export default function SettingsPage() {
         ) : (
           <Typography variant="body2" color="text.secondary">לא הוגדרו צבעים עדיין</Typography>
         )}
-      </Paper>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Truck Sizes */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <TruckColorIcon color="primary" />
             <Typography variant="h6">גדלי משאית</Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={() => truckSizesSaveMutation.mutate()}
-            disabled={!truckSizesDirty || truckSizesSaveMutation.isPending}
-          >
-            שמור
-          </Button>
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          הגדר את גדלי המשאיות הזמינים. הגדלים יופיעו ברשימה הנפתחת בעריכת משאית.
-        </Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={() => truckSizesSaveMutation.mutate()} disabled={!truckSizesDirty || truckSizesSaveMutation.isPending}>
+              שמור
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            הגדר את גדלי המשאיות הזמינים. הגדלים יופיעו ברשימה הנפתחת בעריכת משאית.
+          </Typography>
         <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
           <TextField
             size="small"
@@ -519,11 +518,12 @@ export default function SettingsPage() {
         ) : (
           <Typography variant="body2" color="text.secondary">לא הוגדרו גדלים עדיין</Typography>
         )}
-      </Paper>
+        </AccordionDetails>
+      </Accordion>
 
       {/* SMS Settings */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <SmsIcon color="primary" />
             <Typography variant="h6">הגדרות SMS</Typography>
@@ -533,18 +533,15 @@ export default function SettingsPage() {
               <Chip label="לא פעיל" size="small" color="default" />
             )}
           </Box>
-          <Button
-            variant="contained"
-            startIcon={smsSaveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
-            onClick={() => smsSaveMutation.mutate()}
-            disabled={!smsFormDirty || smsSaveMutation.isPending}
-          >
-            שמור הגדרות SMS
-          </Button>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          חיבור לספק SMS (019) לשליחת הודעות תזכורת ללקוחות. יש להזין שם משתמש וסיסמה וליצור טוקן API.
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={smsSaveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />} onClick={() => smsSaveMutation.mutate()} disabled={!smsFormDirty || smsSaveMutation.isPending}>
+              שמור הגדרות SMS
+            </Button>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            חיבור לספק SMS (019) לשליחת הודעות תזכורת ללקוחות. יש להזין שם משתמש וסיסמה וליצור טוקן API.
         </Typography>
 
         {smsLoading ? (
@@ -683,18 +680,20 @@ export default function SettingsPage() {
             </Box>
           </Box>
         )}
-      </Paper>
+        </AccordionDetails>
+      </Accordion>
 
       {/* SMS Reminders */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+      <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ReminderIcon color="primary" />
             <Typography variant="h6">תזכורות אוטומטיות</Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={reminderSaveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+            <Button variant="contained" startIcon={reminderSaveMutation.isPending ? <CircularProgress size={16} /> : <SaveIcon />}
             onClick={() => reminderSaveMutation.mutate()}
             disabled={!reminderDirty || reminderSaveMutation.isPending}
           >
@@ -844,7 +843,8 @@ export default function SettingsPage() {
 
           </Box>
         )}
-      </Paper>
+        </AccordionDetails>
+      </Accordion>
 
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar(null)}>
         {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : undefined}
