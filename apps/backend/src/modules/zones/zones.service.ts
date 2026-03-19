@@ -148,12 +148,12 @@ export class ZonesService {
   }
 
   async reassignZonesPending() {
-    const pendingOrders = await prisma.order.findMany({
-      where: { status: 'PENDING', zoneOverride: { not: true } },
+    const orders = await prisma.order.findMany({
+      where: { zoneOverride: { not: true } },
       select: { id: true },
     });
-    if (pendingOrders.length === 0) return { assigned: 0, unmatched: 0, alreadyAssigned: 0 };
-    return this.assignZonesToOrders(pendingOrders.map((o) => o.id));
+    if (orders.length === 0) return { assigned: 0, unmatched: 0, alreadyAssigned: 0 };
+    return this.assignZonesToOrders(orders.map((o) => o.id));
   }
 
   async assignZonesToOrders(orderIds: number[]) {
