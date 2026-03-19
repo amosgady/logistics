@@ -36,7 +36,7 @@ import SortableTableCell from '../common/SortableTableCell';
 import DeliveryMediaDialog from '../common/DeliveryMediaDialog';
 import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
-import { DEPARTMENT_LABELS } from '../../constants/departments';
+import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS } from '../../constants/departments';
 import { orderApi } from '../../services/orderApi';
 import { zoneApi } from '../../services/zoneApi';
 import { useSortable, SortConfig } from '../../hooks/useSortable';
@@ -406,6 +406,36 @@ function EditableAddress({ order }: { order: Order }) {
   );
 }
 
+function EditableDepartment({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (department: string) => orderApi.updateDepartment(order.id, department),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
+  });
+
+  return (
+    <Select
+      value={order.department || ''}
+      onChange={(e) => {
+        const val = e.target.value as string;
+        if (val) mutation.mutate(val);
+      }}
+      size="small"
+      variant="standard"
+      displayEmpty
+      sx={{ fontSize: 13, minWidth: 100 }}
+    >
+      <MenuItem value="" disabled>-</MenuItem>
+      {DEPARTMENT_OPTIONS.map((d) => (
+        <MenuItem key={d.value} value={d.value}>{d.label}</MenuItem>
+      ))}
+    </Select>
+  );
+}
+
 function EditableZone({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const { data: zonesData } = useQuery({ queryKey: ['zones'], queryFn: zoneApi.getAll, staleTime: 60000 });
@@ -764,7 +794,7 @@ function renderCellContent(
     case 'deliveryDate':
       return <EditableDeliveryDate order={order} onUpdate={onUpdateDeliveryDate} />;
     case 'department':
-      return order.department ? (DEPARTMENT_LABELS[order.department] || order.department) : '-';
+      return <EditableDepartment order={order} />;
     case 'zone':
       return <EditableZone order={order} />;
     case 'wms':

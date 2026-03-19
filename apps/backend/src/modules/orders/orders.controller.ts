@@ -125,6 +125,13 @@ export const ordersController = {
     res.json({ success: true, data: order });
   }),
 
+  updateDepartment: asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    const { department } = req.body;
+    const order = await ordersService.updateDepartment(id, department);
+    res.json({ success: true, data: order });
+  }),
+
   updateZone: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const { zoneId } = req.body;

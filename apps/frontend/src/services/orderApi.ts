@@ -61,6 +61,9 @@ export const orderApi = {
   updateZone: (id: number, zoneId: number) =>
     api.patch(`/orders/${id}/zone`, { zoneId }).then((r) => r.data),
 
+  updateDepartment: (id: number, department: string) =>
+    api.patch(`/orders/${id}/department`, { department }).then((r) => r.data),
+
   updateCoordination: (id: number, data: { coordinationStatus: string; coordinationNotes?: string }) =>
     api.patch(`/orders/${id}/coordination`, data).then((r) => r.data),
 
