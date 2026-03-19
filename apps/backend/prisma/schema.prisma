@@ -325,6 +325,7 @@ model Route {
   truckId            Int?     @map("truck_id")
   installerProfileId Int?     @map("installer_profile_id")
   routeDate          DateTime @map("route_date")
+  roundNumber        Int      @default(1) @map("round_number")
   totalDistanceKm    Decimal? @db.Decimal(10, 2) @map("total_distance_km")
   totalTimeMinutes   Int?     @map("total_time_minutes")
   overtimeApproved   Boolean  @default(false) @map("overtime_approved")
@@ -338,8 +339,8 @@ model Route {
   installerProfile InstallerProfile? @relation(fields: [installerProfileId], references: [id])
   orders           Order[]
 
-  @@unique([truckId, routeDate])
-  @@unique([installerProfileId, routeDate])
+  @@unique([truckId, routeDate, roundNumber])
+  @@unique([installerProfileId, routeDate, roundNumber])
   @@map("routes")
 }
 

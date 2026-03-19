@@ -835,7 +835,10 @@ export default function CoordinationPage() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TruckIcon color="primary" />
-                    <Typography variant="h6">{route.truck?.name || route.installerProfile?.user?.fullName || `מסלול ${route.id}`}</Typography>
+                    <Typography variant="h6">
+                      {route.truck?.name || route.installerProfile?.user?.fullName || `מסלול ${route.id}`}
+                      {(route as any).roundNumber > 1 && ` (סבב ${(route as any).roundNumber})`}
+                    </Typography>
                     {route.color && (
                       <Chip label={route.color} size="small" sx={{ fontWeight: 'bold' }} color="default" />
                     )}

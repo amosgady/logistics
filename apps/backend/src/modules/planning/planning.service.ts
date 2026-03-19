@@ -120,18 +120,19 @@ export class PlanningService {
       );
     }
 
-    // Find or create route for this truck + date
+    // Find or create route for this truck + date (use latest round)
     const date = new Date(routeDate);
     date.setHours(0, 0, 0, 0);
 
-    let route = await prisma.route.findUnique({
-      where: { truckId_routeDate: { truckId, routeDate: date } },
+    let route = await prisma.route.findFirst({
+      where: { truckId, routeDate: date },
       include: { orders: { include: { orderLines: true } } },
+      orderBy: { roundNumber: 'desc' },
     });
 
     if (!route) {
       route = await prisma.route.create({
-        data: { truckId, routeDate: date },
+        data: { truckId, routeDate: date, roundNumber: 1 },
         include: { orders: { include: { orderLines: true } } },
       });
     }
@@ -211,18 +212,19 @@ export class PlanningService {
       );
     }
 
-    // Find or create route for this installer + date
+    // Find or create route for this installer + date (use latest round)
     const date = new Date(routeDate);
     date.setHours(0, 0, 0, 0);
 
-    let route = await prisma.route.findUnique({
-      where: { installerProfileId_routeDate: { installerProfileId, routeDate: date } },
+    let route = await prisma.route.findFirst({
+      where: { installerProfileId, routeDate: date },
       include: { orders: true },
+      orderBy: { roundNumber: 'desc' },
     });
 
     if (!route) {
       route = await prisma.route.create({
-        data: { installerProfileId, routeDate: date },
+        data: { installerProfileId, routeDate: date, roundNumber: 1 },
         include: { orders: true },
       });
     }
@@ -289,6 +291,39 @@ export class PlanningService {
         totalTimeMinutes: null,
       },
     });
+  }
+
+  async addRound(routeId: number) {
+    const existingRoute = await prisma.route.findUnique({ where: { id: routeId } });
+    if (!existingRoute) throw new AppError(404, 'NOT_FOUND', 'מסלול לא נמצא');
+
+    // Find the max round number for this truck/installer + date
+    const maxRound = await prisma.route.findFirst({
+      where: existingRoute.truckId
+        ? { truckId: existingRoute.truckId, routeDate: existingRoute.routeDate }
+        : { installerProfileId: existingRoute.installerProfileId, routeDate: existingRoute.routeDate },
+      orderBy: { roundNumber: 'desc' },
+      select: { roundNumber: true },
+    });
+
+    const nextRound = (maxRound?.roundNumber || 1) + 1;
+
+    const newRoute = await prisma.route.create({
+      data: {
+        truckId: existingRoute.truckId,
+        installerProfileId: existingRoute.installerProfileId,
+        routeDate: existingRoute.routeDate,
+        roundNumber: nextRound,
+        color: existingRoute.color,
+      },
+      include: {
+        orders: true,
+        truck: true,
+        installerProfile: { include: { user: { select: { id: true, fullName: true, phone: true } } } },
+      },
+    });
+
+    return newRoute;
   }
 
   async reorderRoute(routeId: number, orderIds: number[]) {

@@ -79,4 +79,10 @@ export const planningController = {
     await planningService.setRouteColor(routeId, color || null);
     res.json({ success: true });
   }),
+
+  addRound: asyncHandler(async (req: Request, res: Response) => {
+    const routeId = parseInt(req.params.routeId as string);
+    const result = await planningService.addRound(routeId);
+    res.json({ success: true, data: result });
+  }),
 };

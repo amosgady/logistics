@@ -50,14 +50,15 @@ export class TrucksService {
   }
 
   async getTruckLoad(truckId: number, routeDate: string) {
-    const route = await prisma.route.findUnique({
-      where: { truckId_routeDate: { truckId, routeDate: new Date(routeDate) } },
+    const route = await prisma.route.findFirst({
+      where: { truckId, routeDate: new Date(routeDate) },
       include: {
         orders: {
           include: { orderLines: true },
         },
         truck: true,
       },
+      orderBy: { roundNumber: 'desc' },
     });
 
     if (!route) return { totalWeight: 0, totalPallets: 0, orderCount: 0, maxWeight: 0, maxPallets: 0 };

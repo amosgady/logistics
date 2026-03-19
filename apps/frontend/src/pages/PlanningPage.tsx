@@ -91,6 +91,7 @@ interface Route {
   overtimeApproved: boolean;
   isOptimized: boolean;
   color: string | null;
+  roundNumber: number;
 }
 
 function getNearDate(): string {
@@ -136,6 +137,7 @@ function RouteCard({
   isSendingToCoordination,
   truckColors,
   onSetColor,
+  onAddRound,
 }: {
   route: Route;
   onRemoveOrder: (orderId: number) => void;
@@ -147,6 +149,7 @@ function RouteCard({
   isSendingToCoordination: boolean;
   truckColors: { department: string; color: string }[];
   onSetColor: (color: string | null) => void;
+  onAddRound: () => void;
 }) {
   const isInstaller = !!route.installerProfile;
   const ownerName = isInstaller ? route.installerProfile!.user.fullName : route.truck?.name || '';
@@ -184,7 +187,10 @@ function RouteCard({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {isInstaller ? <InstallerIcon color="secondary" /> : <TruckIcon color="primary" />}
-            <Typography variant="h6">{ownerName}</Typography>
+            <Typography variant="h6">
+              {ownerName}
+              {route.roundNumber > 1 && ` (סבב ${route.roundNumber})`}
+            </Typography>
             {isInstaller && route.installerProfile?.department && (
               <Chip
                 label={INSTALLER_DEPARTMENT_LABELS[route.installerProfile.department] || route.installerProfile.department}
@@ -421,6 +427,13 @@ function RouteCard({
           >
             העבר לתיאום
           </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={onAddRound}
+          >
+            + סבב נוסף
+          </Button>
         </Box>
       </CardContent>
     </Card>
@@ -602,6 +615,15 @@ export default function PlanningPage() {
       setSnackbar({ message: msg, severity: noCoords > 0 ? 'warning' : 'success' });
     },
     onError: () => setSnackbar({ message: 'שגיאה בסידור גיאוגרפי', severity: 'error' }),
+  });
+
+  const addRoundMutation = useMutation({
+    mutationFn: (routeId: number) => planningApi.addRound(routeId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+      setSnackbar({ message: 'סבב חדש נוסף בהצלחה', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בהוספת סבב', severity: 'error' }),
   });
 
   const setRouteColorMutation = useMutation({
@@ -1060,6 +1082,7 @@ export default function PlanningPage() {
                     isSendingToCoordination={sendToCoordinationMutation.isPending}
                     truckColors={truckColors}
                     onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
+                    onAddRound={() => addRoundMutation.mutate(route.id)}
                   />
                 ))
               )}
@@ -1090,6 +1113,7 @@ export default function PlanningPage() {
                       isSendingToCoordination={sendToCoordinationMutation.isPending}
                       truckColors={truckColors}
                       onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
+                      onAddRound={() => addRoundMutation.mutate(route.id)}
                     />
                   ))
                 )}
