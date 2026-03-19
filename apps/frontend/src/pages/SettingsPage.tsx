@@ -17,6 +17,8 @@ import {
   LocalShipping as TruckColorIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  ArrowUpward as ArrowUpIcon,
+  ArrowDownward as ArrowDownIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsApi, DepartmentSetting } from '../services/settingsApi';
@@ -489,7 +491,7 @@ export default function SettingsPage() {
                 <TableRow>
                   <TableCell>מחלקה</TableCell>
                   <TableCell>צבע משאית</TableCell>
-                  <TableCell sx={{ width: 50 }}></TableCell>
+                  <TableCell sx={{ width: 120 }}></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -497,7 +499,23 @@ export default function SettingsPage() {
                   <TableRow key={idx} hover>
                     <TableCell>{DEPARTMENT_LABELS[tc.department] || tc.department}</TableCell>
                     <TableCell>{tc.color}</TableCell>
-                    <TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <IconButton size="small" disabled={idx === 0} onClick={() => {
+                        const arr = [...truckColors];
+                        [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                        setTruckColors(arr);
+                        setTruckColorsDirty(true);
+                      }}>
+                        <ArrowUpIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" disabled={idx === truckColors.length - 1} onClick={() => {
+                        const arr = [...truckColors];
+                        [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+                        setTruckColors(arr);
+                        setTruckColorsDirty(true);
+                      }}>
+                        <ArrowDownIcon fontSize="small" />
+                      </IconButton>
                       <IconButton size="small" color="error" onClick={() => removeTruckColor(idx)}>
                         <DeleteIcon fontSize="small" />
                       </IconButton>
