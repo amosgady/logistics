@@ -778,7 +778,7 @@ export default function PlanningPage() {
                         const deptOrders = deliveryByDept.get(dept) || [];
                         const deptGeoSorted = deptOrders.every((o) => o.geoSortOrder != null);
                         const deptTrucks = trucks.filter((t: any) =>
-                          dept === '_NONE_' ? !t.department : t.department === dept
+                          dept === '_NONE_' ? !t.department : (t.department === dept || !t.department)
                         );
                         return (
                           <Box key={dept} sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
