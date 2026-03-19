@@ -24,4 +24,15 @@ export const settingsController = {
     const updated = await settingsService.updateTruckColors(colors);
     res.json({ success: true, data: updated });
   }),
+
+  getTruckSizes: asyncHandler(async (_req: Request, res: Response) => {
+    const sizes = await settingsService.getTruckSizes();
+    res.json({ success: true, data: sizes });
+  }),
+
+  updateTruckSizes: asyncHandler(async (req: Request, res: Response) => {
+    const { sizes } = req.body;
+    const updated = await settingsService.updateTruckSizes(sizes);
+    res.json({ success: true, data: updated });
+  }),
 };

@@ -270,6 +270,46 @@ export default function SettingsPage() {
     setTruckColorsDirty(true);
   };
 
+  // ─── Truck Sizes ───
+  const { data: truckSizesData } = useQuery({
+    queryKey: ['truck-sizes'],
+    queryFn: settingsApi.getTruckSizes,
+  });
+
+  const [truckSizes, setTruckSizes] = useState<string[]>([]);
+  const [newSize, setNewSize] = useState('');
+  const [truckSizesDirty, setTruckSizesDirty] = useState(false);
+
+  useEffect(() => {
+    if (truckSizesData?.data) {
+      setTruckSizes(truckSizesData.data);
+    }
+  }, [truckSizesData]);
+
+  const truckSizesSaveMutation = useMutation({
+    mutationFn: () => settingsApi.updateTruckSizes(truckSizes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['truck-sizes'] });
+      setTruckSizesDirty(false);
+      setSnackbar({ message: 'גדלי משאית נשמרו', severity: 'success' });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בשמירת גדלי משאית', severity: 'error' }),
+  });
+
+  const addTruckSize = () => {
+    const trimmed = newSize.trim();
+    if (trimmed && !truckSizes.includes(trimmed)) {
+      setTruckSizes((prev) => [...prev, trimmed]);
+      setNewSize('');
+      setTruckSizesDirty(true);
+    }
+  };
+
+  const removeTruckSize = (index: number) => {
+    setTruckSizes((prev) => prev.filter((_, i) => i !== index));
+    setTruckSizesDirty(true);
+  };
+
   if (isLoading) return <Typography>טוען...</Typography>;
 
   return (
@@ -429,6 +469,55 @@ export default function SettingsPage() {
           </TableContainer>
         ) : (
           <Typography variant="body2" color="text.secondary">לא הוגדרו צבעים עדיין</Typography>
+        )}
+      </Paper>
+
+      {/* Truck Sizes */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <TruckColorIcon color="primary" />
+            <Typography variant="h6">גדלי משאית</Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={() => truckSizesSaveMutation.mutate()}
+            disabled={!truckSizesDirty || truckSizesSaveMutation.isPending}
+          >
+            שמור
+          </Button>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          הגדר את גדלי המשאיות הזמינים. הגדלים יופיעו ברשימה הנפתחת בעריכת משאית.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
+          <TextField
+            size="small"
+            value={newSize}
+            onChange={(e) => setNewSize(e.target.value)}
+            placeholder="שם גודל..."
+            onKeyDown={(e) => { if (e.key === 'Enter') addTruckSize(); }}
+            sx={{ width: 200 }}
+          />
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={addTruckSize} disabled={!newSize.trim()}>
+            הוסף
+          </Button>
+        </Box>
+        {truckSizes.length > 0 ? (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {truckSizes.map((size, idx) => (
+              <Chip
+                key={idx}
+                label={size}
+                onDelete={() => removeTruckSize(idx)}
+                color="primary"
+                variant="outlined"
+              />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">לא הוגדרו גדלים עדיין</Typography>
         )}
       </Paper>
 

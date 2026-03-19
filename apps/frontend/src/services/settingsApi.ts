@@ -22,4 +22,10 @@ export const settingsApi = {
 
   updateTruckColors: (colors: TruckColor[]) =>
     api.put('/settings/truck-colors', { colors }).then((r) => r.data),
+
+  getTruckSizes: () =>
+    api.get('/settings/truck-sizes').then((r) => r.data),
+
+  updateTruckSizes: (sizes: string[]) =>
+    api.put('/settings/truck-sizes', { sizes }).then((r) => r.data),
 };

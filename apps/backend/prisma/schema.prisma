@@ -278,7 +278,7 @@ model Truck {
   id              Int       @id @default(autoincrement())
   name            String    @unique
   licensePlate    String    @unique @map("license_plate")
-  size            TruckSize
+  size            String    @default("גדולה")
   hasCrane        Boolean   @default(false) @map("has_crane")
   maxWeightKg     Decimal   @db.Decimal(10, 2) @map("max_weight_kg")
   maxPallets      Int       @map("max_pallets")

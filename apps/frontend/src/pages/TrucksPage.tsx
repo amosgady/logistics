@@ -8,6 +8,7 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { truckApi } from '../services/truckApi';
+import { settingsApi } from '../services/settingsApi';
 import SortableTableCell from '../components/common/SortableTableCell';
 import { useSortable } from '../hooks/useSortable';
 import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS } from '../constants/departments';
@@ -30,7 +31,7 @@ interface Truck {
 const emptyTruck = {
   name: '',
   licensePlate: '',
-  size: 'LARGE',
+  size: '',
   hasCrane: false,
   maxWeightKg: 10000,
   maxPallets: 16,
@@ -44,6 +45,8 @@ export default function TrucksPage() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ['trucks'], queryFn: truckApi.getAll });
   const trucks: Truck[] = data?.data || [];
+  const { data: sizesData } = useQuery({ queryKey: ['truck-sizes'], queryFn: settingsApi.getTruckSizes });
+  const truckSizes: string[] = sizesData?.data || ['קטנה', 'גדולה'];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState<any>(null);
@@ -150,9 +153,9 @@ export default function TrucksPage() {
                 <TableCell>{truck.licensePlate}</TableCell>
                 <TableCell>
                   <Chip
-                    label={truck.size === 'LARGE' ? 'גדולה' : 'קטנה'}
+                    label={truck.size || '-'}
                     size="small"
-                    color={truck.size === 'LARGE' ? 'primary' : 'default'}
+                    color="default"
                   />
                 </TableCell>
                 <TableCell>{truck.hasCrane ? 'כן' : 'לא'}</TableCell>
@@ -182,8 +185,9 @@ export default function TrucksPage() {
             <TextField label="שם משאית" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
             <TextField label="לוחית רישוי" value={form.licensePlate} onChange={(e) => setForm({ ...form, licensePlate: e.target.value })} required />
             <TextField select label="גודל" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })}>
-              <MenuItem value="LARGE">גדולה</MenuItem>
-              <MenuItem value="SMALL">קטנה</MenuItem>
+              {truckSizes.map((size) => (
+                <MenuItem key={size} value={size}>{size}</MenuItem>
+              ))}
             </TextField>
             <FormControlLabel
               control={<Switch checked={form.hasCrane} onChange={(e) => setForm({ ...form, hasCrane: e.target.checked })} />}

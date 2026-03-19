@@ -61,6 +61,22 @@ export class SettingsService {
     });
     return colors;
   }
+  // ─── Truck Sizes ───
+
+  async getTruckSizes(): Promise<string[]> {
+    const row = await prisma.systemSetting.findUnique({ where: { key: 'truckSizes' } });
+    if (!row) return ['קטנה', 'גדולה'];
+    try { return JSON.parse(row.value); } catch { return ['קטנה', 'גדולה']; }
+  }
+
+  async updateTruckSizes(sizes: string[]): Promise<string[]> {
+    await prisma.systemSetting.upsert({
+      where: { key: 'truckSizes' },
+      update: { value: JSON.stringify(sizes) },
+      create: { key: 'truckSizes', value: JSON.stringify(sizes) },
+    });
+    return sizes;
+  }
 }
 
 export const settingsService = new SettingsService();
