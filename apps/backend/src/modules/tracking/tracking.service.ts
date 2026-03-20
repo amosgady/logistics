@@ -2,17 +2,22 @@ import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 
 export class TrackingService {
-  async getTrackingBoard(date: string) {
+  async getTrackingBoard(date: string, userDepartment?: string | null) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
+    const routeWhere: any = {
+      routeDate: { gte: startOfDay, lte: endOfDay },
+    };
+    if (userDepartment) {
+      routeWhere.orders = { some: { department: userDepartment } };
+    }
+
     // Get all routes for this date with orders and worker info
     const routes = await prisma.route.findMany({
-      where: {
-        routeDate: { gte: startOfDay, lte: endOfDay },
-      },
+      where: routeWhere,
       include: {
         truck: {
           include: {

@@ -8,11 +8,13 @@ const INSTALLER_DEPARTMENTS = [
 ];
 
 export class PlanningService {
-  async getPlanningBoard(date: string) {
+  async getPlanningBoard(date: string, userDepartment?: string | null) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
+
+    const deptFilter = userDepartment ? { department: userDepartment as any } : {};
 
     // Get all orders in PLANNING/IN_COORDINATION/APPROVED status for this date
     const orders = await prisma.order.findMany({
@@ -22,6 +24,7 @@ export class PlanningService {
           gte: startOfDay,
           lte: endOfDay,
         },
+        ...deptFilter,
       },
       include: {
         orderLines: true,
@@ -37,13 +40,17 @@ export class PlanningService {
     });
 
     // Get all routes for this date with their assigned orders
-    const routes = await prisma.route.findMany({
-      where: {
-        routeDate: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
+    const routeWhere: any = {
+      routeDate: {
+        gte: startOfDay,
+        lte: endOfDay,
       },
+    };
+    if (userDepartment) {
+      routeWhere.orders = { some: { department: userDepartment } };
+    }
+    const routes = await prisma.route.findMany({
+      where: routeWhere,
       orderBy: { id: 'asc' },
       include: {
         truck: true,
@@ -70,14 +77,18 @@ export class PlanningService {
     });
 
     // Get available trucks
+    const truckWhere: any = { isActive: true };
+    if (userDepartment) truckWhere.department = userDepartment;
     const trucks = await prisma.truck.findMany({
-      where: { isActive: true },
+      where: truckWhere,
       orderBy: { name: 'asc' },
     });
 
     // Get available installers
+    const installerWhere: any = { user: { isActive: true } };
+    if (userDepartment) installerWhere.department = userDepartment;
     const installers = await prisma.installerProfile.findMany({
-      where: { user: { isActive: true } },
+      where: installerWhere,
       include: {
         user: { select: { id: true, fullName: true, phone: true, isActive: true } },
         zone: { select: { id: true, name: true, nameHe: true } },

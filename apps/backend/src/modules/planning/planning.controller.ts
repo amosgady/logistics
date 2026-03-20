@@ -4,11 +4,13 @@ import { routeOptimizerService } from './route-optimizer.service';
 import { geocodingService } from '../../services/geocoding.service';
 import { geoSortService } from './geo-sort.service';
 import { asyncHandler } from '../../utils/asyncHandler';
+import { AuthRequest } from '../../middleware/auth';
 
 export const planningController = {
-  getBoard: asyncHandler(async (req: Request, res: Response) => {
+  getBoard: asyncHandler(async (req: AuthRequest, res: Response) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
-    const board = await planningService.getPlanningBoard(date);
+    const userDept = req.user?.role === 'ADMIN' ? null : req.user?.department || null;
+    const board = await planningService.getPlanningBoard(date, userDept);
     res.json({ success: true, data: board });
   }),
 

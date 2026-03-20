@@ -6,7 +6,8 @@ import { asyncHandler } from '../../utils/asyncHandler';
 export const trackingController = {
   getTrackingBoard: asyncHandler(async (req: AuthRequest, res: Response) => {
     const date = req.query.date as string;
-    const result = await trackingService.getTrackingBoard(date);
+    const userDept = req.user?.role === 'ADMIN' ? null : req.user?.department || null;
+    const result = await trackingService.getTrackingBoard(date, userDept);
     res.json({ success: true, data: result });
   }),
 
