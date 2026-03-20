@@ -26,7 +26,7 @@ export const useOrderStore = create<OrderState>((set) => ({
   selectedOrderIds: new Set(),
   filters: {
     page: 1,
-    pageSize: 50,
+    pageSize: 200,
   },
 
   toggleSelect: (id) =>
