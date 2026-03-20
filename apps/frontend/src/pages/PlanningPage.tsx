@@ -898,10 +898,10 @@ export default function PlanningPage() {
                               <Box key={zoneName} sx={{ mb: 1 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                                   <Chip label={`${zoneName} (${orders.length})`} color="primary" size="small" />
-                                  {!deptGeoSorted && orders.length >= 2 && (
+                                  {orders.length >= 2 && (
                                     <Button
                                       size="small"
-                                      variant="text"
+                                      variant={zoneGeoSorted ? 'contained' : 'text'}
                                       color="success"
                                       sx={{ minWidth: 'auto', fontSize: '0.7rem' }}
                                       startIcon={<PlaceIcon sx={{ fontSize: '0.9rem !important' }} />}
