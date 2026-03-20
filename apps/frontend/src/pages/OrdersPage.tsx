@@ -19,6 +19,7 @@ import {
   Delete as DeleteIcon,
   CalendarMonth as CalendarIcon,
   Map as MapIcon,
+  LocationOn as LocationIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
@@ -27,6 +28,7 @@ import DeleteConfirmDialog from '../components/orders/DeleteConfirmDialog';
 import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, useBulkUpdateDeliveryDate } from '../hooks/useOrders';
 import { useOrderStore } from '../store/orderStore';
 import { zoneApi } from '../services/zoneApi';
+import { orderApi } from '../services/orderApi';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function OrdersPage() {
@@ -54,6 +56,19 @@ export default function OrdersPage() {
       });
     },
     onError: () => setSnackbar({ message: 'שגיאה בשיוך אזורים', severity: 'error' }),
+  });
+
+  const validateAddressesMutation = useMutation({
+    mutationFn: (orderIds: number[]) => orderApi.validateAddresses(orderIds),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      const { geocoded, failed } = result.data || {};
+      setSnackbar({
+        message: `אימות כתובות הושלם: ${geocoded || 0} תקינות, ${failed || 0} חשודות`,
+        severity: failed > 0 ? 'warning' as any : 'success',
+      });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה באימות כתובות', severity: 'error' }),
   });
 
   const orders = data?.data || [];
@@ -235,6 +250,19 @@ export default function OrdersPage() {
             disabled={reassignZonesMutation.isPending}
           >
             שיוך אזורים
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<LocationIcon />}
+            onClick={() => {
+              const ids = selectedOrderIds.size > 0
+                ? Array.from(selectedOrderIds)
+                : orders.map((o: any) => o.id);
+              validateAddressesMutation.mutate(ids);
+            }}
+            disabled={validateAddressesMutation.isPending}
+          >
+            {validateAddressesMutation.isPending ? 'מאמת...' : `אימות כתובות${selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}`}
           </Button>
           <Button
             variant="contained"

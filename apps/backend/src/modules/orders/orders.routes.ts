@@ -39,6 +39,7 @@ router.post('/bulk-delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersCo
 router.patch('/lines/:lineId/quantity', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateLineQuantity);
 router.delete('/lines/:lineId', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteOrderLine);
 router.delete('/:id', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteOrder);
+router.post('/validate-addresses', requireRole('COORDINATOR', 'ADMIN'), ordersController.validateAddresses);
 router.patch('/:id/delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDeliveryDate);
 router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateZone);
 router.patch('/:id/department', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDepartment);

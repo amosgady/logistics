@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { ordersService } from './orders.service';
 import { csvImportService } from './csv-import.service';
+import { geocodingService } from '../../services/geocoding.service';
 import { AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { AppError } from '../../middleware/errorHandler';
@@ -137,6 +138,20 @@ export const ordersController = {
     const { zoneId } = req.body;
     const order = await ordersService.updateZone(id, zoneId);
     res.json({ success: true, data: order });
+  }),
+
+  validateAddresses: asyncHandler(async (req: Request, res: Response) => {
+    const { orderIds } = req.body;
+    if (!orderIds || !Array.isArray(orderIds) || orderIds.length === 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'יש לבחור הזמנות לאימות');
+    }
+    // Reset geocode data so batchGeocodeOrders will re-process
+    await prisma.order.updateMany({
+      where: { id: { in: orderIds } },
+      data: { latitude: null, longitude: null, geocodeValid: null, geocodedAddress: null },
+    });
+    const results = await geocodingService.batchGeocodeOrders(orderIds);
+    res.json({ success: true, data: results });
   }),
 
   deleteOrder: asyncHandler(async (req: AuthRequest, res: Response) => {

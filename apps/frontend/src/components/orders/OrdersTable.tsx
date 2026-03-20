@@ -96,6 +96,8 @@ interface Order {
   checkerNote: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
+  geocodedAddress: string | null;
+  geocodeValid: boolean | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -133,6 +135,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount', align: 'center' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount', align: 'center' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount', align: 'center' },
+  { id: 'geocodedAddress', label: 'כתובת גוגל' },
   { id: 'deliveryNote', label: 'תעודה', align: 'center' },
   { id: 'media', label: 'מדיה', align: 'center' },
 ];
@@ -817,6 +820,22 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
+    case 'geocodedAddress':
+      if (!order.geocodedAddress) return <Typography variant="caption" color="text.disabled">-</Typography>;
+      return (
+        <Typography
+          variant="caption"
+          sx={{
+            color: order.geocodeValid === false ? 'error.main' : 'text.primary',
+            fontWeight: order.geocodeValid === false ? 'bold' : 'normal',
+            bgcolor: order.geocodeValid === false ? 'error.50' : undefined,
+            px: order.geocodeValid === false ? 0.5 : 0,
+            borderRadius: 0.5,
+          }}
+        >
+          {order.geocodedAddress}
+        </Typography>
+      );
     case 'deliveryNote':
       return order.deliveryNoteUrl ? (
         order.signedDeliveryNoteUrl ? (

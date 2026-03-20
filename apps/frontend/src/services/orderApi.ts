@@ -64,6 +64,9 @@ export const orderApi = {
   updateDepartment: (id: number, department: string) =>
     api.patch(`/orders/${id}/department`, { department }).then((r) => r.data),
 
+  validateAddresses: (orderIds: number[]) =>
+    api.post('/orders/validate-addresses', { orderIds }).then((r) => r.data),
+
   updateCoordination: (id: number, data: { coordinationStatus: string; coordinationNotes?: string }) =>
     api.patch(`/orders/${id}/coordination`, data).then((r) => r.data),
 

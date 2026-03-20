@@ -80,34 +80,7 @@ export class RouteOptimizerService {
       return this.fallbackOptimize(route, waitTimePerStop, maxWorkMinutes);
     }
 
-    // Auto-geocode orders that are missing coordinates OR missing geocodedAddress
-    const needsGeocode = route.orders.filter((o: any) => !o.latitude || !o.longitude || !o.geocodedAddress);
-    if (needsGeocode.length > 0) {
-      // Reset lat/lng for orders missing geocodedAddress so batchGeocodeOrders will re-process them
-      const missingGeocodedAddr = needsGeocode.filter((o: any) => o.latitude && o.longitude && !o.geocodedAddress);
-      if (missingGeocodedAddr.length > 0) {
-        await prisma.order.updateMany({
-          where: { id: { in: missingGeocodedAddr.map((o) => o.id) } },
-          data: { latitude: null, longitude: null },
-        });
-      }
-      await geocodingService.batchGeocodeOrders(needsGeocode.map((o) => o.id));
-      // Re-fetch orders with updated coordinates
-      const updated = await prisma.route.findUnique({
-        where: { id: routeId },
-        include: {
-          orders: {
-            include: { orderLines: true },
-            orderBy: { routeSequence: 'asc' },
-          },
-        },
-      });
-      if (updated) {
-        route.orders = updated.orders;
-      }
-    }
-
-    // Build waypoints from orders that have coordinates
+    // Build waypoints from orders that have coordinates (geocoding is done separately via Orders page)
     const ordersWithCoords = route.orders.filter((o) => o.latitude && o.longitude);
     const ordersWithoutCoords = route.orders.filter((o) => !o.latitude || !o.longitude);
 
