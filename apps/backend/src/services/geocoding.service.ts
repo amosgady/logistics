@@ -26,7 +26,7 @@ export class GeocodingService {
       let lastResult: GeocodeOutput = { valid: false, lat: null, lng: null, formattedAddress: null, locationType: null };
 
       for (const variation of addressVariations) {
-        const geoResult = await this.tryGeocode(variation, city);
+        const geoResult = await this.tryGeocode(variation, city, address);
         if (geoResult.valid) {
           console.log(`[Geocoding] Found via variation: "${variation}"`);
           return geoResult;
@@ -110,7 +110,7 @@ export class GeocodingService {
     return variations;
   }
 
-  private async tryGeocode(fullAddress: string, city: string): Promise<GeocodeOutput> {
+  private async tryGeocode(fullAddress: string, city: string, originalAddress?: string): Promise<GeocodeOutput> {
     const response = await mapsClient.geocode({
       params: {
         address: fullAddress,
@@ -129,14 +129,17 @@ export class GeocodingService {
     const locationType = String(result.geometry.location_type || '');
     const formatted = result.formatted_address || '';
 
-    const isAcceptable = this.isAddressInCity(formatted, city)
-      && ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER', 'APPROXIMATE'].includes(locationType);
+    const inCity = this.isAddressInCity(formatted, city);
+    const validType = ['ROOFTOP', 'RANGE_INTERPOLATED', 'GEOMETRIC_CENTER'].includes(locationType);
+    const streetMatch = originalAddress ? this.isStreetMatching(originalAddress, formatted) : true;
+
+    const isAcceptable = inCity && validType && streetMatch;
 
     return {
       valid: isAcceptable,
-      lat: isAcceptable ? lat : null,
-      lng: isAcceptable ? lng : null,
-      formattedAddress: formatted,
+      lat: (inCity && validType) ? lat : null,
+      lng: (inCity && validType) ? lng : null,
+      formattedAddress: formatted + ((!streetMatch && inCity && validType) ? ' ⚠️' : ''),
       locationType: locationType || null,
     };
   }
@@ -147,6 +150,29 @@ export class GeocodingService {
     const formattedNormalized = formatted.replace(/[-–]/g, ' ');
     return formattedNormalized.includes(cityNormalized)
       || formattedNormalized.includes(city.trim());
+  }
+
+  /** Check that the street in the returned address somewhat matches the original */
+  private isStreetMatching(originalAddress: string, formattedAddress: string): boolean {
+    // Extract the street name from original (remove house number)
+    const origStreet = originalAddress.trim().replace(/\s+\d+.*$/, '').trim();
+    // Remove common prefixes for comparison
+    const cleanOrig = origStreet
+      .replace(/^(רחוב|רח'|רח׳|שדרות|שד'|שד׳)\s+/i, '')
+      .replace(/["״׳']/g, '')
+      .trim();
+
+    if (cleanOrig.length < 2) return true; // Too short to compare
+
+    const cleanFormatted = formattedAddress
+      .replace(/["״׳']/g, '')
+      .replace(/\d+/g, '')
+      .trim();
+
+    // Check if any significant part of the original street appears in the result
+    // Split into words and check if at least one meaningful word matches
+    const origWords = cleanOrig.split(/\s+/).filter(w => w.length >= 2);
+    return origWords.some(word => cleanFormatted.includes(word));
   }
 
   async batchGeocodeOrders(orderIds: number[]) {
