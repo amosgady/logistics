@@ -101,8 +101,21 @@ model User {
   workerLocations  WorkerLocation[]
   sentMessages     Message[] @relation("MessagesSent")
   receivedMessages Message[] @relation("MessagesReceived")
+  userZones        UserZone[]
 
   @@map("users")
+}
+
+model UserZone {
+  id     Int @id @default(autoincrement())
+  userId Int @map("user_id")
+  zoneId Int @map("zone_id")
+
+  user User @relation(fields: [userId], references: [id])
+  zone Zone @relation(fields: [zoneId], references: [id])
+
+  @@unique([userId, zoneId])
+  @@map("user_zones")
 }
 
 model DriverProfile {
@@ -141,6 +154,7 @@ model Zone {
   cities     ZoneCity[]
   orders     Order[]
   installers InstallerProfile[]
+  userZones  UserZone[]
 
   @@map("zones")
 }

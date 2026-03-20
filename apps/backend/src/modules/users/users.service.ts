@@ -8,6 +8,7 @@ export class UsersService {
       select: {
         id: true, username: true, email: true, fullName: true, role: true, department: true,
         phone: true, isActive: true, createdAt: true,
+        userZones: { select: { zoneId: true, zone: { select: { id: true, name: true, nameHe: true } } } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -35,7 +36,7 @@ export class UsersService {
     });
   }
 
-  async update(id: number, data: { username?: string; email?: string; password?: string; fullName?: string; role?: string; department?: string | null; phone?: string; isActive?: boolean }) {
+  async update(id: number, data: { username?: string; email?: string; password?: string; fullName?: string; role?: string; department?: string | null; phone?: string; isActive?: boolean; zoneIds?: number[] }) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) throw new AppError(404, 'NOT_FOUND', 'משתמש לא נמצא');
 
@@ -46,11 +47,22 @@ export class UsersService {
 
     const updateData: any = { ...data };
     delete updateData.password;
+    delete updateData.zoneIds;
     if (data.password) {
       updateData.passwordHash = await bcrypt.hash(data.password, 12);
     }
     if (data.role) updateData.role = data.role as any;
     if ('department' in data) updateData.department = data.department as any || null;
+
+    // Update zones if provided
+    if ('zoneIds' in data) {
+      await prisma.userZone.deleteMany({ where: { userId: id } });
+      if (data.zoneIds && data.zoneIds.length > 0) {
+        await prisma.userZone.createMany({
+          data: data.zoneIds.map((zoneId) => ({ userId: id, zoneId })),
+        });
+      }
+    }
 
     return prisma.user.update({
       where: { id },
@@ -58,6 +70,7 @@ export class UsersService {
       select: {
         id: true, username: true, email: true, fullName: true, role: true, department: true,
         phone: true, isActive: true, createdAt: true,
+        userZones: { select: { zoneId: true, zone: { select: { id: true, name: true, nameHe: true } } } },
       },
     });
   }
@@ -93,6 +106,7 @@ export class UsersService {
       await tx.workerLocation.deleteMany({ where: { userId: id } });
       await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { recipientId: id }] } });
       await tx.auditLog.deleteMany({ where: { userId: id } });
+      await tx.userZone.deleteMany({ where: { userId: id } });
       await tx.driverProfile.deleteMany({ where: { userId: id } });
       await tx.installerProfile.deleteMany({ where: { userId: id } });
       await tx.user.delete({ where: { id } });

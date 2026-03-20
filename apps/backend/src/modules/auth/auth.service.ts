@@ -8,15 +8,28 @@ import { emailService } from '../../services/email.service';
 
 export class AuthService {
   async login(username: string, password: string) {
-    const user = await prisma.user.findFirst({
+    // First try exact username match, then fallback to email match
+    let user = await prisma.user.findFirst({
       where: {
-        OR: [
-          { username },
-          { email: username },
-        ],
+        username,
         isActive: true,
       },
+      include: {
+        userZones: { select: { zoneId: true } },
+      },
     });
+
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: {
+          email: username,
+          isActive: true,
+        },
+        include: {
+          userZones: { select: { zoneId: true } },
+        },
+      });
+    }
 
     if (!user) {
       throw new AppError(401, 'INVALID_CREDENTIALS', 'שם משתמש או סיסמה שגויים');
@@ -69,8 +82,9 @@ export class AuthService {
     }
 
     // No 2FA — issue tokens directly
+    const userZoneIds = user.userZones?.map((uz: any) => uz.zoneId) || [];
     const accessToken = jwt.sign(
-      { userId: user.id, role: user.role, department: user.department },
+      { userId: user.id, role: user.role, department: user.department, zoneIds: userZoneIds },
       env.JWT_SECRET,
       { expiresIn: '8h' }
     );
@@ -81,9 +95,9 @@ export class AuthService {
       { expiresIn: '30d' }
     );
 
-    const { passwordHash: _, twoFactorCode: _c, twoFactorExpiry: _e, ...safeUser } = user;
+    const { passwordHash: _, twoFactorCode: _c, twoFactorExpiry: _e, userZones: _uz, ...safeUser } = user;
 
-    return { accessToken, refreshToken, user: safeUser };
+    return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds } };
   }
 
   async verifyTwoFactor(tempToken: string, code: string) {
@@ -128,9 +142,13 @@ export class AuthService {
       },
     });
 
+    // Load user zones
+    const userZones = await prisma.userZone.findMany({ where: { userId: user.id }, select: { zoneId: true } });
+    const userZoneIds = userZones.map((uz) => uz.zoneId);
+
     // Issue real tokens
     const accessToken = jwt.sign(
-      { userId: user.id, role: user.role, department: user.department },
+      { userId: user.id, role: user.role, department: user.department, zoneIds: userZoneIds },
       env.JWT_SECRET,
       { expiresIn: '8h' }
     );
@@ -143,7 +161,7 @@ export class AuthService {
 
     const { passwordHash: _, twoFactorCode: _c, twoFactorExpiry: _e, ...safeUser } = user;
 
-    return { accessToken, refreshToken, user: safeUser };
+    return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds } };
   }
 
   async resendTwoFactorCode(tempToken: string) {
@@ -235,14 +253,16 @@ export class AuthService {
 
       const user = await prisma.user.findUnique({
         where: { id: payload.userId },
+        include: { userZones: { select: { zoneId: true } } },
       });
 
       if (!user || !user.isActive) {
         throw new AppError(401, 'INVALID_TOKEN', 'משתמש לא פעיל');
       }
 
+      const userZoneIds = user.userZones?.map((uz) => uz.zoneId) || [];
       const accessToken = jwt.sign(
-        { userId: user.id, role: user.role, department: user.department },
+        { userId: user.id, role: user.role, department: user.department, zoneIds: userZoneIds },
         env.JWT_SECRET,
         { expiresIn: '8h' }
       );

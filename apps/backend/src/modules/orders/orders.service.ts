@@ -6,6 +6,7 @@ import { canTransition } from '@delivery/shared';
 interface OrderFilters {
   status?: OrderStatus[];
   zoneId?: number;
+  userZoneIds?: number[];
   deliveryDateFrom?: string;
   deliveryDateTo?: string;
   search?: string;
@@ -29,6 +30,9 @@ export class OrdersService {
     }
     if (filters.zoneId) {
       where.zoneId = filters.zoneId;
+    }
+    if (filters.userZoneIds && filters.userZoneIds.length > 0) {
+      where.zoneId = { in: filters.userZoneIds };
     }
     if (filters.deliveryDateFrom || filters.deliveryDateTo) {
       where.deliveryDate = {};
@@ -86,6 +90,9 @@ export class OrdersService {
     }
     if (filters.zoneId) {
       where.zoneId = filters.zoneId;
+    }
+    if (filters.userZoneIds && filters.userZoneIds.length > 0) {
+      where.zoneId = { in: filters.userZoneIds };
     }
     if (filters.deliveryDateFrom || filters.deliveryDateTo) {
       where.deliveryDate = {};

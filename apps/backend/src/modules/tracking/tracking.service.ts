@@ -2,7 +2,7 @@ import prisma from '../../utils/prisma';
 import { AppError } from '../../middleware/errorHandler';
 
 export class TrackingService {
-  async getTrackingBoard(date: string, userDepartment?: string | null) {
+  async getTrackingBoard(date: string, userDepartment?: string | null, userZoneIds?: number[]) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
@@ -11,8 +11,11 @@ export class TrackingService {
     const routeWhere: any = {
       routeDate: { gte: startOfDay, lte: endOfDay },
     };
-    if (userDepartment) {
-      routeWhere.orders = { some: { department: userDepartment } };
+    const routeOrderFilter: any = {};
+    if (userDepartment) routeOrderFilter.department = userDepartment;
+    if (userZoneIds && userZoneIds.length > 0) routeOrderFilter.zoneId = { in: userZoneIds };
+    if (Object.keys(routeOrderFilter).length > 0) {
+      routeWhere.orders = { some: routeOrderFilter };
     }
 
     // Get all routes for this date with orders and worker info
@@ -53,9 +56,13 @@ export class TrackingService {
     const workers = [];
 
     for (const route of routes) {
-      // Filter orders by department if user has department scope
-      if (userDepartment) {
-        (route as any).orders = route.orders.filter((o: any) => o.department === userDepartment);
+      // Filter orders by department/zone if user has scope
+      if (userDepartment || (userZoneIds && userZoneIds.length > 0)) {
+        (route as any).orders = route.orders.filter((o: any) => {
+          if (userDepartment && o.department !== userDepartment) return false;
+          if (userZoneIds && userZoneIds.length > 0 && !userZoneIds.includes(o.zoneId)) return false;
+          return true;
+        });
       }
       if (route.orders.length === 0) continue;
 

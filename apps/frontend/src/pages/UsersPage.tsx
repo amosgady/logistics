@@ -4,11 +4,15 @@ import {
   DialogActions, TextField, MenuItem, Switch, FormControlLabel,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, IconButton, Chip, Alert, Snackbar,
+  Autocomplete, Checkbox as MuiCheckbox,
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, PersonOff as DeactivateIcon } from '@mui/icons-material';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import Tooltip from '@mui/material/Tooltip';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userApi, UserRecord } from '../services/userApi';
+import { zoneApi } from '../services/zoneApi';
 import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS, ROLE_LABELS } from '../constants/departments';
 import SortableTableCell from '../components/common/SortableTableCell';
 import { useSortable } from '../hooks/useSortable';
@@ -29,12 +33,16 @@ const emptyForm = {
   role: 'COORDINATOR',
   department: '',
   phone: '',
+  zoneIds: [] as number[],
 };
 
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: userApi.getAll });
   const users: UserRecord[] = data?.data || [];
+
+  const { data: zonesData } = useQuery({ queryKey: ['zones'], queryFn: zoneApi.getAll });
+  const zones: { id: number; name: string; nameHe: string }[] = zonesData?.data || [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserRecord | null>(null);
@@ -92,6 +100,7 @@ export default function UsersPage() {
         role: user.role,
         department: user.department || '',
         phone: user.phone || '',
+        zoneIds: user.userZones?.map((uz) => uz.zoneId) || [],
       });
     } else {
       setEditingUser(null);
@@ -114,6 +123,7 @@ export default function UsersPage() {
         department: form.department || null,
         phone: form.phone || null,
         email: form.email || null,
+        zoneIds: form.zoneIds,
       };
       if (form.username !== editingUser.username) updateData.username = form.username;
       if (form.password) updateData.password = form.password;
@@ -156,6 +166,7 @@ export default function UsersPage() {
               <SortableTableCell label="תפקיד" sortKey="role" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="טלפון" sortKey="phone" sortConfig={sortConfig} onSort={handleSort} />
+              <TableCell>אזורים</TableCell>
               <SortableTableCell label="פעיל" sortKey="isActive" sortConfig={sortConfig} onSort={handleSort} />
               <TableCell>פעולות</TableCell>
             </TableRow>
@@ -175,6 +186,13 @@ export default function UsersPage() {
                 </TableCell>
                 <TableCell>{user.department ? (DEPARTMENT_LABELS[user.department] || user.department) : '-'}</TableCell>
                 <TableCell>{user.phone || '-'}</TableCell>
+                <TableCell>
+                  {user.userZones && user.userZones.length > 0
+                    ? user.userZones.map((uz) => (
+                        <Chip key={uz.zoneId} label={uz.zone.nameHe || uz.zone.name} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                      ))
+                    : '-'}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={user.isActive ? 'פעיל' : 'לא פעיל'}
@@ -204,7 +222,7 @@ export default function UsersPage() {
               </TableRow>
             ))}
             {users.length === 0 && (
-              <TableRow><TableCell colSpan={8} align="center">אין משתמשים</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} align="center">אין משתמשים</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -272,6 +290,34 @@ export default function UsersPage() {
                   <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                 ))}
               </TextField>
+            )}
+            {(form.role === 'COORDINATOR') && (
+              <Autocomplete
+                multiple
+                options={zones}
+                disableCloseOnSelect
+                getOptionLabel={(option) => option.nameHe || option.name}
+                value={zones.filter((z) => form.zoneIds.includes(z.id))}
+                onChange={(_e, newValue) => setForm({ ...form, zoneIds: newValue.map((z) => z.id) })}
+                renderOption={(props, option, { selected }) => (
+                  <li {...props}>
+                    <MuiCheckbox
+                      icon={<CheckBoxOutlineBlankIcon fontSize="small" />}
+                      checkedIcon={<CheckBoxIcon fontSize="small" />}
+                      style={{ marginRight: 8 }}
+                      checked={selected}
+                    />
+                    {option.nameHe || option.name}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="אזורים"
+                    helperText="המתאם יראה רק הזמנות מאזורים אלו. השאר ריק לצפייה בכל האזורים."
+                  />
+                )}
+              />
             )}
             <TextField
               label="טלפון"

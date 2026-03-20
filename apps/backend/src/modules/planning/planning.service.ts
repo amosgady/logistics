@@ -8,13 +8,14 @@ const INSTALLER_DEPARTMENTS = [
 ];
 
 export class PlanningService {
-  async getPlanningBoard(date: string, userDepartment?: string | null) {
+  async getPlanningBoard(date: string, userDepartment?: string | null, userZoneIds?: number[]) {
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
     const deptFilter = userDepartment ? { department: userDepartment as any } : {};
+    const zoneFilter = userZoneIds && userZoneIds.length > 0 ? { zoneId: { in: userZoneIds } } : {};
 
     // Get all orders in PLANNING/IN_COORDINATION/APPROVED status for this date
     const orders = await prisma.order.findMany({
@@ -25,6 +26,7 @@ export class PlanningService {
           lte: endOfDay,
         },
         ...deptFilter,
+        ...zoneFilter,
       },
       include: {
         orderLines: true,
@@ -46,8 +48,11 @@ export class PlanningService {
         lte: endOfDay,
       },
     };
-    if (userDepartment) {
-      routeWhere.orders = { some: { department: userDepartment } };
+    const routeOrderFilter: any = {};
+    if (userDepartment) routeOrderFilter.department = userDepartment;
+    if (userZoneIds && userZoneIds.length > 0) routeOrderFilter.zoneId = { in: userZoneIds };
+    if (Object.keys(routeOrderFilter).length > 0) {
+      routeWhere.orders = { some: routeOrderFilter };
     }
     const routes = await prisma.route.findMany({
       where: routeWhere,
@@ -76,10 +81,14 @@ export class PlanningService {
       },
     });
 
-    // Filter orders within routes if user has department scope
-    if (userDepartment) {
+    // Filter orders within routes if user has department/zone scope
+    if (userDepartment || (userZoneIds && userZoneIds.length > 0)) {
       for (const route of routes) {
-        (route as any).orders = route.orders.filter((o: any) => o.department === userDepartment);
+        (route as any).orders = route.orders.filter((o: any) => {
+          if (userDepartment && o.department !== userDepartment) return false;
+          if (userZoneIds && userZoneIds.length > 0 && !userZoneIds.includes(o.zoneId)) return false;
+          return true;
+        });
       }
     }
 

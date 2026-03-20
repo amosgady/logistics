@@ -1,5 +1,10 @@
 import api from './api';
 
+export interface UserZoneRecord {
+  zoneId: number;
+  zone: { id: number; name: string; nameHe: string };
+}
+
 export interface UserRecord {
   id: number;
   username: string;
@@ -10,6 +15,7 @@ export interface UserRecord {
   phone: string | null;
   isActive: boolean;
   createdAt: string;
+  userZones?: UserZoneRecord[];
 }
 
 export const userApi = {

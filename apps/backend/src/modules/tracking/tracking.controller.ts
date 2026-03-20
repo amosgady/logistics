@@ -7,7 +7,8 @@ export const trackingController = {
   getTrackingBoard: asyncHandler(async (req: AuthRequest, res: Response) => {
     const date = req.query.date as string;
     const userDept = req.user?.role === 'ADMIN' ? null : req.user?.department || null;
-    const result = await trackingService.getTrackingBoard(date, userDept);
+    const userZoneIds = req.user?.role === 'ADMIN' ? undefined : req.user?.zoneIds;
+    const result = await trackingService.getTrackingBoard(date, userDept, userZoneIds);
     res.json({ success: true, data: result });
   }),
 

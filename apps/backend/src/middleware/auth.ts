@@ -7,6 +7,7 @@ export interface AuthPayload {
   userId: number;
   role: string;
   department?: string;
+  zoneIds?: number[];
 }
 
 export interface AuthRequest extends Request {

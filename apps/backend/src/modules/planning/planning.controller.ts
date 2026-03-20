@@ -10,7 +10,8 @@ export const planningController = {
   getBoard: asyncHandler(async (req: AuthRequest, res: Response) => {
     const date = req.query.date as string || new Date().toISOString().split('T')[0];
     const userDept = req.user?.role === 'ADMIN' ? null : req.user?.department || null;
-    const board = await planningService.getPlanningBoard(date, userDept);
+    const userZoneIds = req.user?.role === 'ADMIN' ? undefined : req.user?.zoneIds;
+    const board = await planningService.getPlanningBoard(date, userDept, userZoneIds);
     res.json({ success: true, data: board });
   }),
 

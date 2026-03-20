@@ -32,6 +32,10 @@ export const ordersController = {
     if (authUser.role !== 'ADMIN' && authUser.department) {
       filters.department = [authUser.department];
     }
+    // Enforce zone scoping for non-ADMIN users
+    if (authUser.role !== 'ADMIN' && authUser.zoneIds && authUser.zoneIds.length > 0) {
+      filters.userZoneIds = authUser.zoneIds;
+    }
 
     const result = await ordersService.getOrders(filters);
     res.json({ success: true, data: result.orders, meta: result.meta });
@@ -55,6 +59,9 @@ export const ordersController = {
 
     if (authUser.role !== 'ADMIN' && authUser.department) {
       filters.department = [authUser.department];
+    }
+    if (authUser.role !== 'ADMIN' && authUser.zoneIds && authUser.zoneIds.length > 0) {
+      filters.userZoneIds = authUser.zoneIds;
     }
 
     const ids = await ordersService.getAllOrderIds(filters);
