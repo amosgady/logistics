@@ -1140,6 +1140,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
         labelDisplayedRows={({ from, to, count }) =>
           `${from}-${to} מתוך ${count !== -1 ? count : `יותר מ-${to}`}`
         }
+        sx={{ display: 'flex', justifyContent: 'center', '.MuiTablePagination-toolbar': { justifyContent: 'center' } }}
       />
     </Paper>
   );
