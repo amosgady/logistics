@@ -76,11 +76,16 @@ export class PlanningService {
       },
     });
 
-    // Get available trucks
-    const truckWhere: any = { isActive: true };
-    if (userDepartment) truckWhere.department = userDepartment;
+    // Filter orders within routes if user has department scope
+    if (userDepartment) {
+      for (const route of routes) {
+        (route as any).orders = route.orders.filter((o: any) => o.department === userDepartment);
+      }
+    }
+
+    // Get available trucks (show all - a truck can carry orders from any department)
     const trucks = await prisma.truck.findMany({
-      where: truckWhere,
+      where: { isActive: true },
       orderBy: { name: 'asc' },
     });
 

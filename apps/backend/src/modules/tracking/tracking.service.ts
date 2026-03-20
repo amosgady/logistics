@@ -53,6 +53,10 @@ export class TrackingService {
     const workers = [];
 
     for (const route of routes) {
+      // Filter orders by department if user has department scope
+      if (userDepartment) {
+        (route as any).orders = route.orders.filter((o: any) => o.department === userDepartment);
+      }
       if (route.orders.length === 0) continue;
 
       // Determine worker
