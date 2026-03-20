@@ -35,8 +35,8 @@ export class DriverService {
       return { truck: null, route: null, orders: [] };
     }
 
-    // 3. Find the Route for this truck on this date (range query to avoid timezone mismatch)
-    const route = await prisma.route.findFirst({
+    // 3. Find ALL Routes for this truck on this date (multiple rounds)
+    const routes = await prisma.route.findMany({
       where: {
         truckId: assignment.truckId,
         routeDate: { gte: startOfDay, lte: endOfDay },
@@ -51,21 +51,32 @@ export class DriverService {
           orderBy: { routeSequence: 'asc' },
         },
       },
+      orderBy: { roundNumber: 'asc' },
     });
 
-    if (!route) {
-      return { truck: assignment.truck, route: null, orders: [] };
+    if (routes.length === 0) {
+      return { truck: assignment.truck, route: null, routes: [], orders: [] };
     }
+
+    // Combine all orders from all rounds
+    const allOrders = routes.flatMap((r) => r.orders);
 
     return {
       truck: assignment.truck,
       route: {
-        id: route.id,
-        routeDate: route.routeDate,
-        totalDistanceKm: route.totalDistanceKm,
-        totalTimeMinutes: route.totalTimeMinutes,
+        id: routes[0].id,
+        routeDate: routes[0].routeDate,
+        totalDistanceKm: routes.reduce((sum, r) => sum + (r.totalDistanceKm ? Number(r.totalDistanceKm) : 0), 0),
+        totalTimeMinutes: routes.reduce((sum, r) => sum + (r.totalTimeMinutes ? Number(r.totalTimeMinutes) : 0), 0),
       },
-      orders: route.orders,
+      routes: routes.map((r) => ({
+        id: r.id,
+        roundNumber: r.roundNumber,
+        totalDistanceKm: r.totalDistanceKm,
+        totalTimeMinutes: r.totalTimeMinutes,
+        orderCount: r.orders.length,
+      })),
+      orders: allOrders,
     };
   }
 
