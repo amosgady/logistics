@@ -51,8 +51,32 @@ export class GeocodingService {
    */
   private buildAddressVariations(address: string, city: string): string[] {
     const variations: string[] = [];
-    const trimmedAddress = address.trim();
+    let trimmedAddress = address.trim();
     const trimmedCity = city.trim();
+
+    // Expand common Hebrew abbreviations
+    const abbreviations: [RegExp, string][] = [
+      [/^שח"ל\b/,  'שדרות חיילי הנח"ל'],
+      [/^שח״ל\b/,  'שדרות חיילי הנח"ל'],
+      [/^רמב"ם\b/, 'רבי משה בן מימון'],
+      [/^רמב״ם\b/, 'רבי משה בן מימון'],
+      [/^רש"י\b/,  'רבי שלמה יצחקי'],
+      [/^רש״י\b/,  'רבי שלמה יצחקי'],
+      [/^רמח"ל\b/, 'רבי משה חיים לוצאטו'],
+      [/^רמח״ל\b/, 'רבי משה חיים לוצאטו'],
+      [/^צה"ל\b/,  'צבא הגנה לישראל'],
+      [/^צה״ל\b/,  'צבא הגנה לישראל'],
+      [/^אצ"ל\b/,  'ארגון צבאי לאומי'],
+      [/^אצ״ל\b/,  'ארגון צבאי לאומי'],
+      [/^לח"י\b/,  'לוחמי חרות ישראל'],
+      [/^לח״י\b/,  'לוחמי חרות ישראל'],
+    ];
+    for (const [pattern, replacement] of abbreviations) {
+      if (pattern.test(trimmedAddress)) {
+        trimmedAddress = trimmedAddress.replace(pattern, replacement);
+        break;
+      }
+    }
 
     // 1. Original: "address, city, ישראל"
     variations.push(`${trimmedAddress}, ${trimmedCity}, ישראל`);
