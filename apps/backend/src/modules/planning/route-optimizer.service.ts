@@ -168,10 +168,10 @@ export class RouteOptimizerService {
 
       // Update database
       for (const stop of optimizedStops) {
-        const startHour = 8;
+        // Store arrival time as Israel time: route date at 8:00 Israel time (UTC+2 = 06:00 UTC)
         const arrivalDate = new Date(route.routeDate);
-        arrivalDate.setHours(startHour, 0, 0, 0);
-        arrivalDate.setMinutes(arrivalDate.getMinutes() + stop.estimatedArrivalMinutes);
+        arrivalDate.setUTCHours(6, 0, 0, 0); // 8:00 Israel time = 06:00 UTC
+        arrivalDate.setUTCMinutes(arrivalDate.getUTCMinutes() + stop.estimatedArrivalMinutes);
 
         await prisma.order.update({
           where: { id: stop.orderId },
@@ -253,10 +253,9 @@ export class RouteOptimizerService {
 
       elapsedMinutes += waitTimePerStop; // wait at stop
 
-      const startHour = 8;
       const arrivalDate = new Date(route.routeDate);
-      arrivalDate.setHours(startHour, 0, 0, 0);
-      arrivalDate.setMinutes(arrivalDate.getMinutes() + Math.round(elapsedMinutes));
+      arrivalDate.setUTCHours(6, 0, 0, 0); // 8:00 Israel time = 06:00 UTC
+      arrivalDate.setUTCMinutes(arrivalDate.getUTCMinutes() + Math.round(elapsedMinutes));
 
       await prisma.order.update({
         where: { id: order.id },
