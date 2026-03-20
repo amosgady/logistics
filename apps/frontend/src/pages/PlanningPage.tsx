@@ -1016,11 +1016,14 @@ export default function PlanningPage() {
                                   label="בחר מתקין"
                                   onChange={(e) => setSelectedInstallerByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
                                 >
-                                  {deptInstallers.map((inst) => (
-                                    <MenuItem key={inst.id} value={inst.id}>
-                                      {inst.user.fullName}
-                                    </MenuItem>
-                                  ))}
+                                  {deptInstallers.map((inst) => {
+                                    const hasOrders = routes.some((r) => r.installerProfile?.id === inst.id && r.orders.length > 0);
+                                    return (
+                                      <MenuItem key={inst.id} value={inst.id}>
+                                        {inst.user.fullName}{hasOrders ? ' ✓' : ''}
+                                      </MenuItem>
+                                    );
+                                  })}
                                 </Select>
                               </FormControl>
                             </Box>
