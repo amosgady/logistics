@@ -879,9 +879,14 @@ export default function PlanningPage() {
                                     label="בחר משאית"
                                     onChange={(e) => setSelectedTruckByDept((prev) => ({ ...prev, [dept]: e.target.value as number }))}
                                   >
-                                    {deptTrucks.map((t: any) => (
-                                      <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-                                    ))}
+                                    {deptTrucks.map((t: any) => {
+                                      const hasOrders = routes.some((r) => r.truck?.id === t.id && r.orders.length > 0);
+                                      return (
+                                        <MenuItem key={t.id} value={t.id}>
+                                          {t.name}{hasOrders ? ' ✓' : ''}
+                                        </MenuItem>
+                                      );
+                                    })}
                                   </Select>
                                 </FormControl>
                               </Box>
