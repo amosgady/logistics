@@ -151,7 +151,6 @@ export default function InstallersPage() {
               <SortableTableCell label="שם מתקין" sortKey="user.fullName" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="שם משתמש" sortKey="user.username" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="טלפון" sortKey="user.phone" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="אזור" sortKey="zone.nameHe" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="שעות עבודה" sortKey="startTime" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="סטטוס" sortKey="user.isActive" sortConfig={sortConfig} onSort={handleSort} />
@@ -164,13 +163,6 @@ export default function InstallersPage() {
                 <TableCell>{installer.user.fullName}</TableCell>
                 <TableCell>{installer.user.username}</TableCell>
                 <TableCell>{installer.user.phone || '-'}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={installer.department ? (INSTALLER_DEPARTMENT_LABELS[installer.department] || installer.department) : '-'}
-                    size="small"
-                    color="primary"
-                  />
-                </TableCell>
                 <TableCell>{installer.zone?.nameHe || 'לא מוגדר'}</TableCell>
                 <TableCell>{installer.startTime} - {installer.endTime}</TableCell>
                 <TableCell>
@@ -209,7 +201,7 @@ export default function InstallersPage() {
               </TableRow>
             ))}
             {installers.length === 0 && (
-              <TableRow><TableCell colSpan={8} align="center">אין מתקינים</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} align="center">אין מתקינים</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
