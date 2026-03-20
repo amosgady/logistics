@@ -208,6 +208,7 @@ model Order {
   // Installation counts
   doorCount     Int?    @map("door_count")
   handleCount   Int?    @map("handle_count")
+  price         String? @map("price")
 
   // Delivery note PDF
   deliveryNoteUrl       String? @map("delivery_note_url")

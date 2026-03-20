@@ -41,6 +41,7 @@ router.delete('/lines/:lineId', requireRole('COORDINATOR', 'ADMIN'), ordersContr
 router.delete('/:id', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteOrder);
 router.post('/validate-addresses', requireRole('COORDINATOR', 'ADMIN'), ordersController.validateAddresses);
 router.patch('/:id/delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDeliveryDate);
+router.patch('/:id/price', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePrice);
 router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateZone);
 router.patch('/:id/department', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDepartment);
 router.patch('/:id/coordination', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordination);

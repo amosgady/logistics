@@ -225,6 +225,14 @@ export class OrdersService {
     });
   }
 
+  async updatePrice(orderId: number, price: string) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { price: price || null },
+      include: { orderLines: true, zone: true },
+    });
+  }
+
   async updateZone(orderId: number, zoneId: number) {
     const zone = await prisma.zone.findUnique({ where: { id: zoneId } });
     if (!zone) {

@@ -96,6 +96,7 @@ interface Order {
   checkerNote: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
+  price: string | null;
   geocodedAddress: string | null;
   geocodeValid: boolean | null;
   orderLines: OrderLine[];
@@ -135,6 +136,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount', align: 'center' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount', align: 'center' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount', align: 'center' },
+  { id: 'price', label: 'מחיר' },
   { id: 'geocodedAddress', label: 'כתובת גוגל' },
   { id: 'deliveryNote', label: 'תעודה', align: 'center' },
   { id: 'media', label: 'מדיה', align: 'center' },
@@ -222,6 +224,58 @@ function EditablePalletCount({ order }: { order: Order }) {
       {order.palletCount}
       <EditIcon className="edit-icon" sx={{ fontSize: 12, opacity: 0, transition: 'opacity 0.2s', color: 'action.active' }} />
     </Box>
+  );
+}
+
+function EditablePrice({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(order.price || '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: (price: string) => orderApi.updatePrice(order.id, price),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    const trimmed = value.trim();
+    if (trimmed !== (order.price || '')) {
+      mutation.mutate(trimmed);
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TextField
+        inputRef={inputRef}
+        size="small"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+        variant="standard"
+        sx={{ width: 80, fontSize: 13 }}
+      />
+    );
+  }
+
+  return (
+    <Typography
+      variant="body2"
+      sx={{ cursor: 'pointer', minWidth: 40, '&:hover': { bgcolor: 'action.hover', borderRadius: 1 }, px: 0.5 }}
+      onClick={() => { setValue(order.price || ''); setEditing(true); }}
+    >
+      {order.price || '-'}
+    </Typography>
   );
 }
 
@@ -820,6 +874,8 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
+    case 'price':
+      return <EditablePrice order={order} />;
     case 'geocodedAddress':
       if (!order.geocodedAddress) return <Typography variant="caption" color="text.disabled">-</Typography>;
       return (

@@ -113,6 +113,7 @@ interface Order {
   palletCount: number;
   doorCount: number | null;
   handleCount: number | null;
+  price: string | null;
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   orderLines: OrderLine[];
@@ -488,6 +489,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                       )}
                       {order.handleCount != null && (
                         <Chip label={`ידיות: ${order.handleCount}`} size="small" variant="outlined" color="primary" />
+                      )}
+                      {order.price && (
+                        <Chip label={`מחיר: ${order.price}`} size="small" variant="outlined" color="warning" />
                       )}
                     </Box>
                   )}
