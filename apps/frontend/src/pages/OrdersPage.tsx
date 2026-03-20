@@ -194,7 +194,7 @@ export default function OrdersPage() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5">הזמנות</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center', flex: 1, mx: 2 }}>
           {selectedOrderIds.size > 0 && (
             <>
               <Button
