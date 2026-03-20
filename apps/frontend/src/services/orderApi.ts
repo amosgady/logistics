@@ -70,6 +70,9 @@ export const orderApi = {
   updatePrice: (id: number, price: string) =>
     api.patch(`/orders/${id}/price`, { price }).then((r) => r.data),
 
+  updateCoordinates: (id: number, lat: number, lng: number) =>
+    api.patch(`/orders/${id}/coordinates`, { lat, lng }).then((r) => r.data),
+
   updateCoordination: (id: number, data: { coordinationStatus: string; coordinationNotes?: string }) =>
     api.patch(`/orders/${id}/coordination`, data).then((r) => r.data),
 

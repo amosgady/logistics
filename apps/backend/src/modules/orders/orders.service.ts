@@ -240,6 +240,14 @@ export class OrdersService {
     });
   }
 
+  async updateCoordinates(orderId: number, lat: number, lng: number) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { latitude: lat, longitude: lng, geocodeValid: true, geocodedAddress: `ידני: ${lat}, ${lng}` },
+      include: { orderLines: true, zone: true },
+    });
+  }
+
   async updateZone(orderId: number, zoneId: number) {
     const zone = await prisma.zone.findUnique({ where: { id: zoneId } });
     if (!zone) {

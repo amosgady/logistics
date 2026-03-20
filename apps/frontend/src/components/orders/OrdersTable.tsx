@@ -18,6 +18,12 @@ import {
   Tooltip,
   Select,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  Alert,
 } from '@mui/material';
 import {
   KeyboardArrowDown as ExpandIcon,
@@ -28,6 +34,7 @@ import {
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
   StickyNote2 as NoteIcon,
+  MyLocation as CoordIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -276,6 +283,77 @@ function EditablePrice({ order }: { order: Order }) {
     >
       {order.price || '-'}
     </Typography>
+  );
+}
+
+function CoordinateEditor({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [coordText, setCoordText] = useState('');
+  const [error, setError] = useState('');
+
+  const mutation = useMutation({
+    mutationFn: ({ lat, lng }: { lat: number; lng: number }) => orderApi.updateCoordinates(order.id, lat, lng),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      setOpen(false);
+    },
+  });
+
+  const handleSave = () => {
+    setError('');
+    // Parse "31.2543, 34.7891" or "31.2543 34.7891"
+    const cleaned = coordText.trim().replace(/\s+/g, ' ');
+    const parts = cleaned.split(/[,\s]+/).filter(Boolean);
+    if (parts.length !== 2) {
+      setError('הזן קואורדינטות בפורמט: lat, lng (למשל 31.2543, 34.7891)');
+      return;
+    }
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng) || lat < 29 || lat > 34 || lng < 34 || lng > 36) {
+      setError('קואורדינטות לא תקינות. ודא שהן בטווח ישראל');
+      return;
+    }
+    mutation.mutate({ lat, lng });
+  };
+
+  return (
+    <>
+      <Tooltip title="עדכן קואורדינטות ידנית">
+        <IconButton size="small" color="warning" onClick={() => { setCoordText(''); setError(''); setOpen(true); }}>
+          <CoordIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>עדכון קואורדינטות ידני</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            <strong>{order.address}, {order.city}</strong>
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+            חפש את הכתובת ב-Google Maps, לחץ ימני על הנקודה, והעתק את הקואורדינטות. הדבק כאן:
+          </Typography>
+          <TextField
+            fullWidth
+            label="קואורדינטות (lat, lng)"
+            placeholder="31.2543, 34.7891"
+            value={coordText}
+            onChange={(e) => setCoordText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); }}
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+          {error && <Alert severity="error" sx={{ mt: 1 }}>{error}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpen(false)}>ביטול</Button>
+          <Button variant="contained" onClick={handleSave} disabled={mutation.isPending}>
+            {mutation.isPending ? 'שומר...' : 'שמור'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
@@ -877,20 +955,26 @@ function renderCellContent(
     case 'price':
       return <EditablePrice order={order} />;
     case 'geocodedAddress':
-      if (!order.geocodedAddress) return <Typography variant="caption" color="text.disabled">-</Typography>;
       return (
-        <Typography
-          variant="caption"
-          sx={{
-            color: order.geocodeValid === false ? 'error.main' : 'text.primary',
-            fontWeight: order.geocodeValid === false ? 'bold' : 'normal',
-            bgcolor: order.geocodeValid === false ? 'error.50' : undefined,
-            px: order.geocodeValid === false ? 0.5 : 0,
-            borderRadius: 0.5,
-          }}
-        >
-          {order.geocodedAddress}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {order.geocodedAddress ? (
+            <Typography
+              variant="caption"
+              sx={{
+                color: order.geocodeValid === false ? 'error.main' : 'text.primary',
+                fontWeight: order.geocodeValid === false ? 'bold' : 'normal',
+                bgcolor: order.geocodeValid === false ? 'error.50' : undefined,
+                px: order.geocodeValid === false ? 0.5 : 0,
+                borderRadius: 0.5,
+              }}
+            >
+              {order.geocodedAddress}
+            </Typography>
+          ) : (
+            <Typography variant="caption" color="text.disabled">-</Typography>
+          )}
+          {order.geocodeValid === false && <CoordinateEditor order={order} />}
+        </Box>
       );
     case 'deliveryNote':
       return order.deliveryNoteUrl ? (

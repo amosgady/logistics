@@ -44,6 +44,7 @@ router.patch('/:id/delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersCo
 router.patch('/:id/price', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePrice);
 router.patch('/:id/zone', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateZone);
 router.patch('/:id/department', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateDepartment);
+router.patch('/:id/coordinates', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordinates);
 router.patch('/:id/coordination', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateCoordination);
 router.patch('/:id/pallet-count', requireRole('COORDINATOR', 'ADMIN'), ordersController.updatePalletCount);
 router.patch('/:id/address', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateAddress);

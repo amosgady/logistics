@@ -140,6 +140,16 @@ export const ordersController = {
     res.json({ success: true, data: order });
   }),
 
+  updateCoordinates: asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    const { lat, lng } = req.body;
+    if (typeof lat !== 'number' || typeof lng !== 'number') {
+      throw new AppError(400, 'VALIDATION_ERROR', 'נדרשים lat ו-lng מספריים');
+    }
+    const order = await ordersService.updateCoordinates(id, lat, lng);
+    res.json({ success: true, data: order });
+  }),
+
   updateDepartment: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const { department } = req.body;
