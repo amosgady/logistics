@@ -973,7 +973,7 @@ function renderCellContent(
           ) : (
             <Typography variant="caption" color="text.disabled">-</Typography>
           )}
-          {order.geocodeValid === false && <CoordinateEditor order={order} />}
+          <CoordinateEditor order={order} />
         </Box>
       );
     case 'deliveryNote':
