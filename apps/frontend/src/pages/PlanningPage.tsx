@@ -1225,7 +1225,7 @@ export default function PlanningPage() {
               </Box>
 
               {/* List section */}
-              <Box sx={{ flex: layoutMode === 'map' ? '0 0 35%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 65%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease' }}>
+              <Box sx={{ flex: layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease' }}>
                 {/* Per-stop details table */}
                 {(manualStops || optimizeResult.optimizedStops)?.length > 0 && (
                   <Box sx={{ overflowX: 'auto' }}>
