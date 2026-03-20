@@ -150,7 +150,7 @@ export class RouteOptimizerService {
           cumulativeTravelMinutes: Math.round(cumulativeTravelMinutes),
           legDistanceKm,
           legDurationMinutes: Math.round(travelMinutes),
-          timeWindow: elapsedMinutes <= maxWorkMinutes / 2 ? 'MORNING' : 'AFTERNOON',
+          timeWindow: elapsedMinutes <= 240 ? 'MORNING' : 'AFTERNOON', // 4 hours from 8:00 = noon (12:00)
         });
 
         elapsedMinutes += waitTimePerStop; // wait at stop
@@ -248,7 +248,7 @@ export class RouteOptimizerService {
         cumulativeTravelMinutes: Math.round(cumulativeTravelMinutes),
         legDistanceKm: 0,
         legDurationMinutes: estimatedTravelPerStop,
-        timeWindow: elapsedMinutes <= maxWorkMinutes / 2 ? 'MORNING' : 'AFTERNOON',
+        timeWindow: elapsedMinutes <= 240 ? 'MORNING' : 'AFTERNOON', // 4 hours from 8:00 = noon (12:00)
       });
 
       elapsedMinutes += waitTimePerStop; // wait at stop
