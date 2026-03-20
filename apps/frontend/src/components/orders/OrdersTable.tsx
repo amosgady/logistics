@@ -1237,7 +1237,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
 
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden' }}>
-      <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)', direction: 'rtl' }}>
+      <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)', direction: 'ltr', '& > table': { direction: 'rtl' } }}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
