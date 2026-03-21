@@ -845,7 +845,6 @@ export default function CoordinationPage() {
           }}
         />
       </Paper>
-      </Box>
 
       {isLoading ? (
         <LinearProgress />
