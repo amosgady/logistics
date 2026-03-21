@@ -93,7 +93,7 @@ export default function Sidebar() {
           boxSizing: 'border-box',
           bgcolor: '#f8fafc',
           borderLeft: 'none',
-          borderRight: `1px solid #e2e8f0`,
+          border: 'none',
         },
       }}
     >
