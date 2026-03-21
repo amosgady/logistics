@@ -18,12 +18,12 @@ export default function SortableTableCell({
   const isActive = sortConfig?.key === sortKey;
 
   return (
-    <TableCell {...cellProps}>
+    <TableCell {...cellProps} sx={{ ...cellProps.sx, fontWeight: 700, color: '#1e3a5f' }}>
       <TableSortLabel
         active={isActive}
         direction={isActive ? sortConfig!.direction : 'asc'}
         onClick={() => onSort(sortKey)}
-        sx={{ fontWeight: isActive ? 700 : undefined }}
+        sx={{ fontWeight: 700, color: '#1e3a5f !important' }}
       >
         {label}
       </TableSortLabel>

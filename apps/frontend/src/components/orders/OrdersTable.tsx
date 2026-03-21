@@ -1054,6 +1054,8 @@ function DraggableHeader({
         cursor: 'grab',
         borderRight: isDragOver ? '2px solid #1976d2' : undefined,
         '&:active': { cursor: 'grabbing' },
+        fontWeight: 700,
+        color: '#1e3a5f',
       }}
     >
       {col.label}

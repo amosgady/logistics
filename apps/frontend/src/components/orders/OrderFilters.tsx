@@ -5,7 +5,6 @@ import {
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  DateRange as DateRangeIcon,
   ChevronRight as NextIcon,
   ChevronLeft as PrevIcon,
 } from '@mui/icons-material';
@@ -52,6 +51,18 @@ const outlineSx = {
     '& .MuiOutlinedInput-notchedOutline': { borderColor: HEADER_COLOR },
     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: HEADER_COLOR },
   },
+};
+
+// Floating label style matching MUI InputLabel
+const floatingLabelSx = {
+  position: 'absolute' as const,
+  top: -8,
+  right: 10,
+  bgcolor: '#f5f7fa',
+  px: 0.5,
+  fontSize: '0.75rem',
+  color: 'rgba(0,0,0,0.6)',
+  lineHeight: 1,
 };
 
 export default function OrderFilters() {
@@ -133,84 +144,47 @@ export default function OrderFilters() {
         </Select>
       </FormControl>
 
-      {/* WMS + Checker in bordered box */}
+      {/* WMS + Checker in bordered box with floating label */}
       <Box sx={{
+        position: 'relative',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         border: '1px solid',
         borderColor: HEADER_COLOR,
         borderRadius: 2,
         px: 1,
-        py: 0,
-        bgcolor: 'white',
         height: 40,
-        justifyContent: 'center',
+        bgcolor: 'white',
       }}>
-        <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary', mb: 0.25 }}>
-          סינון
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={filters.sentToWms || false}
-                onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
-                size="small"
-                sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
-              />
-            }
-            label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>WMS</Typography>}
-            sx={{ mx: 0, gap: 0.25 }}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={filters.sentToChecker || false}
-                onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
-                size="small"
-                sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
-              />
-            }
-            label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>בודק</Typography>}
-            sx={{ mx: 0, gap: 0.25 }}
-          />
-        </Box>
+        <Typography sx={floatingLabelSx}>סינון</Typography>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={filters.sentToWms || false}
+              onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
+              size="small"
+              sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+            />
+          }
+          label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>WMS</Typography>}
+          sx={{ mx: 0, gap: 0.25 }}
+        />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={filters.sentToChecker || false}
+              onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
+              size="small"
+              sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+            />
+          }
+          label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>בודק</Typography>}
+          sx={{ mx: 0, gap: 0.25 }}
+        />
       </Box>
 
       {/* Spacer between filter and date sections */}
       <Box sx={{ width: 24 }} />
-
-      {/* Date navigation */}
-      <Box sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        border: '1px solid',
-        borderColor: HEADER_COLOR,
-        borderRadius: 2,
-        px: 1,
-        py: 0,
-        bgcolor: 'white',
-        height: 40,
-        justifyContent: 'center',
-      }}>
-        <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary', mb: 0.25 }}>
-          הזז יום
-        </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Tooltip title="יום קודם">
-            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, -1), deliveryDateTo: shiftDate(currentDate, -1), page: 1 })}>
-              <NextIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="יום הבא">
-            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, 1), deliveryDateTo: shiftDate(currentDate, 1), page: 1 })}>
-              <PrevIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </Box>
 
       {/* Date range */}
       <TextField
@@ -231,10 +205,11 @@ export default function OrderFilters() {
         InputLabelProps={{ shrink: true }}
         sx={{ width: 160, ...outlineSx }}
       />
+
+      {/* תאריך קרוב - button style */}
       <Button
-        variant="outlined"
+        variant="contained"
         size="small"
-        startIcon={<DateRangeIcon />}
         onClick={() => {
           const nearDate = getNearDate();
           setFilters({ deliveryDateFrom: nearDate, deliveryDateTo: nearDate, page: 1 });
@@ -243,15 +218,39 @@ export default function OrderFilters() {
           whiteSpace: 'nowrap',
           borderRadius: 2,
           textTransform: 'none',
-          bgcolor: 'white',
-          borderColor: HEADER_COLOR,
-          color: HEADER_COLOR,
+          bgcolor: HEADER_COLOR,
+          color: 'white',
           height: 40,
-          '&:hover': { borderColor: HEADER_COLOR, bgcolor: 'rgba(30,58,95,0.05)' },
+          '&:hover': { bgcolor: '#15304f' },
         }}
       >
         תאריך קרוב
       </Button>
+
+      {/* Date navigation with floating label */}
+      <Box sx={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        border: '1px solid',
+        borderColor: HEADER_COLOR,
+        borderRadius: 2,
+        px: 1,
+        height: 40,
+        bgcolor: 'white',
+      }}>
+        <Typography sx={floatingLabelSx}>הזז יום</Typography>
+        <Tooltip title="יום קודם">
+          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, -1), deliveryDateTo: shiftDate(currentDate, -1), page: 1 })}>
+            <NextIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="יום הבא">
+          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, 1), deliveryDateTo: shiftDate(currentDate, 1), page: 1 })}>
+            <PrevIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
     </Box>
   );
 }
