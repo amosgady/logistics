@@ -1,7 +1,7 @@
 import {
   Box, TextField, MenuItem, InputAdornment, Button,
   Select, InputLabel, FormControl, Checkbox, ListItemText,
-  Chip, OutlinedInput, FormControlLabel,
+  Chip, OutlinedInput, FormControlLabel, Typography, Divider,
 } from '@mui/material';
 import { Search as SearchIcon, DateRange as DateRangeIcon } from '@mui/icons-material';
 import { useOrderStore } from '../../store/orderStore';
@@ -37,21 +37,23 @@ export default function OrderFilters() {
   const { filters, setFilters } = useOrderStore();
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Filter section */}
       <TextField
         placeholder="חיפוש..."
+        size="small"
         value={filters.search || ''}
         onChange={(e) => setFilters({ search: e.target.value, page: 1 })}
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon />
+              <SearchIcon fontSize="small" />
             </InputAdornment>
           ),
         }}
-        sx={{ minWidth: 250 }}
+        sx={{ minWidth: 200 }}
       />
-      <FormControl sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: 160 }}>
         <InputLabel>סטטוס</InputLabel>
         <Select
           multiple
@@ -77,7 +79,7 @@ export default function OrderFilters() {
           ))}
         </Select>
       </FormControl>
-      <FormControl sx={{ minWidth: 200 }}>
+      <FormControl size="small" sx={{ minWidth: 160 }}>
         <InputLabel>מחלקה</InputLabel>
         <Select
           multiple
@@ -103,35 +105,6 @@ export default function OrderFilters() {
           ))}
         </Select>
       </FormControl>
-      <DateNavigator
-        date={filters.deliveryDateFrom || filters.deliveryDateTo || new Date().toISOString().slice(0, 10)}
-        onDateChange={(d) => setFilters({ deliveryDateFrom: d, deliveryDateTo: d, page: 1 })}
-      />
-      <TextField
-        type="date"
-        label="מתאריך אספקה"
-        value={filters.deliveryDateFrom || ''}
-        onChange={(e) => setFilters({ deliveryDateFrom: e.target.value || undefined, page: 1 })}
-        InputLabelProps={{ shrink: true }}
-      />
-      <TextField
-        type="date"
-        label="עד תאריך אספקה"
-        value={filters.deliveryDateTo || ''}
-        onChange={(e) => setFilters({ deliveryDateTo: e.target.value || undefined, page: 1 })}
-        InputLabelProps={{ shrink: true }}
-      />
-      <Button
-        variant="outlined"
-        startIcon={<DateRangeIcon />}
-        onClick={() => {
-          const nearDate = getNearDate();
-          setFilters({ deliveryDateFrom: nearDate, deliveryDateTo: nearDate, page: 1 });
-        }}
-        sx={{ whiteSpace: 'nowrap' }}
-      >
-        תאריך קרוב
-      </Button>
       <FormControlLabel
         control={
           <Checkbox
@@ -141,7 +114,7 @@ export default function OrderFilters() {
           />
         }
         label="נשלח ל-WMS"
-        sx={{ whiteSpace: 'nowrap' }}
+        sx={{ whiteSpace: 'nowrap', mx: 0 }}
       />
       <FormControlLabel
         control={
@@ -152,8 +125,48 @@ export default function OrderFilters() {
           />
         }
         label="נשלח לבודק"
-        sx={{ whiteSpace: 'nowrap' }}
+        sx={{ whiteSpace: 'nowrap', mx: 0 }}
       />
+
+      {/* Separator */}
+      <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+      {/* Date section */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>הזז יום</Typography>
+        <DateNavigator
+          date={filters.deliveryDateFrom || filters.deliveryDateTo || new Date().toISOString().slice(0, 10)}
+          onDateChange={(d) => setFilters({ deliveryDateFrom: d, deliveryDateTo: d, page: 1 })}
+        />
+      </Box>
+      <TextField
+        type="date"
+        label="מתאריך אספקה"
+        size="small"
+        value={filters.deliveryDateFrom || ''}
+        onChange={(e) => setFilters({ deliveryDateFrom: e.target.value || undefined, page: 1 })}
+        InputLabelProps={{ shrink: true }}
+      />
+      <TextField
+        type="date"
+        label="עד תאריך אספקה"
+        size="small"
+        value={filters.deliveryDateTo || ''}
+        onChange={(e) => setFilters({ deliveryDateTo: e.target.value || undefined, page: 1 })}
+        InputLabelProps={{ shrink: true }}
+      />
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<DateRangeIcon />}
+        onClick={() => {
+          const nearDate = getNearDate();
+          setFilters({ deliveryDateFrom: nearDate, deliveryDateTo: nearDate, page: 1 });
+        }}
+        sx={{ whiteSpace: 'nowrap' }}
+      >
+        תאריך קרוב
+      </Button>
     </Box>
   );
 }
