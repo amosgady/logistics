@@ -40,6 +40,7 @@ export default function OrdersPage() {
   const [bulkDate, setBulkDate] = useState('');
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
+  const [showNoZoneOnly, setShowNoZoneOnly] = useState(false);
   const { data, isLoading, error } = useOrders();
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
@@ -215,7 +216,7 @@ export default function OrdersPage() {
           הזמנות
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
-          ({showSuspiciousOnly ? `${orders.filter((o: any) => o.geocodeValid === false).length} חשודות` : total})
+          ({showSuspiciousOnly ? `${orders.filter((o: any) => o.geocodeValid === false).length} חשודות` : showNoZoneOnly ? `${orders.filter((o: any) => !o.zoneId).length} ללא אזור` : total})
         </Typography>
         <Button
           variant="contained"
@@ -258,7 +259,7 @@ export default function OrdersPage() {
           variant="contained"
           size="small"
           startIcon={<WarningIcon />}
-          onClick={() => setShowSuspiciousOnly(!showSuspiciousOnly)}
+          onClick={() => { setShowSuspiciousOnly(!showSuspiciousOnly); if (!showSuspiciousOnly) setShowNoZoneOnly(false); }}
           sx={{
             bgcolor: showSuspiciousOnly ? '#ff9800' : 'rgba(255,255,255,0.15)',
             color: showSuspiciousOnly ? '#000' : 'white',
@@ -270,6 +271,23 @@ export default function OrdersPage() {
           }}
         >
           {showSuspiciousOnly ? '⬅ הצג הכל' : 'כתובות חשודות'}
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<MapIcon />}
+          onClick={() => { setShowNoZoneOnly(!showNoZoneOnly); if (!showNoZoneOnly) setShowSuspiciousOnly(false); }}
+          sx={{
+            bgcolor: showNoZoneOnly ? '#ff9800' : 'rgba(255,255,255,0.15)',
+            color: showNoZoneOnly ? '#000' : 'white',
+            fontWeight: showNoZoneOnly ? 700 : 400,
+            '&:hover': { bgcolor: showNoZoneOnly ? '#f57c00' : 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+            border: showNoZoneOnly ? '2px solid #fff' : 'none',
+          }}
+        >
+          {showNoZoneOnly ? '⬅ הצג הכל' : 'ללא אזור'}
         </Button>
         <Button
           variant="contained"
@@ -388,8 +406,8 @@ export default function OrdersPage() {
       )}
 
       <OrdersTable
-        orders={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false) : orders}
-        total={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false).length : total}
+        orders={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false) : showNoZoneOnly ? orders.filter((o: any) => !o.zoneId) : orders}
+        total={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false).length : showNoZoneOnly ? orders.filter((o: any) => !o.zoneId).length : total}
         loading={isLoading}
         onUpdateDeliveryDate={(id, deliveryDate) => {
           deliveryDateMutation.mutate({ id, deliveryDate }, {
