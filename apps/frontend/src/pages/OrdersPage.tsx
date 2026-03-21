@@ -21,6 +21,7 @@ import {
   CalendarMonth as CalendarIcon,
   Map as MapIcon,
   LocationOn as LocationIcon,
+  WarningAmber as WarningIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
@@ -38,6 +39,7 @@ export default function OrdersPage() {
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState('');
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+  const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
   const { data, isLoading, error } = useOrders();
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
@@ -254,6 +256,21 @@ export default function OrdersPage() {
         <Button
           variant="contained"
           size="small"
+          startIcon={<WarningIcon />}
+          onClick={() => setShowSuspiciousOnly(!showSuspiciousOnly)}
+          sx={{
+            bgcolor: showSuspiciousOnly ? '#f44336' : 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: showSuspiciousOnly ? '#d32f2f' : 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          {showSuspiciousOnly ? 'הצג הכל' : 'כתובות חשודות'}
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
           startIcon={<ImportIcon />}
           onClick={() => setImportOpen(true)}
           sx={{
@@ -368,8 +385,8 @@ export default function OrdersPage() {
       )}
 
       <OrdersTable
-        orders={orders}
-        total={total}
+        orders={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false) : orders}
+        total={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false).length : total}
         loading={isLoading}
         onUpdateDeliveryDate={(id, deliveryDate) => {
           deliveryDateMutation.mutate({ id, deliveryDate }, {
