@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Paper,
 } from '@mui/material';
 import {
   Upload as ImportIcon,
@@ -192,20 +193,47 @@ export default function OrdersPage() {
 
   return (
     <Box>
-      {/* Title + action buttons row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-        <Typography variant="h5">הזמנות</Typography>
+      {/* Dark header bar - inspired by Nimble CRM */}
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 0,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', ml: 1 }}>
+          הזמנות
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
+          ({total})
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
         <Button
-          variant="outlined"
+          variant="contained"
           size="small"
           startIcon={<MapIcon />}
           onClick={() => reassignZonesMutation.mutate()}
           disabled={reassignZonesMutation.isPending}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
         >
           שיוך אזורים
         </Button>
         <Button
-          variant="outlined"
+          variant="contained"
           size="small"
           startIcon={<LocationIcon />}
           onClick={() => {
@@ -215,6 +243,13 @@ export default function OrdersPage() {
             validateAddressesMutation.mutate(ids);
           }}
           disabled={validateAddressesMutation.isPending}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
         >
           {validateAddressesMutation.isPending ? 'מאמת...' : `אימות כתובות${selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}`}
         </Button>
@@ -223,67 +258,110 @@ export default function OrdersPage() {
           size="small"
           startIcon={<ImportIcon />}
           onClick={() => setImportOpen(true)}
+          sx={{
+            bgcolor: '#2196f3',
+            color: 'white',
+            '&:hover': { bgcolor: '#1976d2' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
         >
           יבוא CSV
         </Button>
+      </Paper>
 
-        {selectedOrderIds.size > 0 && (
-          <>
-            <Box sx={{ mx: 1 }} />
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<CalendarIcon />}
-              onClick={() => setBulkDateDialogOpen(true)}
-            >
-              שנה תאריך אספקה ({selectedOrderIds.size})
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<MoveIcon />}
-              onClick={handleMoveToPlanning}
-              disabled={bulkStatusMutation.isPending || !allSelectedPending}
-              title={!allSelectedPending ? 'העברה לתכנון אפשרית רק מסטטוס בהמתנה' : ''}
-            >
-              העבר לתכנון ({selectedOrderIds.size})
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              color="error"
-              startIcon={<CancelIcon />}
-              onClick={handleCancel}
-              disabled={bulkStatusMutation.isPending || hasLockedOrders}
-              title={hasLockedOrders ? 'לא ניתן לשנות סטטוס להזמנות שנשלחו לנהג או הושלמו' : ''}
-            >
-              ביטול ({selectedOrderIds.size})
-            </Button>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<RevertIcon />}
-              onClick={handleRevertToPending}
-              disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
-              title={!allSelectedInPlanning ? 'ניתן להחזיר להמתנה רק הזמנות בסטטוס בתכנון' : ''}
-            >
-              החזר להמתנה ({selectedOrderIds.size})
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => setDeleteDialogOpen(true)}
-              disabled={!allSelectedDeletable || bulkDeleteMutation.isPending}
-            >
-              מחיקה ({selectedOrderIds.size})
-            </Button>
-          </>
-        )}
-      </Box>
+      {/* Filter bar */}
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#f5f7fa',
+          px: 2,
+          py: 1,
+          mb: 0,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 0,
+        }}
+      >
+        <OrderFilters />
+      </Paper>
 
-      <OrderFilters />
+      {/* Selection action bar */}
+      {selectedOrderIds.size > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            bgcolor: '#e3f2fd',
+            px: 2,
+            py: 0.75,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            flexWrap: 'wrap',
+            borderBottom: '1px solid',
+            borderColor: '#90caf9',
+            borderRadius: 0,
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1565c0', ml: 1 }}>
+            {selectedOrderIds.size} נבחרו
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<CalendarIcon />}
+            onClick={() => setBulkDateDialogOpen(true)}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            שנה תאריך אספקה
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<MoveIcon />}
+            onClick={handleMoveToPlanning}
+            disabled={bulkStatusMutation.isPending || !allSelectedPending}
+            title={!allSelectedPending ? 'העברה לתכנון אפשרית רק מסטטוס בהמתנה' : ''}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            העבר לתכנון
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            color="error"
+            startIcon={<CancelIcon />}
+            onClick={handleCancel}
+            disabled={bulkStatusMutation.isPending || hasLockedOrders}
+            title={hasLockedOrders ? 'לא ניתן לשנות סטטוס להזמנות שנשלחו לנהג או הושלמו' : ''}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            ביטול
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RevertIcon />}
+            onClick={handleRevertToPending}
+            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
+            title={!allSelectedInPlanning ? 'ניתן להחזיר להמתנה רק הזמנות בסטטוס בתכנון' : ''}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            החזר להמתנה
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            color="error"
+            startIcon={<DeleteIcon />}
+            onClick={() => setDeleteDialogOpen(true)}
+            disabled={!allSelectedDeletable || bulkDeleteMutation.isPending}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            מחיקה
+          </Button>
+        </Paper>
+      )}
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -329,8 +407,8 @@ export default function OrdersPage() {
         <DialogActions>
           <Button onClick={() => setBulkDateDialogOpen(false)}>ביטול</Button>
           <Button
-            variant="contained"
             onClick={handleBulkDeliveryDate}
+            variant="contained"
             disabled={!bulkDate || bulkDeliveryDateMutation.isPending}
           >
             עדכן
