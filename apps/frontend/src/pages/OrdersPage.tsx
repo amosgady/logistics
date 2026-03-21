@@ -207,6 +207,7 @@ export default function OrdersPage() {
           borderRadius: '8px 8px 0 0',
           display: 'flex',
           alignItems: 'center',
+          flexWrap: 'wrap',
           gap: 1,
         }}
       >
@@ -214,7 +215,7 @@ export default function OrdersPage() {
           הזמנות
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
-          ({total})
+          ({showSuspiciousOnly ? `${orders.filter((o: any) => o.geocodeValid === false).length} חשודות` : total})
         </Typography>
         <Button
           variant="contained"
@@ -259,14 +260,16 @@ export default function OrdersPage() {
           startIcon={<WarningIcon />}
           onClick={() => setShowSuspiciousOnly(!showSuspiciousOnly)}
           sx={{
-            bgcolor: showSuspiciousOnly ? '#f44336' : 'rgba(255,255,255,0.15)',
-            color: 'white',
-            '&:hover': { bgcolor: showSuspiciousOnly ? '#d32f2f' : 'rgba(255,255,255,0.25)' },
+            bgcolor: showSuspiciousOnly ? '#ff9800' : 'rgba(255,255,255,0.15)',
+            color: showSuspiciousOnly ? '#000' : 'white',
+            fontWeight: showSuspiciousOnly ? 700 : 400,
+            '&:hover': { bgcolor: showSuspiciousOnly ? '#f57c00' : 'rgba(255,255,255,0.25)' },
             textTransform: 'none',
             borderRadius: 2,
+            border: showSuspiciousOnly ? '2px solid #fff' : 'none',
           }}
         >
-          {showSuspiciousOnly ? 'הצג הכל' : 'כתובות חשודות'}
+          {showSuspiciousOnly ? '⬅ הצג הכל' : 'כתובות חשודות'}
         </Button>
         <Button
           variant="contained"
