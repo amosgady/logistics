@@ -48,7 +48,7 @@ export default function TrackingPage() {
           bgcolor: '#1e3a5f',
           color: 'white',
           px: 2,
-          py: 1,
+          py: 0,
           mb: 2,
           borderRadius: '8px 8px 0 0',
           display: 'flex',
@@ -56,7 +56,7 @@ export default function TrackingPage() {
           gap: 1,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
           מעקב שטח
         </Typography>
         <ToggleButtonGroup

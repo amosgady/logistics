@@ -784,7 +784,7 @@ export default function CoordinationPage() {
           bgcolor: '#1e3a5f',
           color: 'white',
           px: 2,
-          py: 1,
+          py: 0,
           mb: 0,
           borderRadius: '8px 8px 0 0',
           display: 'flex',
@@ -792,7 +792,7 @@ export default function CoordinationPage() {
           gap: 1,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
           תיאום אספקות
         </Typography>
         <Button
