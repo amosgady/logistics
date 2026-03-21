@@ -137,6 +137,7 @@ function RouteCard({
   isOptimizing,
   isSendingToCoordination,
   truckColors,
+  usedColors,
   onSetColor,
   onAddRound,
   onSetDriverName,
@@ -150,6 +151,7 @@ function RouteCard({
   isOptimizing: boolean;
   isSendingToCoordination: boolean;
   truckColors: { department: string; color: string }[];
+  usedColors: string[];
   onSetColor: (color: string | null) => void;
   onAddRound: () => void;
   onSetDriverName: (name: string | null) => void;
@@ -217,7 +219,7 @@ function RouteCard({
                 >
                   <MenuItem value=""><em>ללא צבע</em></MenuItem>
                   {availableColors.map((c) => (
-                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                    <MenuItem key={c} value={c}>{usedColors.includes(c) && c !== route.color ? '✓ ' : ''}{c}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -505,6 +507,7 @@ export default function PlanningPage() {
   // Split routes
   const truckRoutes = routes.filter((r) => !!r.truck);
   const installerRoutes = routes.filter((r) => !!r.installerProfile);
+  const usedColors = routes.filter((r) => r.color).map((r) => r.color!);
 
   const assignMutation = useMutation({
     mutationFn: ({ orderId, truckId }: { orderId: number; truckId: number }) =>
@@ -1113,6 +1116,7 @@ export default function PlanningPage() {
                     isOptimizing={optimizingRouteId === route.id}
                     isSendingToCoordination={sendToCoordinationMutation.isPending}
                     truckColors={truckColors}
+                    usedColors={usedColors}
                     onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                     onAddRound={() => addRoundMutation.mutate(route.id)}
                     onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}
@@ -1145,6 +1149,7 @@ export default function PlanningPage() {
                       isOptimizing={optimizingRouteId === route.id}
                       isSendingToCoordination={sendToCoordinationMutation.isPending}
                       truckColors={truckColors}
+                      usedColors={usedColors}
                       onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                       onAddRound={() => addRoundMutation.mutate(route.id)}
                     onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}

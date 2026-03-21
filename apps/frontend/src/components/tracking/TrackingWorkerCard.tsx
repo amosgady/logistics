@@ -16,6 +16,7 @@ import {
   RemoveCircle as PartialIcon,
   HourglassEmpty as PendingIcon,
 } from '@mui/icons-material';
+import { DEPARTMENT_LABELS } from '../../constants/departments';
 import DeliveryMediaDialog from '../common/DeliveryMediaDialog';
 
 interface DeliveryPhoto {
@@ -115,7 +116,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
               <Typography variant="caption" color="text.secondary">
                 {worker.type === 'DRIVER'
                   ? worker.truckName || 'נהג'
-                  : worker.department || 'מתקין'}
+                  : (worker.department && DEPARTMENT_LABELS[worker.department]) || 'מתקין'}
                 {worker.roundNumber > 1 && ` | סבב ${worker.roundNumber}`}
                 {worker.driverName && ` | נהג: ${worker.driverName}`}
               </Typography>
