@@ -133,34 +133,53 @@ export default function OrderFilters() {
         </Select>
       </FormControl>
 
-      {/* WMS + Checker */}
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={filters.sentToWms || false}
-            onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
-            size="small"
-            sx={{ color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+      {/* WMS + Checker in bordered box */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        border: '1px solid',
+        borderColor: HEADER_COLOR,
+        borderRadius: 2,
+        px: 1,
+        py: 0,
+        bgcolor: 'white',
+        height: 40,
+        justifyContent: 'center',
+      }}>
+        <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary', mb: 0.25 }}>
+          סינון
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={filters.sentToWms || false}
+                onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
+                size="small"
+                sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+              />
+            }
+            label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>WMS</Typography>}
+            sx={{ mx: 0, gap: 0.25 }}
           />
-        }
-        label={<Typography variant="body2">WMS</Typography>}
-        sx={{ mx: 0 }}
-      />
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={filters.sentToChecker || false}
-            onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
-            size="small"
-            sx={{ color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={filters.sentToChecker || false}
+                onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
+                size="small"
+                sx={{ p: 0.25, color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
+              />
+            }
+            label={<Typography variant="caption" sx={{ fontSize: '0.75rem' }}>בודק</Typography>}
+            sx={{ mx: 0, gap: 0.25 }}
           />
-        }
-        label={<Typography variant="body2">בודק</Typography>}
-        sx={{ mx: 0 }}
-      />
+        </Box>
+      </Box>
 
-      {/* Separator */}
-      <Box sx={{ width: '1px', height: 32, bgcolor: HEADER_COLOR, mx: 0.5, opacity: 0.4 }} />
+      {/* Spacer between filter and date sections */}
+      <Box sx={{ width: 24 }} />
 
       {/* Date navigation */}
       <Box sx={{
@@ -171,10 +190,12 @@ export default function OrderFilters() {
         borderColor: HEADER_COLOR,
         borderRadius: 2,
         px: 1,
-        py: 0.25,
+        py: 0,
         bgcolor: 'white',
+        height: 40,
+        justifyContent: 'center',
       }}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}>
+        <Typography variant="caption" sx={{ fontSize: '0.65rem', lineHeight: 1, color: 'text.secondary', mb: 0.25 }}>
           הזז יום
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -225,6 +246,7 @@ export default function OrderFilters() {
           bgcolor: 'white',
           borderColor: HEADER_COLOR,
           color: HEADER_COLOR,
+          height: 40,
           '&:hover': { borderColor: HEADER_COLOR, bgcolor: 'rgba(30,58,95,0.05)' },
         }}
       >
