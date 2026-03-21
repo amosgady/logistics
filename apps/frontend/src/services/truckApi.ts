@@ -12,7 +12,8 @@ export const truckApi = {
     hasCrane?: boolean;
     maxWeightKg: number;
     maxPallets: number;
-    workHoursPerDay: number;
+    startTime: string;
+    endTime: string;
     waitTimePerStop: number;
   }) => api.post('/trucks', data).then((r) => r.data),
 

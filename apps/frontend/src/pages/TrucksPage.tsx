@@ -22,7 +22,8 @@ interface Truck {
   truckType: string | null;
   maxWeightKg: string;
   maxPallets: number;
-  workHoursPerDay: string;
+  startTime: string;
+  endTime: string;
   waitTimePerStop: number;
   isActive: boolean;
   finalAddress: string | null;
@@ -37,7 +38,8 @@ const emptyTruck = {
   truckType: '',
   maxWeightKg: 10000,
   maxPallets: 16,
-  workHoursPerDay: 10,
+  startTime: '08:00',
+  endTime: '17:00',
   waitTimePerStop: 15,
   finalAddress: '',
   department: '',
@@ -94,7 +96,8 @@ export default function TrucksPage() {
         hasCrane: truck.hasCrane,
         maxWeightKg: Number(truck.maxWeightKg),
         maxPallets: truck.maxPallets,
-        workHoursPerDay: Number(truck.workHoursPerDay),
+        startTime: truck.startTime || '08:00',
+        endTime: truck.endTime || '17:00',
         waitTimePerStop: truck.waitTimePerStop,
         finalAddress: truck.finalAddress || '',
         department: truck.department || '',
@@ -171,7 +174,7 @@ export default function TrucksPage() {
               <SortableTableCell label="סוג" sortKey="truckType" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label={'משקל מקס\' (ק"ג)'} sortKey="maxWeightKg" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="משטחים מקס'" sortKey="maxPallets" sortConfig={sortConfig} onSort={handleSort} />
-              <SortableTableCell label="שעות עבודה" sortKey="workHoursPerDay" sortConfig={sortConfig} onSort={handleSort} />
+              <SortableTableCell label="שעות עבודה" sortKey="startTime" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="המתנה בנקודה (דק')" sortKey="waitTimePerStop" sortConfig={sortConfig} onSort={handleSort} />
               <SortableTableCell label="מחלקה" sortKey="department" sortConfig={sortConfig} onSort={handleSort} />
               <TableCell>פעולות</TableCell>
@@ -192,7 +195,7 @@ export default function TrucksPage() {
                 <TableCell>{truck.truckType || '-'}</TableCell>
                 <TableCell>{Number(truck.maxWeightKg).toLocaleString()}</TableCell>
                 <TableCell>{truck.maxPallets}</TableCell>
-                <TableCell>{Number(truck.workHoursPerDay)}</TableCell>
+                <TableCell>{truck.startTime} - {truck.endTime}</TableCell>
                 <TableCell>{truck.waitTimePerStop}</TableCell>
                 <TableCell>{truck.department ? DEPARTMENT_LABELS[truck.department] || truck.department : '-'}</TableCell>
                 <TableCell>
@@ -228,7 +231,8 @@ export default function TrucksPage() {
             </TextField>
             <TextField label='משקל מקסימלי (ק"ג)' type="number" value={form.maxWeightKg} onChange={(e) => setForm({ ...form, maxWeightKg: Number(e.target.value) })} />
             <TextField label="כמות משטחים מקסימלית" type="number" value={form.maxPallets} onChange={(e) => setForm({ ...form, maxPallets: Number(e.target.value) })} />
-            <TextField label="שעות עבודה ביום" type="number" value={form.workHoursPerDay} onChange={(e) => setForm({ ...form, workHoursPerDay: Number(e.target.value) })} />
+            <TextField label="שעת התחלה" type="time" value={form.startTime} onChange={(e) => setForm({ ...form, startTime: e.target.value })} InputLabelProps={{ shrink: true }} />
+            <TextField label="שעת סיום" type="time" value={form.endTime} onChange={(e) => setForm({ ...form, endTime: e.target.value })} InputLabelProps={{ shrink: true }} />
             <TextField label="זמן המתנה בנקודה (דקות)" type="number" value={form.waitTimePerStop} onChange={(e) => setForm({ ...form, waitTimePerStop: Number(e.target.value) })} />
             <TextField select label="מחלקה" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}>
               <MenuItem value="">ללא</MenuItem>

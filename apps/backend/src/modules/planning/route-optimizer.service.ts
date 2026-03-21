@@ -59,7 +59,9 @@ export class RouteOptimizerService {
 
     if (route.truck) {
       waitTimePerStop = route.truck.waitTimePerStop;
-      maxWorkMinutes = Number(route.truck.workHoursPerDay) * 60;
+      const truckStartMinutes = parseTimeString(route.truck.startTime || '08:00');
+      const truckEndMinutes = parseTimeString(route.truck.endTime || '17:00');
+      maxWorkMinutes = truckEndMinutes - truckStartMinutes;
     } else if (route.installerProfile) {
       const dept = route.installerProfile.department || 'SHOWER_INSTALLATION';
       waitTimePerStop = await settingsService.getWaitTimeForDepartment(dept);

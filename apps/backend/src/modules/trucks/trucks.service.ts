@@ -23,7 +23,8 @@ export class TrucksService {
     hasCrane?: boolean;
     maxWeightKg: number;
     maxPallets: number;
-    workHoursPerDay: number;
+    startTime: string;
+    endTime: string;
     waitTimePerStop: number;
     department?: Department;
   }) {
@@ -37,7 +38,8 @@ export class TrucksService {
     hasCrane: boolean;
     maxWeightKg: number;
     maxPallets: number;
-    workHoursPerDay: number;
+    startTime: string;
+    endTime: string;
     waitTimePerStop: number;
     isActive: boolean;
     department: Department | null;
