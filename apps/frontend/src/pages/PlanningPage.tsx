@@ -819,7 +819,6 @@ export default function PlanningPage() {
         >
           יומיים מהיום
         </Button>
-        <DateNavigator date={planDate} onDateChange={setPlanDate} />
         <TextField
           type="date"
           value={planDate}
@@ -837,6 +836,7 @@ export default function PlanningPage() {
             '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
           }}
         />
+        <DateNavigator date={planDate} onDateChange={setPlanDate} />
         <Button
           variant="contained"
           size="small"

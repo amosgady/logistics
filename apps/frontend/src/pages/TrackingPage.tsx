@@ -96,7 +96,6 @@ export default function TrackingPage() {
         >
           יומיים מהיום
         </Button>
-        <DateNavigator date={planDate} onDateChange={setPlanDate} />
         <TextField
           type="date"
           value={planDate}
@@ -114,6 +113,7 @@ export default function TrackingPage() {
             '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
           }}
         />
+        <DateNavigator date={planDate} onDateChange={setPlanDate} />
       </Paper>
 
       {isLoading ? (

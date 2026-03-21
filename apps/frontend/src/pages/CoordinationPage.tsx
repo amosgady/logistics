@@ -825,7 +825,6 @@ export default function CoordinationPage() {
         >
           יומיים מהיום
         </Button>
-        <DateNavigator date={planDate} onDateChange={setPlanDate} />
         <TextField
           type="date"
           value={planDate}
@@ -843,6 +842,7 @@ export default function CoordinationPage() {
             '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
           }}
         />
+        <DateNavigator date={planDate} onDateChange={setPlanDate} />
       </Paper>
 
       {isLoading ? (
