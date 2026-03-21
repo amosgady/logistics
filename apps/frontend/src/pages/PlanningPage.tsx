@@ -836,7 +836,7 @@ export default function PlanningPage() {
             '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
           }}
         />
-        <DateNavigator date={planDate} onDateChange={setPlanDate} />
+        <DateNavigator date={planDate} onDateChange={setPlanDate} showLabel darkMode />
         <Button
           variant="contained"
           size="small"

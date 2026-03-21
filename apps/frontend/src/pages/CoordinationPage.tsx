@@ -842,7 +842,7 @@ export default function CoordinationPage() {
             '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
           }}
         />
-        <DateNavigator date={planDate} onDateChange={setPlanDate} />
+        <DateNavigator date={planDate} onDateChange={setPlanDate} showLabel darkMode />
       </Paper>
 
       {isLoading ? (
