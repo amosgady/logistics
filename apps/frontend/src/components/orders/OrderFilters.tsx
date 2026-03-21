@@ -57,7 +57,7 @@ const outlineSx = {
 const floatingLabelSx = {
   position: 'absolute' as const,
   top: -8,
-  right: 10,
+  left: 10,
   bgcolor: '#f5f7fa',
   px: 0.5,
   fontSize: '0.75rem',
@@ -224,7 +224,7 @@ export default function OrderFilters() {
           '&:hover': { bgcolor: '#15304f' },
         }}
       >
-        תאריך קרוב
+        יומיים מהיום
       </Button>
 
       {/* Date navigation with floating label */}
