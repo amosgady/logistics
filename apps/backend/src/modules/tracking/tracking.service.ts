@@ -115,6 +115,11 @@ export class TrackingService {
         }
       }
 
+      // Check if route has been sent to driver
+      const sentToDriver = route.orders.some((o) =>
+        ['SENT_TO_DRIVER', 'COMPLETED'].includes(o.status)
+      );
+
       workers.push({
         type: workerType,
         userId,
@@ -126,6 +131,7 @@ export class TrackingService {
         routeColor: route.color || null,
         driverName: route.driverName || null,
         roundNumber: route.roundNumber || 1,
+        sentToDriver,
         lastLocation: location,
         orders: route.orders,
         completedCount,

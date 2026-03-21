@@ -65,6 +65,7 @@ interface TrackingWorkerData {
   routeColor: string | null;
   driverName: string | null;
   roundNumber: number;
+  sentToDriver: boolean;
   lastLocation: { lat: number; lng: number; timestamp: string } | null;
   orders: TrackingOrder[];
   completedCount: number;
@@ -100,18 +101,23 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
 
   return (
     <>
-      <Card sx={{ mb: 1.5, border: '1px solid', borderColor: 'divider' }}>
+      <Card sx={{ mb: 1.5, border: '1px solid', borderColor: worker.sentToDriver ? 'divider' : 'warning.main', opacity: worker.sentToDriver ? 1 : 0.75, bgcolor: worker.sentToDriver ? undefined : '#fff8e1' }}>
         <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
           {/* Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {worker.type === 'DRIVER' ? (
-              <TruckIcon color="primary" />
+              <TruckIcon color={worker.sentToDriver ? 'primary' : 'disabled'} />
             ) : (
-              <InstallerIcon sx={{ color: '#f57c00' }} />
+              <InstallerIcon sx={{ color: worker.sentToDriver ? '#f57c00' : '#bdbdbd' }} />
             )}
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="subtitle1" fontWeight="bold">
                 {worker.fullName}
+                {!worker.sentToDriver && (
+                  <Typography component="span" variant="caption" sx={{ color: 'warning.dark', mr: 1 }}>
+                    (טרם נשלח לנהג)
+                  </Typography>
+                )}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 {worker.type === 'DRIVER'
