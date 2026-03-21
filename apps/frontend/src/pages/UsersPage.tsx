@@ -149,12 +149,40 @@ export default function UsersPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">ניהול משתמשים</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 0,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          ניהול משתמשים
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpen()}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
           הוסף משתמש
         </Button>
-      </Box>
+      </Paper>
 
       <TableContainer component={Paper}>
         <Table size="small">

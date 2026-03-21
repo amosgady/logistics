@@ -26,7 +26,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ReactNode } from 'react';
 
-const DRAWER_WIDTH = 240;
+const DRAWER_WIDTH = 200;
+const HEADER_COLOR = '#1e3a5f';
 
 interface MenuItem {
   path: string;
@@ -66,24 +67,48 @@ export default function Sidebar() {
         '& .MuiDrawer-paper': {
           width: DRAWER_WIDTH,
           boxSizing: 'border-box',
+          bgcolor: '#f8fafc',
+          borderLeft: 'none',
+          borderRight: `1px solid #e2e8f0`,
         },
       }}
     >
-      <Toolbar>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <TruckIcon color="primary" />
-          <Typography variant="h6" noWrap>
+      <Toolbar sx={{ bgcolor: HEADER_COLOR, minHeight: '48px !important' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'center' }}>
+          <TruckIcon sx={{ color: 'white', fontSize: 20 }} />
+          <Typography variant="subtitle1" noWrap sx={{ color: 'white', fontWeight: 700 }}>
             ניהול הובלות
           </Typography>
         </Box>
       </Toolbar>
-      <Divider />
-      <List>
+      <List sx={{ pt: 0.5 }}>
         {visibleItems.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
               onClick={() => navigate(item.path)}
+              sx={{
+                py: 0.75,
+                '& .MuiListItemIcon-root': {
+                  color: HEADER_COLOR,
+                  minWidth: 36,
+                },
+                '& .MuiListItemText-primary': {
+                  color: HEADER_COLOR,
+                  fontWeight: 500,
+                  fontSize: '0.9rem',
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(30, 58, 95, 0.1)',
+                  borderRight: `3px solid ${HEADER_COLOR}`,
+                  '& .MuiListItemText-primary': {
+                    fontWeight: 700,
+                  },
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(30, 58, 95, 0.06)',
+                },
+              }}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} />
@@ -91,12 +116,34 @@ export default function Sidebar() {
           </ListItem>
         ))}
       </List>
-      <Divider />
+      <Divider sx={{ mx: 1 }} />
       <List>
         <ListItem disablePadding>
           <ListItemButton
             selected={location.pathname === '/settings'}
             onClick={() => navigate('/settings')}
+            sx={{
+              py: 0.75,
+              '& .MuiListItemIcon-root': {
+                color: HEADER_COLOR,
+                minWidth: 36,
+              },
+              '& .MuiListItemText-primary': {
+                color: HEADER_COLOR,
+                fontWeight: 500,
+                fontSize: '0.9rem',
+              },
+              '&.Mui-selected': {
+                bgcolor: 'rgba(30, 58, 95, 0.1)',
+                borderRight: `3px solid ${HEADER_COLOR}`,
+                '& .MuiListItemText-primary': {
+                  fontWeight: 700,
+                },
+              },
+              '&:hover': {
+                bgcolor: 'rgba(30, 58, 95, 0.06)',
+              },
+            }}
           >
             <ListItemIcon><SettingsIcon /></ListItemIcon>
             <ListItemText primary="הגדרות" />

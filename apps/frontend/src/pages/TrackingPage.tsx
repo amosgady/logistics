@@ -42,38 +42,80 @@ export default function TrackingPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h5">מעקב שטח</Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <ToggleButtonGroup
-            value={filter}
-            exclusive
-            onChange={(_, v) => v && setFilter(v)}
-            size="small"
-          >
-            <ToggleButton value="ALL">הכל</ToggleButton>
-            <ToggleButton value="DRIVER">נהגים</ToggleButton>
-            <ToggleButton value="INSTALLER">מתקינים</ToggleButton>
-          </ToggleButtonGroup>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<DateRangeIcon />}
-            onClick={() => setPlanDate(getNearDate())}
-          >
-            תאריך קרוב
-          </Button>
-          <DateNavigator date={planDate} onDateChange={setPlanDate} />
-          <TextField
-            type="date"
-            label="תאריך"
-            value={planDate}
-            onChange={(e) => setPlanDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            size="small"
-          />
-        </Box>
-      </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 2,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          מעקב שטח
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <ToggleButtonGroup
+          value={filter}
+          exclusive
+          onChange={(_, v) => v && setFilter(v)}
+          size="small"
+          sx={{
+            '& .MuiToggleButton-root': {
+              color: 'rgba(255,255,255,0.7)',
+              borderColor: 'rgba(255,255,255,0.3)',
+              py: 0.25,
+              fontSize: '0.8rem',
+              '&.Mui-selected': {
+                bgcolor: 'rgba(255,255,255,0.2)',
+                color: 'white',
+              },
+            },
+          }}
+        >
+          <ToggleButton value="ALL">הכל</ToggleButton>
+          <ToggleButton value="DRIVER">נהגים</ToggleButton>
+          <ToggleButton value="INSTALLER">מתקינים</ToggleButton>
+        </ToggleButtonGroup>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => setPlanDate(getNearDate())}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          יומיים מהיום
+        </Button>
+        <DateNavigator date={planDate} onDateChange={setPlanDate} />
+        <TextField
+          type="date"
+          value={planDate}
+          onChange={(e) => setPlanDate(e.target.value)}
+          size="small"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              bgcolor: 'rgba(255,255,255,0.1)',
+              color: 'white',
+              height: 32,
+              '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+            },
+            '& input': { color: 'white', py: 0.5 },
+            '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
+          }}
+        />
+      </Paper>
 
       {isLoading ? (
         <LinearProgress />

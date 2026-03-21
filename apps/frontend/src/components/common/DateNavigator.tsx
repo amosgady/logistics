@@ -1,7 +1,7 @@
 import { IconButton, Tooltip } from '@mui/material';
 import {
-  ChevronRight as NextIcon,
-  ChevronLeft as PrevIcon,
+  ChevronRight as RightIcon,
+  ChevronLeft as LeftIcon,
 } from '@mui/icons-material';
 
 function shiftDate(dateStr: string, days: number): string {
@@ -18,14 +18,14 @@ interface DateNavigatorProps {
 export default function DateNavigator({ date, onDateChange }: DateNavigatorProps) {
   return (
     <>
-      <Tooltip title="יום קודם">
-        <IconButton size="small" onClick={() => onDateChange(shiftDate(date, -1))}>
-          <NextIcon />
-        </IconButton>
-      </Tooltip>
       <Tooltip title="יום הבא">
         <IconButton size="small" onClick={() => onDateChange(shiftDate(date, 1))}>
-          <PrevIcon />
+          <RightIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="יום קודם">
+        <IconButton size="small" onClick={() => onDateChange(shiftDate(date, -1))}>
+          <LeftIcon />
         </IconButton>
       </Tooltip>
     </>

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import {
-  Box, Typography, Card, CardContent, Chip,
+  Box, Typography, Card, CardContent, Chip, Paper,
   TextField, Button, Dialog, DialogTitle, DialogContent,
   DialogActions, Alert, Snackbar, Divider, IconButton, Tooltip,
 } from '@mui/material';
@@ -201,29 +201,59 @@ export default function ZonesPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5">ניהול אזורים</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            {zones.length} אזורים | {zones.reduce((sum, z) => sum + z.cities.length, 0)} ערים
-          </Typography>
-          <Button
-            variant="outlined"
-            startIcon={<UploadIcon />}
-            onClick={handleCsvImport}
-            disabled={importCsvMutation.isPending}
-          >
-            ייבוא CSV
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setCreateDialog(true)}
-          >
-            אזור חדש
-          </Button>
-        </Box>
-      </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 2,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          ניהול אזורים
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mr: 1 }}>
+          ({zones.length} אזורים | {zones.reduce((sum: number, z: any) => sum + z.cities.length, 0)} ערים)
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<UploadIcon />}
+          onClick={handleCsvImport}
+          disabled={importCsvMutation.isPending}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          ייבוא CSV
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setCreateDialog(true)}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          אזור חדש
+        </Button>
+      </Paper>
 
       <Alert severity="info" sx={{ mb: 2 }}>
         ייבוא CSV: קובץ עם עמודות "עיר" ו"אזור". הייבוא ידרוס את רשימת הערים הקיימת בכל אזור שמופיע בקובץ. אזורים שלא קיימים ייווצרו אוטומטית.

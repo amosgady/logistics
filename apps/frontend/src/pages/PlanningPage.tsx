@@ -787,31 +787,73 @@ export default function PlanningPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5">תכנון מסלולים</Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<DateRangeIcon />}
-            onClick={() => setPlanDate(getNearDate())}
-          >
-            תאריך קרוב
-          </Button>
-          <DateNavigator date={planDate} onDateChange={setPlanDate} />
-          <TextField
-            type="date"
-            label="תאריך תכנון"
-            value={planDate}
-            onChange={(e) => setPlanDate(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            size="small"
-          />
-          <Button variant="outlined" onClick={handleAssignZones} disabled={unassignedOrders.length === 0}>
-            חלוקה לאזורים
-          </Button>
-        </Box>
-      </Box>
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 0,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          תכנון מסלולים
+        </Typography>
+        <Box sx={{ flexGrow: 1 }} />
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => setPlanDate(getNearDate())}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          יומיים מהיום
+        </Button>
+        <DateNavigator date={planDate} onDateChange={setPlanDate} />
+        <TextField
+          type="date"
+          value={planDate}
+          onChange={(e) => setPlanDate(e.target.value)}
+          size="small"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              bgcolor: 'rgba(255,255,255,0.1)',
+              color: 'white',
+              height: 32,
+              '& fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+            },
+            '& input': { color: 'white', py: 0.5 },
+            '& input::-webkit-calendar-picker-indicator': { filter: 'invert(1)' },
+          }}
+        />
+        <Button
+          variant="contained"
+          size="small"
+          onClick={handleAssignZones}
+          disabled={unassignedOrders.length === 0}
+          sx={{
+            bgcolor: 'rgba(255,255,255,0.15)',
+            color: 'white',
+            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          חלוקה לאזורים
+        </Button>
+      </Paper>
 
       <TextField
         size="small"

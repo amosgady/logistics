@@ -357,7 +357,23 @@ export default function SettingsPage() {
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 3 }}>הגדרות</Typography>
+      <Paper
+        elevation={0}
+        sx={{
+          bgcolor: '#1e3a5f',
+          color: 'white',
+          px: 2,
+          py: 1,
+          mb: 2,
+          borderRadius: '8px 8px 0 0',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+      >
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+          הגדרות
+        </Typography>
+      </Paper>
 
       {/* Two-Factor Authentication */}
       <Accordion defaultExpanded={false} sx={{ mb: 1 }}>
