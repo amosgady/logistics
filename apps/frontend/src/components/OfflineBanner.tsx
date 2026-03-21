@@ -29,6 +29,13 @@ export default function OfflineBanner() {
     }
   }, []);
 
+  // Sync queue on page load if online (covers case where user left app and came back)
+  useEffect(() => {
+    if (navigator.onLine) {
+      syncQueue();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -43,12 +50,21 @@ export default function OfflineBanner() {
       setShowBackOnline(false);
     };
 
+    // Also sync on visibility change (user comes back to tab)
+    const handleVisibility = () => {
+      if (!document.hidden && navigator.onLine) {
+        syncQueue();
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [syncQueue]);
 
