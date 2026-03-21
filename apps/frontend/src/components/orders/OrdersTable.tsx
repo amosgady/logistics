@@ -217,14 +217,14 @@ function EditablePalletCount({ order }: { order: Order }) {
         }}
         size="small"
         variant="standard"
-        inputProps={{ min: 0, style: { textAlign: 'center', width: 40 } }}
+        inputProps={{ min: 0, style: { textAlign: 'right', width: 40 } }}
       />
     );
   }
 
   return (
     <Box
-      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
+      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
       onClick={() => { setValue(String(order.palletCount)); setEditing(true); }}
     >
       {order.palletCount}
@@ -401,14 +401,14 @@ function EditableOptionalCount({ order, field, updateFn }: { order: Order; field
         }}
         size="small"
         variant="standard"
-        inputProps={{ min: 0, style: { textAlign: 'center', width: 40 } }}
+        inputProps={{ min: 0, style: { textAlign: 'right', width: 40 } }}
       />
     );
   }
 
   return (
     <Box
-      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
+      sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 0.5, '&:hover .edit-icon': { opacity: 1 } }}
       onClick={() => { setValue(order[field] != null ? String(order[field]) : ''); setEditing(true); }}
     >
       {order[field] != null ? order[field] : '-'}
