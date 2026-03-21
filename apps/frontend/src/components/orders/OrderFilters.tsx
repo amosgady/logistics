@@ -12,6 +12,8 @@ import {
 import { useOrderStore } from '../../store/orderStore';
 import { DEPARTMENT_OPTIONS } from '../../constants/departments';
 
+const HEADER_COLOR = '#1e3a5f';
+
 function getNearDate(): string {
   const d = new Date();
   d.setDate(d.getDate() + 2);
@@ -43,6 +45,15 @@ const DEPT_LABEL_MAP: Record<string, string> = Object.fromEntries(
   DEPARTMENT_OPTIONS.map((o) => [o.value, o.label])
 );
 
+const outlineSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2,
+    bgcolor: 'white',
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: HEADER_COLOR },
+    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: HEADER_COLOR },
+  },
+};
+
 export default function OrderFilters() {
   const { filters, setFilters } = useOrderStore();
 
@@ -63,11 +74,11 @@ export default function OrderFilters() {
             </InputAdornment>
           ),
         }}
-        sx={{ minWidth: 180, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }}
+        sx={{ minWidth: 180, ...outlineSx }}
       />
 
       {/* Status */}
-      <FormControl size="small" sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }}>
+      <FormControl size="small" sx={{ minWidth: 140, ...outlineSx }}>
         <InputLabel>סטטוס</InputLabel>
         <Select
           multiple
@@ -95,7 +106,7 @@ export default function OrderFilters() {
       </FormControl>
 
       {/* Department */}
-      <FormControl size="small" sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }}>
+      <FormControl size="small" sx={{ minWidth: 140, ...outlineSx }}>
         <InputLabel>מחלקה</InputLabel>
         <Select
           multiple
@@ -129,6 +140,7 @@ export default function OrderFilters() {
             checked={filters.sentToWms || false}
             onChange={(e) => setFilters({ sentToWms: e.target.checked || undefined, page: 1 })}
             size="small"
+            sx={{ color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
           />
         }
         label={<Typography variant="body2">WMS</Typography>}
@@ -140,6 +152,7 @@ export default function OrderFilters() {
             checked={filters.sentToChecker || false}
             onChange={(e) => setFilters({ sentToChecker: e.target.checked || undefined, page: 1 })}
             size="small"
+            sx={{ color: HEADER_COLOR, '&.Mui-checked': { color: HEADER_COLOR } }}
           />
         }
         label={<Typography variant="body2">בודק</Typography>}
@@ -147,33 +160,35 @@ export default function OrderFilters() {
       />
 
       {/* Separator */}
-      <Box sx={{ width: '1px', height: 28, bgcolor: '#ccc', mx: 0.5 }} />
+      <Box sx={{ width: '1px', height: 32, bgcolor: HEADER_COLOR, mx: 0.5, opacity: 0.4 }} />
 
       {/* Date navigation */}
       <Box sx={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: 0.5,
         border: '1px solid',
-        borderColor: '#ccc',
+        borderColor: HEADER_COLOR,
         borderRadius: 2,
-        px: 0.75,
+        px: 1,
         py: 0.25,
         bgcolor: 'white',
       }}>
-        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}>
           הזז יום
         </Typography>
-        <Tooltip title="יום קודם">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, -1), deliveryDateTo: shiftDate(currentDate, -1), page: 1 })}>
-            <NextIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="יום הבא">
-          <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, 1), deliveryDateTo: shiftDate(currentDate, 1), page: 1 })}>
-            <PrevIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Tooltip title="יום קודם">
+            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, -1), deliveryDateTo: shiftDate(currentDate, -1), page: 1 })}>
+              <NextIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="יום הבא">
+            <IconButton size="small" sx={{ p: 0.25 }} onClick={() => setFilters({ deliveryDateFrom: shiftDate(currentDate, 1), deliveryDateTo: shiftDate(currentDate, 1), page: 1 })}>
+              <PrevIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Box>
 
       {/* Date range */}
@@ -184,7 +199,7 @@ export default function OrderFilters() {
         value={filters.deliveryDateFrom || ''}
         onChange={(e) => setFilters({ deliveryDateFrom: e.target.value || undefined, page: 1 })}
         InputLabelProps={{ shrink: true }}
-        sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }}
+        sx={{ width: 160, ...outlineSx }}
       />
       <TextField
         type="date"
@@ -193,7 +208,7 @@ export default function OrderFilters() {
         value={filters.deliveryDateTo || ''}
         onChange={(e) => setFilters({ deliveryDateTo: e.target.value || undefined, page: 1 })}
         InputLabelProps={{ shrink: true }}
-        sx={{ width: 160, '& .MuiOutlinedInput-root': { borderRadius: 2, bgcolor: 'white' } }}
+        sx={{ width: 160, ...outlineSx }}
       />
       <Button
         variant="outlined"
@@ -203,7 +218,15 @@ export default function OrderFilters() {
           const nearDate = getNearDate();
           setFilters({ deliveryDateFrom: nearDate, deliveryDateTo: nearDate, page: 1 });
         }}
-        sx={{ whiteSpace: 'nowrap', borderRadius: 2, textTransform: 'none', bgcolor: 'white' }}
+        sx={{
+          whiteSpace: 'nowrap',
+          borderRadius: 2,
+          textTransform: 'none',
+          bgcolor: 'white',
+          borderColor: HEADER_COLOR,
+          color: HEADER_COLOR,
+          '&:hover': { borderColor: HEADER_COLOR, bgcolor: 'rgba(30,58,95,0.05)' },
+        }}
       >
         תאריך קרוב
       </Button>

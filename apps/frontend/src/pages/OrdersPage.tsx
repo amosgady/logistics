@@ -215,7 +215,6 @@ export default function OrdersPage() {
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
           ({total})
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"
