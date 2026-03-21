@@ -41,6 +41,7 @@ interface OrderLine {
   quantity: number;
   weight: string;
   checkedByInspector: boolean;
+  checkerNote: string | null;
 }
 
 interface TrackingOrder {
@@ -52,6 +53,7 @@ interface TrackingOrder {
   city: string;
   timeWindow: string | null;
   palletCount: number;
+  checkerNote: string | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -235,6 +237,15 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                       </IconButton>
                     </Box>
 
+                    {/* Checker note at order level */}
+                    {order.checkerNote && (
+                      <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+                        <Typography variant="caption" color="info.dark">
+                          📋 הערת בודק: {order.checkerNote}
+                        </Typography>
+                      </Box>
+                    )}
+
                     {/* Order lines */}
                     <Collapse in={expandedOrderId === order.id}>
                       <Table size="small" sx={{ mt: 1 }}>
@@ -244,6 +255,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                             <TableCell align="center">כמות</TableCell>
                             <TableCell align="center">משקל</TableCell>
                             <TableCell align="center">נבדק</TableCell>
+                            <TableCell>הערת בודק</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -259,6 +271,11 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                               <TableCell align="center">{line.weight}</TableCell>
                               <TableCell align="center">
                                 {line.checkedByInspector ? <CheckedIcon fontSize="small" color="success" /> : <PendingIcon fontSize="small" color="disabled" />}
+                              </TableCell>
+                              <TableCell>
+                                {line.checkerNote && (
+                                  <Typography variant="caption" color="text.secondary">{line.checkerNote}</Typography>
+                                )}
                               </TableCell>
                             </TableRow>
                           ))}
