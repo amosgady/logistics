@@ -82,6 +82,18 @@ interface Props {
   onSendMessage: () => void;
 }
 
+function CheckerStatusChip({ orderLines }: { orderLines: OrderLine[] }) {
+  if (!orderLines || orderLines.length === 0) return null;
+  const checkedCount = orderLines.filter(l => l.checkedByInspector).length;
+  if (checkedCount === 0) {
+    return <Chip label="לא נבדק" size="small" variant="outlined" />;
+  } else if (checkedCount < orderLines.length) {
+    return <Chip label="נבדק חלקית" size="small" sx={{ bgcolor: '#fff9c4', color: '#f57f17', fontWeight: 'bold' }} />;
+  } else {
+    return <Chip label="נבדק" size="small" sx={{ bgcolor: '#c8e6c9', color: '#2e7d32', fontWeight: 'bold' }} />;
+  }
+}
+
 function OrderStatusChip({ status }: { status: string }) {
   switch (status) {
     case 'COMPLETED':
@@ -206,11 +218,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                           {` | ${order.palletCount} משטחים`}
                         </Typography>
                       </Box>
-                      {order.orderLines?.length > 0 && order.orderLines.every(l => l.checkedByInspector) && (
-                        <Tooltip title="נבדק">
-                          <CheckedIcon fontSize="small" color="info" />
-                        </Tooltip>
-                      )}
+                      <CheckerStatusChip orderLines={order.orderLines} />
                       <OrderStatusChip status={order.status} />
                       {order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0) && (
                         <Tooltip title="מדיה">
