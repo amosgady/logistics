@@ -156,6 +156,30 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   const signNoteRef = useRef<SignatureCanvas | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Recover pending deliveries from localStorage (in case app was killed mid-submission)
+  useEffect(() => {
+    if (!navigator.onLine) return;
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith('pending_delivery_'));
+    keys.forEach(async (key) => {
+      try {
+        const pending = JSON.parse(localStorage.getItem(key) || '{}');
+        if (!pending.orderId || Date.now() - pending.timestamp > 24 * 60 * 60 * 1000) {
+          localStorage.removeItem(key); // expired
+          return;
+        }
+        console.log(`[Recovery] Found pending delivery for order ${pending.orderId}, queuing...`);
+        addToQueue({ type: 'delivery', endpoint: `${pending.basePath}/orders/${pending.orderId}/delivery`, method: 'POST', data: pending.deliveryData });
+        if (pending.signatureData) {
+          addToQueue({ type: 'signature', endpoint: `${pending.basePath}/orders/${pending.orderId}/signature`, method: 'POST', data: { signature: pending.signatureData } });
+        }
+        localStorage.removeItem(key);
+        setSnackbar({ message: 'נמצא דיווח שלא נשלח - מסנכרן...', severity: 'info' });
+      } catch {
+        localStorage.removeItem(key);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // GPS location reporting
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -249,15 +273,30 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       signatureData = signatureRef.current.toDataURL('image/png');
     }
 
+    // Pre-save to localStorage BEFORE attempting API call (in case app is killed mid-flight)
+    const pendingKey = `pending_delivery_${orderId}`;
+    try {
+      localStorage.setItem(pendingKey, JSON.stringify({
+        deliveryData,
+        signatureData,
+        basePath,
+        orderId,
+        timestamp: Date.now(),
+      }));
+    } catch { /* localStorage full - proceed without backup */ }
+
     // Step 1: Record delivery
     try {
       await apiService.recordDelivery(orderId, deliveryData);
+      // Success - remove pending backup (delivery sent, signature handled below)
+      localStorage.removeItem(pendingKey);
     } catch {
       if (!navigator.onLine) {
         addToQueue({ type: 'delivery', endpoint: `${basePath}/orders/${orderId}/delivery`, method: 'POST', data: deliveryData });
         if (signatureData) {
           addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
         }
+        localStorage.removeItem(pendingKey); // moved to queue
         const photoWarning = photoFiles.length > 0 ? ' (תמונות לא נשמרו - צלם שוב כשיהיה חיבור)' : '';
         queryClient.invalidateQueries({ queryKey: [queryKey] });
         setDeliveryDialog(null);
