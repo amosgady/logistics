@@ -35,7 +35,6 @@ interface MenuItem {
   roles?: string[];
 }
 
-const menuItems: MenuItem[] = [
 const mainMenuItems: MenuItem[] = [
   { path: '/orders', label: 'הזמנות', icon: <OrdersIcon /> },
   { path: '/planning', label: 'תכנון', icon: <PlanningIcon /> },
