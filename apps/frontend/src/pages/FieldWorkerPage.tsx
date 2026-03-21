@@ -315,10 +315,14 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
 
     // Step 2: Upload signature (separate try/catch so delivery is not lost)
+    console.log(`[Delivery] Signature data exists: ${!!signatureData}, length: ${signatureData?.length || 0}`);
     if (signatureData) {
       try {
+        console.log(`[Delivery] Uploading signature for order ${orderId}...`);
         await apiService.uploadSignature(orderId, signatureData);
-      } catch {
+        console.log(`[Delivery] Signature uploaded successfully`);
+      } catch (sigErr) {
+        console.error(`[Delivery] Signature upload failed:`, sigErr);
         // Queue signature for retry
         addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
         warnings.push('החתימה תישלח כשהחיבור ישתפר');
@@ -326,10 +330,14 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
 
     // Step 3: Upload photos (separate try/catch)
+    console.log(`[Delivery] Photo files: ${photoFiles.length}`);
     if (photoFiles.length > 0) {
       try {
+        console.log(`[Delivery] Uploading ${photoFiles.length} photos...`);
         await apiService.uploadPhotos(orderId, photoFiles);
-      } catch {
+        console.log(`[Delivery] Photos uploaded successfully`);
+      } catch (photoErr) {
+        console.error(`[Delivery] Photo upload failed:`, photoErr);
         warnings.push('התמונות לא נשלחו - נסה שוב מאוחר יותר');
       }
     }
