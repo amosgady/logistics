@@ -166,7 +166,6 @@ export default function UsersPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           ניהול משתמשים
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

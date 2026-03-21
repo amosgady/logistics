@@ -154,7 +154,6 @@ export default function InstallersPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           ניהול מתקינים
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

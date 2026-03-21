@@ -144,7 +144,6 @@ export default function TrucksPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           ניהול משאיות
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

@@ -805,7 +805,6 @@ export default function PlanningPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           תכנון מסלולים
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

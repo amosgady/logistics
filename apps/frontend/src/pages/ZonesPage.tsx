@@ -221,7 +221,6 @@ export default function ZonesPage() {
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mr: 1 }}>
           ({zones.length} אזורים | {zones.reduce((sum: number, z: any) => sum + z.cities.length, 0)} ערים)
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

@@ -796,7 +796,6 @@ export default function CoordinationPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           תיאום אספקות
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <Button
           variant="contained"
           size="small"

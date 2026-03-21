@@ -60,7 +60,6 @@ export default function TrackingPage() {
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
           מעקב שטח
         </Typography>
-        <Box sx={{ flexGrow: 1 }} />
         <ToggleButtonGroup
           value={filter}
           exclusive
