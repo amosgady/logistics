@@ -125,15 +125,15 @@ interface ColumnDef {
 }
 
 const ALL_COLUMNS: ColumnDef[] = [
-  { id: 'orderNumber', label: "מס' הזמנה", sortKey: 'orderNumber' },
-  { id: 'orderDate', label: 'תאריך הזמנה', sortKey: 'orderDate' },
-  { id: 'status', label: 'סטטוס', sortKey: 'status' },
-  { id: 'customerName', label: 'שם לקוח', sortKey: 'customerName' },
-  { id: 'address', label: 'כתובת', sortKey: 'city' },
-  { id: 'phone', label: 'טלפון', sortKey: 'phone' },
-  { id: 'deliveryDate', label: 'תאריך אספקה', sortKey: 'deliveryDate' },
-  { id: 'department', label: 'מחלקה', sortKey: 'department' },
-  { id: 'zone', label: 'אזור', sortKey: 'zone.nameHe' },
+  { id: 'orderNumber', label: "מס' הזמנה", sortKey: 'orderNumber', align: 'right' },
+  { id: 'orderDate', label: 'תאריך הזמנה', sortKey: 'orderDate', align: 'right' },
+  { id: 'status', label: 'סטטוס', sortKey: 'status', align: 'right' },
+  { id: 'customerName', label: 'שם לקוח', sortKey: 'customerName', align: 'right' },
+  { id: 'address', label: 'כתובת', sortKey: 'city', align: 'right' },
+  { id: 'phone', label: 'טלפון', sortKey: 'phone', align: 'right' },
+  { id: 'deliveryDate', label: 'תאריך אספקה', sortKey: 'deliveryDate', align: 'right' },
+  { id: 'department', label: 'מחלקה', sortKey: 'department', align: 'right' },
+  { id: 'zone', label: 'אזור', sortKey: 'zone.nameHe', align: 'right' },
   { id: 'wms', label: 'WMS', sortKey: 'exportedToCsv', align: 'right' },
   { id: 'checker', label: 'בודק', sortKey: 'sentToChecker', align: 'right' },
   { id: 'driverNote', label: 'הערה לנהג', align: 'right' },
@@ -143,7 +143,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount', align: 'right' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount', align: 'right' },
   { id: 'price', label: 'מחיר', align: 'right' },
-  { id: 'geocodedAddress', label: 'כתובת גוגל' },
+  { id: 'geocodedAddress', label: 'כתובת גוגל', align: 'right' },
   { id: 'deliveryNote', label: 'תעודה', align: 'right' },
   { id: 'media', label: 'מדיה', align: 'right' },
 ];
