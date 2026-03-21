@@ -219,7 +219,7 @@ function RouteCard({
                   onChange={(e) => onSetColor(e.target.value || null)}
                   sx={{ height: 28, fontSize: '0.8rem' }}
                 >
-                  <MenuItem value=""><em>ללא צבע</em></MenuItem>
+                  <MenuItem value=""><em>צבע משאית</em></MenuItem>
                   {availableColors.map((c) => (
                     <MenuItem key={c} value={c}>{usedColors.includes(c) && c !== route.color ? '✓ ' : ''}{c}</MenuItem>
                   ))}
