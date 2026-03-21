@@ -6,7 +6,6 @@ import {
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Typography,
   Box,
   Divider,
 } from '@mui/material';
@@ -26,14 +25,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ReactNode } from 'react';
 
-const DRAWER_WIDTH = 160;
+const DRAWER_WIDTH = 130;
 const HEADER_COLOR = '#1e3a5f';
 
 interface MenuItem {
   path: string;
   label: string;
   icon: ReactNode;
-  roles?: string[]; // if undefined, visible to all
+  roles?: string[];
 }
 
 const menuItems: MenuItem[] = [
@@ -60,7 +59,7 @@ export default function Sidebar() {
 
   const buttonSx = {
     py: 0.75,
-    px: 2,
+    px: 1.5,
     '& .MuiListItemIcon-root': {
       color: HEADER_COLOR,
       minWidth: 28,
@@ -98,15 +97,8 @@ export default function Sidebar() {
         },
       }}
     >
-      <Toolbar sx={{ bgcolor: HEADER_COLOR, minHeight: '48px !important', px: '12px !important' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', justifyContent: 'center' }}>
-          <TruckIcon sx={{ color: 'white', fontSize: 18 }} />
-          <Typography variant="body2" noWrap sx={{ color: 'white', fontWeight: 700 }}>
-            ניהול הובלות והתקנות
-          </Typography>
-        </Box>
-      </Toolbar>
-      <List sx={{ pt: 0.5 }}>
+      <Toolbar /> {/* Spacer to align with AppBar */}
+      <List sx={{ pt: 0 }}>
         {visibleItems.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
