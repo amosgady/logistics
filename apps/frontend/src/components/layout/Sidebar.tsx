@@ -26,7 +26,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { ReactNode } from 'react';
 
-const DRAWER_WIDTH = 200;
+const DRAWER_WIDTH = 160;
 const HEADER_COLOR = '#1e3a5f';
 
 interface MenuItem {
@@ -43,9 +43,9 @@ const menuItems: MenuItem[] = [
   { path: '/tracking', label: 'מעקב', icon: <TrackingIcon /> },
   { path: '/trucks', label: 'משאיות', icon: <TruckIcon /> },
   { path: '/zones', label: 'אזורים', icon: <ZonesIcon /> },
-  { path: '/users', label: 'ניהול משתמשים', icon: <PeopleIcon />, roles: ['ADMIN'] },
-  { path: '/drivers', label: 'ניהול נהגים', icon: <DriverIcon />, roles: ['ADMIN'] },
-  { path: '/installers', label: 'ניהול מתקינים', icon: <InstallerIcon />, roles: ['ADMIN'] },
+  { path: '/users', label: 'משתמשים', icon: <PeopleIcon />, roles: ['ADMIN'] },
+  { path: '/drivers', label: 'נהגים', icon: <DriverIcon />, roles: ['ADMIN'] },
+  { path: '/installers', label: 'מתקינים', icon: <InstallerIcon />, roles: ['ADMIN'] },
 ];
 
 export default function Sidebar() {
@@ -57,6 +57,31 @@ export default function Sidebar() {
   const visibleItems = menuItems.filter(
     (item) => !item.roles || (userRole && item.roles.includes(userRole))
   );
+
+  const buttonSx = {
+    py: 0.75,
+    px: 2,
+    '& .MuiListItemIcon-root': {
+      color: HEADER_COLOR,
+      minWidth: 28,
+      '& .MuiSvgIcon-root': { fontSize: 18 },
+    },
+    '& .MuiListItemText-primary': {
+      color: HEADER_COLOR,
+      fontWeight: 500,
+      fontSize: '0.9rem',
+    },
+    '&.Mui-selected': {
+      bgcolor: 'rgba(30, 58, 95, 0.1)',
+      borderRight: `3px solid ${HEADER_COLOR}`,
+      '& .MuiListItemText-primary': {
+        fontWeight: 700,
+      },
+    },
+    '&:hover': {
+      bgcolor: 'rgba(30, 58, 95, 0.06)',
+    },
+  };
 
   return (
     <Drawer
@@ -73,11 +98,11 @@ export default function Sidebar() {
         },
       }}
     >
-      <Toolbar sx={{ bgcolor: HEADER_COLOR, minHeight: '48px !important' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', justifyContent: 'center' }}>
-          <TruckIcon sx={{ color: 'white', fontSize: 20 }} />
-          <Typography variant="subtitle1" noWrap sx={{ color: 'white', fontWeight: 700 }}>
-            ניהול הובלות
+      <Toolbar sx={{ bgcolor: HEADER_COLOR, minHeight: '48px !important', px: '12px !important' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%', justifyContent: 'center' }}>
+          <TruckIcon sx={{ color: 'white', fontSize: 18 }} />
+          <Typography variant="body2" noWrap sx={{ color: 'white', fontWeight: 700 }}>
+            ניהול הובלות והתקנות
           </Typography>
         </Box>
       </Toolbar>
@@ -87,28 +112,7 @@ export default function Sidebar() {
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
               onClick={() => navigate(item.path)}
-              sx={{
-                py: 0.75,
-                '& .MuiListItemIcon-root': {
-                  color: HEADER_COLOR,
-                  minWidth: 36,
-                },
-                '& .MuiListItemText-primary': {
-                  color: HEADER_COLOR,
-                  fontWeight: 500,
-                  fontSize: '0.9rem',
-                },
-                '&.Mui-selected': {
-                  bgcolor: 'rgba(30, 58, 95, 0.1)',
-                  borderRight: `3px solid ${HEADER_COLOR}`,
-                  '& .MuiListItemText-primary': {
-                    fontWeight: 700,
-                  },
-                },
-                '&:hover': {
-                  bgcolor: 'rgba(30, 58, 95, 0.06)',
-                },
-              }}
+              sx={buttonSx}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>
               <ListItemText primary={item.label} />
@@ -122,28 +126,7 @@ export default function Sidebar() {
           <ListItemButton
             selected={location.pathname === '/settings'}
             onClick={() => navigate('/settings')}
-            sx={{
-              py: 0.75,
-              '& .MuiListItemIcon-root': {
-                color: HEADER_COLOR,
-                minWidth: 36,
-              },
-              '& .MuiListItemText-primary': {
-                color: HEADER_COLOR,
-                fontWeight: 500,
-                fontSize: '0.9rem',
-              },
-              '&.Mui-selected': {
-                bgcolor: 'rgba(30, 58, 95, 0.1)',
-                borderRight: `3px solid ${HEADER_COLOR}`,
-                '& .MuiListItemText-primary': {
-                  fontWeight: 700,
-                },
-              },
-              '&:hover': {
-                bgcolor: 'rgba(30, 58, 95, 0.06)',
-              },
-            }}
+            sx={buttonSx}
           >
             <ListItemIcon><SettingsIcon /></ListItemIcon>
             <ListItemText primary="הגדרות" />
