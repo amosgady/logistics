@@ -246,6 +246,14 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                         </Typography>
                       </Box>
                     )}
+                    {/* Delivery note from driver */}
+                    {order.delivery?.notes && (
+                      <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#e8f5e9', borderRadius: 1 }}>
+                        <Typography variant="caption" color="success.dark">
+                          ✍️ הערת נהג: {order.delivery.notes}
+                        </Typography>
+                      </Box>
+                    )}
                     {/* Checker note at order level */}
                     {order.checkerNote && (
                       <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#e3f2fd', borderRadius: 1 }}>

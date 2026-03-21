@@ -543,6 +543,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                       <strong>הערה:</strong> {order.driverNote}
                     </Alert>
                   )}
+                  {deliveryInfo?.notes && (
+                    <Alert severity="success" sx={{ mt: 1.5, py: 0 }}>
+                      <strong>הערת דיווח:</strong> {deliveryInfo.notes}
+                    </Alert>
+                  )}
                 </CardContent>
 
                 <CardActions sx={{ px: 2, pb: 2, flexDirection: 'column', gap: 1 }}>
