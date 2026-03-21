@@ -418,7 +418,8 @@ function RouteCard({
             variant="contained"
             startIcon={isOptimizing ? <CircularProgress size={16} /> : <RouteIcon />}
             onClick={onOptimize}
-            disabled={route.orders.length < 2 || isOptimizing}
+            disabled={route.orders.length < 2 || isOptimizing || (!isInstaller && (!route.color || !route.driverName))}
+            title={!isInstaller && (!route.color || !route.driverName) ? 'יש למלא צבע ושם נהג לפני אופטימיזציה' : ''}
           >
             {isOptimizing ? 'מאמטם...' : 'אופטימיזציית מסלול'}
           </Button>
