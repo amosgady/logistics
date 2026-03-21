@@ -23,6 +23,7 @@ import CheckerPage from './pages/CheckerPage';
 import { useAuthStore } from './store/authStore';
 import { ReactNode, useEffect } from 'react';
 import api from './services/api';
+import OfflineBanner from './components/OfflineBanner';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -125,6 +126,7 @@ export default function App() {
               </Route>
             </Routes>
           </BrowserRouter>
+          <OfflineBanner />
         </QueryClientProvider>
       </ThemeProvider>
     </RTLProvider>

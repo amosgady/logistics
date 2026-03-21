@@ -21,6 +21,7 @@ import {
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { checkerApi, CheckerOrder, CheckerOrderDetail } from '../services/checkerApi';
+import { addToQueue } from '../services/offlineQueue';
 import { useAuthStore } from '../store/authStore';
 
 const DEPT_LABELS: Record<string, string> = {
@@ -213,7 +214,14 @@ export default function CheckerPage() {
         setSnackbar({ message: 'כל השורות נבדקו!', severity: 'success' });
       }
     },
-    onError: () => setSnackbar({ message: 'שגיאה בעדכון', severity: 'error' }),
+    onError: (_err, variables) => {
+      if (!navigator.onLine) {
+        addToQueue({ type: 'checker-toggle', endpoint: `/checker/lines/${variables.lineId}/check`, method: 'PATCH', data: { checked: variables.checked } });
+        setSnackbar({ message: 'אין חיבור - הבדיקה תישמר כשהחיבור יחזור', severity: 'warning' });
+      } else {
+        setSnackbar({ message: 'שגיאה בעדכון', severity: 'error' });
+      }
+    },
   });
 
   const noteMutation = useMutation({
@@ -222,7 +230,14 @@ export default function CheckerPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
     },
-    onError: () => setSnackbar({ message: 'שגיאה בשמירת הערה', severity: 'error' }),
+    onError: (_err, variables) => {
+      if (!navigator.onLine) {
+        addToQueue({ type: 'checker-note', endpoint: `/checker/orders/${variables.orderId}/checker-note`, method: 'PATCH', data: { checkerNote: variables.checkerNote } });
+        setSnackbar({ message: 'אין חיבור - ההערה תישמר כשהחיבור יחזור', severity: 'warning' });
+      } else {
+        setSnackbar({ message: 'שגיאה בשמירת הערה', severity: 'error' });
+      }
+    },
   });
 
   const lineNoteMutation = useMutation({
@@ -231,7 +246,14 @@ export default function CheckerPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
     },
-    onError: () => setSnackbar({ message: 'שגיאה בשמירת הערת שורה', severity: 'error' }),
+    onError: (_err, variables) => {
+      if (!navigator.onLine) {
+        addToQueue({ type: 'checker-line-note', endpoint: `/checker/lines/${variables.lineId}/checker-note`, method: 'PATCH', data: { checkerNote: variables.checkerNote } });
+        setSnackbar({ message: 'אין חיבור - ההערה תישמר כשהחיבור יחזור', severity: 'warning' });
+      } else {
+        setSnackbar({ message: 'שגיאה בשמירת הערת שורה', severity: 'error' });
+      }
+    },
   });
 
   const palletMutation = useMutation({
@@ -241,7 +263,14 @@ export default function CheckerPage() {
       queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
       setSnackbar({ message: 'כמות משטחים עודכנה', severity: 'success' });
     },
-    onError: () => setSnackbar({ message: 'שגיאה בעדכון משטחים', severity: 'error' }),
+    onError: (_err, variables) => {
+      if (!navigator.onLine) {
+        addToQueue({ type: 'checker-pallet', endpoint: `/checker/orders/${variables.orderId}/pallet-count`, method: 'PATCH', data: { palletCount: variables.palletCount } });
+        setSnackbar({ message: 'אין חיבור - העדכון יישמר כשהחיבור יחזור', severity: 'warning' });
+      } else {
+        setSnackbar({ message: 'שגיאה בעדכון משטחים', severity: 'error' });
+      }
+    },
   });
 
   const handleSearch = () => setSearchQuery(searchInput);

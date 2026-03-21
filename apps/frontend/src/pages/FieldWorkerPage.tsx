@@ -34,6 +34,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { driverApi } from '../services/driverApi';
 import { installerFieldApi } from '../services/installerFieldApi';
 import { trackingApi } from '../services/trackingApi';
+import { addToQueue } from '../services/offlineQueue';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import DeliveryMediaDialog from '../components/common/DeliveryMediaDialog';
@@ -237,19 +238,20 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   const handleDeliverySubmit = async () => {
     if (!deliveryDialog) return;
     setSubmitting(true);
+    const orderId = deliveryDialog.orderId;
+    const deliveryData = { result: deliveryResult, notes: deliveryNotes || undefined };
+    const basePath = isDriver ? '/driver' : '/installer';
+
     try {
-      await apiService.recordDelivery(deliveryDialog.orderId, {
-        result: deliveryResult,
-        notes: deliveryNotes || undefined,
-      });
+      await apiService.recordDelivery(orderId, deliveryData);
 
       if (signatureRef.current && !signatureRef.current.isEmpty()) {
         const signatureData = signatureRef.current.toDataURL('image/png');
-        await apiService.uploadSignature(deliveryDialog.orderId, signatureData);
+        await apiService.uploadSignature(orderId, signatureData);
       }
 
       if (photoFiles.length > 0) {
-        await apiService.uploadPhotos(deliveryDialog.orderId, photoFiles);
+        await apiService.uploadPhotos(orderId, photoFiles);
       }
 
       queryClient.invalidateQueries({ queryKey: [queryKey] });
@@ -261,8 +263,27 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       setPhotoPreviews([]);
       setSnackbar({ message: 'הדיווח נשמר בהצלחה', severity: 'success' });
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'שגיאה בשמירת הדיווח';
-      setSnackbar({ message: msg, severity: 'error' });
+      // If offline, queue the delivery for later sync
+      if (!navigator.onLine) {
+        addToQueue({
+          type: 'delivery',
+          endpoint: `${basePath}/orders/${orderId}/delivery`,
+          method: 'POST',
+          data: deliveryData,
+        });
+        // Note: signature and photos cannot be reliably saved offline (too large for localStorage)
+        queryClient.invalidateQueries({ queryKey: [queryKey] });
+        setDeliveryDialog(null);
+        setDeliveryResult('');
+        setDeliveryNotes('');
+        setHasSignature(false);
+        setPhotoFiles([]);
+        setPhotoPreviews([]);
+        setSnackbar({ message: 'אין חיבור - הדיווח נשמר ויישלח כשהחיבור יחזור', severity: 'warning' });
+      } else {
+        const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'שגיאה בשמירת הדיווח';
+        setSnackbar({ message: msg, severity: 'error' });
+      }
     } finally {
       setSubmitting(false);
     }
