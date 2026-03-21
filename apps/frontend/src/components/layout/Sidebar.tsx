@@ -36,10 +36,14 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
+const mainMenuItems: MenuItem[] = [
   { path: '/orders', label: 'הזמנות', icon: <OrdersIcon /> },
   { path: '/planning', label: 'תכנון', icon: <PlanningIcon /> },
   { path: '/coordination', label: 'תיאום', icon: <CoordinationIcon /> },
   { path: '/tracking', label: 'מעקב', icon: <TrackingIcon /> },
+];
+
+const managementMenuItems: MenuItem[] = [
   { path: '/trucks', label: 'משאיות', icon: <TruckIcon /> },
   { path: '/zones', label: 'אזורים', icon: <ZonesIcon /> },
   { path: '/users', label: 'משתמשים', icon: <PeopleIcon />, roles: ['ADMIN'] },
@@ -53,7 +57,10 @@ export default function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const userRole = user?.role;
 
-  const visibleItems = menuItems.filter(
+  const visibleMainItems = mainMenuItems.filter(
+    (item) => !item.roles || (userRole && item.roles.includes(userRole))
+  );
+  const visibleMgmtItems = managementMenuItems.filter(
     (item) => !item.roles || (userRole && item.roles.includes(userRole))
   );
 
@@ -100,7 +107,22 @@ export default function Sidebar() {
       <Toolbar /> {/* Spacer to align with AppBar */}
       <Box sx={{ height: 28 }} /> {/* Extra spacing to align with page header */}
       <List sx={{ pt: 0 }}>
-        {visibleItems.map((item) => (
+        {visibleMainItems.map((item) => (
+          <ListItem key={item.path} disablePadding>
+            <ListItemButton
+              selected={location.pathname.startsWith(item.path)}
+              onClick={() => navigate(item.path)}
+              sx={buttonSx}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.label} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+      <Divider sx={{ mx: 1 }} />
+      <List sx={{ pt: 0 }}>
+        {visibleMgmtItems.map((item) => (
           <ListItem key={item.path} disablePadding>
             <ListItemButton
               selected={location.pathname.startsWith(item.path)}
