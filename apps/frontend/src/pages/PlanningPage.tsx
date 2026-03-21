@@ -859,7 +859,7 @@ export default function PlanningPage() {
         placeholder="חיפוש לפי מספר הזמנה, לקוח, כתובת, עיר..."
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        sx={{ mb: 2, width: 400 }}
+        sx={{ mt: 1.5, mb: 2, width: 400 }}
         InputProps={{ sx: { borderRadius: 2 } }}
       />
 
