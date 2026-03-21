@@ -265,13 +265,25 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     } catch (err: unknown) {
       // If offline, queue the delivery for later sync
       if (!navigator.onLine) {
+        // Queue delivery
         addToQueue({
           type: 'delivery',
           endpoint: `${basePath}/orders/${orderId}/delivery`,
           method: 'POST',
           data: deliveryData,
         });
-        // Note: signature and photos cannot be reliably saved offline (too large for localStorage)
+        // Queue signature (Base64 PNG ~10-50KB, fits in localStorage)
+        if (signatureRef.current && !signatureRef.current.isEmpty()) {
+          const signatureData = signatureRef.current.toDataURL('image/png');
+          addToQueue({
+            type: 'signature',
+            endpoint: `${basePath}/orders/${orderId}/signature`,
+            method: 'POST',
+            data: { signature: signatureData },
+          });
+        }
+        // Photos are too large for localStorage - warn user
+        const photoWarning = photoFiles.length > 0 ? ' (תמונות לא נשמרו - צלם שוב כשיהיה חיבור)' : '';
         queryClient.invalidateQueries({ queryKey: [queryKey] });
         setDeliveryDialog(null);
         setDeliveryResult('');
@@ -279,7 +291,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         setHasSignature(false);
         setPhotoFiles([]);
         setPhotoPreviews([]);
-        setSnackbar({ message: 'אין חיבור - הדיווח נשמר ויישלח כשהחיבור יחזור', severity: 'warning' });
+        setSnackbar({ message: `אין חיבור - הדיווח והחתימה נשמרו ויישלחו כשהחיבור יחזור${photoWarning}`, severity: 'warning' });
       } else {
         const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'שגיאה בשמירת הדיווח';
         setSnackbar({ message: msg, severity: 'error' });
