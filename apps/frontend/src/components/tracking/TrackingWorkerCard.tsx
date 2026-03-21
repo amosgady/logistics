@@ -15,6 +15,7 @@ import {
   Cancel as NotDeliveredIcon,
   RemoveCircle as PartialIcon,
   HourglassEmpty as PendingIcon,
+  FactCheck as CheckedIcon,
 } from '@mui/icons-material';
 import { DEPARTMENT_LABELS } from '../../constants/departments';
 import DeliveryMediaDialog from '../common/DeliveryMediaDialog';
@@ -39,6 +40,7 @@ interface OrderLine {
   description: string | null;
   quantity: number;
   weight: string;
+  checkedByInspector: boolean;
 }
 
 interface TrackingOrder {
@@ -99,6 +101,11 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
 
   const progress = worker.totalCount > 0 ? (worker.completedCount / worker.totalCount) * 100 : 0;
 
+  // Checker progress: count orders where ALL lines are checked
+  const totalLines = worker.orders.reduce((sum, o) => sum + (o.orderLines?.length || 0), 0);
+  const checkedLines = worker.orders.reduce((sum, o) => sum + (o.orderLines?.filter(l => l.checkedByInspector).length || 0), 0);
+  const checkerProgress = totalLines > 0 ? (checkedLines / totalLines) * 100 : 0;
+
   return (
     <>
       <Card sx={{ mb: 1.5, border: '1px solid', borderColor: worker.sentToDriver ? 'divider' : 'warning.main', opacity: worker.sentToDriver ? 1 : 0.75, bgcolor: worker.sentToDriver ? undefined : '#fff8e1' }}>
@@ -152,8 +159,9 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
             </IconButton>
           </Box>
 
-          {/* Progress */}
+          {/* Delivery Progress */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 45 }}>משלוח:</Typography>
             <LinearProgress
               variant="determinate"
               value={progress}
@@ -161,6 +169,19 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
             />
             <Typography variant="caption" fontWeight="bold">
               {worker.completedCount}/{worker.totalCount}
+            </Typography>
+          </Box>
+          {/* Checker Progress */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 45 }}>בדיקה:</Typography>
+            <LinearProgress
+              variant="determinate"
+              value={checkerProgress}
+              color="info"
+              sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+            />
+            <Typography variant="caption" fontWeight="bold">
+              {checkedLines}/{totalLines}
             </Typography>
           </Box>
 
@@ -185,6 +206,11 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                           {` | ${order.palletCount} משטחים`}
                         </Typography>
                       </Box>
+                      {order.orderLines?.length > 0 && order.orderLines.every(l => l.checkedByInspector) && (
+                        <Tooltip title="נבדק">
+                          <CheckedIcon fontSize="small" color="info" />
+                        </Tooltip>
+                      )}
                       <OrderStatusChip status={order.status} />
                       {order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0) && (
                         <Tooltip title="מדיה">
@@ -209,6 +235,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                             <TableCell>מוצר</TableCell>
                             <TableCell align="center">כמות</TableCell>
                             <TableCell align="center">משקל</TableCell>
+                            <TableCell align="center">נבדק</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -222,6 +249,9 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                               </TableCell>
                               <TableCell align="center">{line.quantity}</TableCell>
                               <TableCell align="center">{line.weight}</TableCell>
+                              <TableCell align="center">
+                                {line.checkedByInspector ? <CheckedIcon fontSize="small" color="success" /> : <PendingIcon fontSize="small" color="disabled" />}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
