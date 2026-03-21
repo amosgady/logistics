@@ -120,7 +120,7 @@ export default function Sidebar() {
           </ListItem>
         ))}
       </List>
-      <Divider sx={{ mx: 1 }} />
+      <Divider sx={{ mx: 1, my: 0.5, borderColor: '#c0c8d4' }} />
       <List sx={{ pt: 0 }}>
         {visibleMgmtItems.map((item) => (
           <ListItem key={item.path} disablePadding>
