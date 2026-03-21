@@ -8,6 +8,8 @@ import {
 import {
   Search as SearchIcon,
   ArrowBack as ArrowBackIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
   CheckCircle as CheckCircleIcon,
   RadioButtonUnchecked as UncheckedIcon,
   Logout as LogoutIcon,
@@ -262,10 +264,25 @@ export default function CheckerPage() {
 
       {/* Search + Filters */}
       <Box sx={{ p: 2 }}>
-        <TextField type="date" size="small" fullWidth value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          sx={{ mb: 1.5, bgcolor: 'white', borderRadius: 1 }}
-          InputLabelProps={{ shrink: true }} label="תאריך" />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 1.5, bgcolor: 'white', borderRadius: 1, py: 0.5 }}>
+          <IconButton onClick={() => {
+            const d = new Date(selectedDate);
+            d.setDate(d.getDate() + 1);
+            setSelectedDate(d.toISOString().split('T')[0]);
+          }}>
+            <ChevronRightIcon />
+          </IconButton>
+          <Typography variant="body1" fontWeight="bold" sx={{ mx: 2, minWidth: 100, textAlign: 'center' }}>
+            {selectedDate === getTodayDate() ? 'היום' : formatDate(selectedDate)}
+          </Typography>
+          <IconButton onClick={() => {
+            const d = new Date(selectedDate);
+            d.setDate(d.getDate() - 1);
+            setSelectedDate(d.toISOString().split('T')[0]);
+          }}>
+            <ChevronLeftIcon />
+          </IconButton>
+        </Box>
 
         <Box sx={{ display: 'flex', gap: 1, mb: 1.5 }}>
           <TextField fullWidth placeholder="חפש לפי מספר הזמנה, שם לקוח, טלפון..."
