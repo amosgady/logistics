@@ -98,7 +98,7 @@ export default function Sidebar() {
       }}
     >
       <Toolbar /> {/* Spacer to align with AppBar */}
-      <Box sx={{ height: 8 }} /> {/* Extra spacing to align with page header */}
+      <Box sx={{ height: 16 }} /> {/* Extra spacing to align with page header */}
       <List sx={{ pt: 0 }}>
         {visibleItems.map((item) => (
           <ListItem key={item.path} disablePadding>
