@@ -46,6 +46,7 @@ export class TrackingService {
           include: {
             orderLines: { orderBy: { lineNumber: 'asc' } },
             delivery: { include: { photos: true } },
+            zone: { select: { nameHe: true } },
           },
           orderBy: { routeSequence: 'asc' },
         },
@@ -80,7 +81,18 @@ export class TrackingService {
         userId = assignment.driver.user.id;
         fullName = assignment.driver.user.fullName;
         phone = assignment.driver.user.phone;
-        truckName = route.truck.name;
+        const DEPT_LABELS: Record<string, string> = {
+          GENERAL_TRANSPORT: 'הובלה כללית',
+          KITCHEN_TRANSPORT: 'הובלת מטבחים',
+          INTERIOR_DOOR_TRANSPORT: 'הובלת דלתות פנים',
+          SHOWER_INSTALLATION: 'התקנת מקלחונים',
+          INTERIOR_DOOR_INSTALLATION: 'התקנת דלתות פנים',
+          KITCHEN_INSTALLATION: 'התקנת מטבחים',
+        };
+        const firstOrder = route.orders[0];
+        const deptLabel = firstOrder?.department ? DEPT_LABELS[firstOrder.department] || firstOrder.department : null;
+        const zoneName = (firstOrder as any)?.zone?.nameHe || null;
+        truckName = [route.truck.name, deptLabel, zoneName].filter(Boolean).join(' - ');
       } else if (route.installerProfile) {
         workerType = 'INSTALLER';
         userId = route.installerProfile.user.id;

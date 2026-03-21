@@ -157,7 +157,9 @@ function RouteCard({
   onSetDriverName: (name: string | null) => void;
 }) {
   const isInstaller = !!route.installerProfile;
-  const ownerName = isInstaller ? route.installerProfile!.user.fullName : route.truck?.name || '';
+  const ownerName = isInstaller
+    ? route.installerProfile!.user.fullName
+    : [route.truck?.name, route.orders[0]?.department ? DEPARTMENT_LABELS[route.orders[0].department] || route.orders[0].department : null, route.orders[0]?.zone?.nameHe].filter(Boolean).join(' - ');
 
   // Filter colors by route's department
   const routeDept = isInstaller ? route.installerProfile?.department : route.orders[0]?.department;

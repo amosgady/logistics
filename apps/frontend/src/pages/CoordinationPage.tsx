@@ -36,6 +36,7 @@ import { orderApi } from '../services/orderApi';
 import { coordinationApi } from '../services/coordinationApi';
 import { smsApi } from '../services/smsApi';
 import DeliveryMediaDialog from '../components/common/DeliveryMediaDialog';
+import { DEPARTMENT_LABELS } from '../constants/departments';
 import SortableTableCell from '../components/common/SortableTableCell';
 import { useSortable } from '../hooks/useSortable';
 
@@ -871,7 +872,9 @@ export default function CoordinationPage() {
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <TruckIcon color="primary" />
                     <Typography variant="h6">
-                      {route.truck?.name || route.installerProfile?.user?.fullName || `מסלול ${route.id}`}
+                      {route.truck
+                        ? [route.truck.name, route.orders[0]?.department ? DEPARTMENT_LABELS[route.orders[0].department] || route.orders[0].department : null, route.orders[0]?.zone?.nameHe].filter(Boolean).join(' - ')
+                        : route.installerProfile?.user?.fullName || `מסלול ${route.id}`}
                       {(route as any).roundNumber > 1 && ` (סבב ${(route as any).roundNumber})`}
                     </Typography>
                     {route.color && (
