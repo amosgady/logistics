@@ -789,11 +789,10 @@ export default function CoordinationPage() {
           borderRadius: '8px 8px 0 0',
           display: 'flex',
           alignItems: 'center',
-          gap: 1.5,
-          flexWrap: 'wrap',
+          gap: 1,
         }}
       >
-        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white' }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>
           תיאום אספקות
         </Typography>
         <Button
