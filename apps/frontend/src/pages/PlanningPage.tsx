@@ -906,16 +906,6 @@ export default function PlanningPage() {
                                 {deptGeoSorted && <Chip label="מסודר גיאוגרפית" color="success" size="small" icon={<PlaceIcon />} />}
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Button
-                                  size="small"
-                                  variant={deptGeoSorted ? 'outlined' : 'contained'}
-                                  color="success"
-                                  startIcon={<PlaceIcon />}
-                                  onClick={() => handleGeoSort(deptOrders.map((o) => o.id))}
-                                  disabled={deptOrders.length < 2 || geoSortMutation.isPending}
-                                >
-                                  {geoSortMutation.isPending ? 'מסדר...' : 'סידור גיאוגרפי'}
-                                </Button>
                                 <FormControl size="small" sx={{ minWidth: 150 }}>
                                   <InputLabel>בחר משאית</InputLabel>
                                   <Select
@@ -935,11 +925,6 @@ export default function PlanningPage() {
                                 </FormControl>
                               </Box>
                             </Box>
-                            {!deptGeoSorted && (
-                              <Alert severity="info" sx={{ mb: 1, py: 0 }}>
-                                יש לבצע סידור גיאוגרפי לפני שיוך למשאית
-                              </Alert>
-                            )}
 
                             {Array.from(zoneMap.entries()).map(([zoneName, orders]) => {
                               const zoneGeoSorted = orders.every((o) => o.geoSortOrder != null);
