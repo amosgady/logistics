@@ -1239,7 +1239,7 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
   return (
     <Paper sx={{ width: '100%', overflow: 'hidden' }}>
       <Box sx={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto' }}>
-        <Table stickyHeader size="small">
+        <Table stickyHeader size="small" sx={{ '& .MuiTableCell-root': { textAlign: 'right' } }}>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">
