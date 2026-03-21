@@ -54,6 +54,7 @@ interface TrackingOrder {
   timeWindow: string | null;
   palletCount: number;
   checkerNote: string | null;
+  driverNote: string | null;
   orderLines: OrderLine[];
   delivery: Delivery | null;
 }
@@ -237,6 +238,14 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                       </IconButton>
                     </Box>
 
+                    {/* Driver note at order level */}
+                    {order.driverNote && (
+                      <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#fff3e0', borderRadius: 1 }}>
+                        <Typography variant="caption" color="warning.dark">
+                          🚚 הערה לנהג: {order.driverNote}
+                        </Typography>
+                      </Box>
+                    )}
                     {/* Checker note at order level */}
                     {order.checkerNote && (
                       <Box sx={{ mt: 0.5, p: 0.5, bgcolor: '#e3f2fd', borderRadius: 1 }}>
