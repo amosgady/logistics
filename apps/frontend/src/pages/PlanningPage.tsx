@@ -794,7 +794,7 @@ export default function PlanningPage() {
           bgcolor: '#1e3a5f',
           color: 'white',
           px: 2,
-          py: 0.5,
+          py: 0.25,
           mb: 0,
           borderRadius: '8px 8px 0 0',
           display: 'flex',
