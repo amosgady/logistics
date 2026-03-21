@@ -315,32 +315,36 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
 
     // Step 2: Upload signature (separate try/catch so delivery is not lost)
-    console.log(`[Delivery] Signature data exists: ${!!signatureData}, length: ${signatureData?.length || 0}`);
+    const debugSteps: string[] = [`דיווח: ✅`];
     if (signatureData) {
+      debugSteps.push(`חתימה: ${signatureData.length} bytes...`);
       try {
-        console.log(`[Delivery] Uploading signature for order ${orderId}...`);
         await apiService.uploadSignature(orderId, signatureData);
-        console.log(`[Delivery] Signature uploaded successfully`);
-      } catch (sigErr) {
-        console.error(`[Delivery] Signature upload failed:`, sigErr);
-        // Queue signature for retry
+        debugSteps.push(`חתימה: ✅`);
+      } catch (sigErr: any) {
+        debugSteps.push(`חתימה: ❌ ${sigErr?.message || 'שגיאה'}`);
         addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
         warnings.push('החתימה תישלח כשהחיבור ישתפר');
       }
+    } else {
+      debugSteps.push(`חתימה: לא נחתם`);
     }
 
     // Step 3: Upload photos (separate try/catch)
-    console.log(`[Delivery] Photo files: ${photoFiles.length}`);
     if (photoFiles.length > 0) {
+      debugSteps.push(`תמונות: ${photoFiles.length}...`);
       try {
-        console.log(`[Delivery] Uploading ${photoFiles.length} photos...`);
         await apiService.uploadPhotos(orderId, photoFiles);
-        console.log(`[Delivery] Photos uploaded successfully`);
-      } catch (photoErr) {
-        console.error(`[Delivery] Photo upload failed:`, photoErr);
+        debugSteps.push(`תמונות: ✅`);
+      } catch (photoErr: any) {
+        debugSteps.push(`תמונות: ❌ ${photoErr?.message || 'שגיאה'}`);
         warnings.push('התמונות לא נשלחו - נסה שוב מאוחר יותר');
       }
     }
+
+    // Show debug info temporarily
+    setSnackbar({ message: debugSteps.join(' | '), severity: 'info' });
+    await new Promise((r) => setTimeout(r, 5000)); // show for 5 seconds
 
     queryClient.invalidateQueries({ queryKey: [queryKey] });
     setDeliveryDialog(null);
