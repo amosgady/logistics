@@ -34,7 +34,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { driverApi } from '../services/driverApi';
 import { installerFieldApi } from '../services/installerFieldApi';
 import { trackingApi } from '../services/trackingApi';
-import { addToQueue, getQueueCount } from '../services/offlineQueue';
+import { addToQueue } from '../services/offlineQueue';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import DeliveryMediaDialog from '../components/common/DeliveryMediaDialog';
@@ -159,17 +159,12 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   // Recover pending deliveries from localStorage (in case app was killed mid-submission)
   useEffect(() => {
     if (!navigator.onLine) return;
-    // Check queue status on load
-    const queueCount = getQueueCount();
     const pendingKeys = Object.keys(localStorage).filter((k) => k.startsWith('pending_delivery_'));
-    if (queueCount > 0 || pendingKeys.length > 0) {
-      setSnackbar({ message: `נמצאו ${queueCount} פעולות בתור + ${pendingKeys.length} דיווחים ממתינים`, severity: 'info' });
-    }
     pendingKeys.forEach(async (key) => {
       try {
         const pending = JSON.parse(localStorage.getItem(key) || '{}');
         if (!pending.orderId || Date.now() - pending.timestamp > 24 * 60 * 60 * 1000) {
-          localStorage.removeItem(key); // expired
+          localStorage.removeItem(key);
           return;
         }
         addToQueue({ type: 'delivery', endpoint: `${pending.basePath}/orders/${pending.orderId}/delivery`, method: 'POST', data: pending.deliveryData });
@@ -177,24 +172,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
           addToQueue({ type: 'signature', endpoint: `${pending.basePath}/orders/${pending.orderId}/signature`, method: 'POST', data: { signature: pending.signatureData } });
         }
         localStorage.removeItem(key);
-        setSnackbar({ message: `דיווח הזמנה ${pending.orderId} הועבר לתור שליחה`, severity: 'info' });
       } catch {
         localStorage.removeItem(key);
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Debug: show queue status when coming back online
-  useEffect(() => {
-    const onOnline = () => {
-      const count = getQueueCount();
-      if (count > 0) {
-        setSnackbar({ message: `אינטרנט חזר! ${count} פעולות בתור לשליחה...`, severity: 'info' });
-      }
-    };
-    window.addEventListener('online', onOnline);
-    return () => window.removeEventListener('online', onOnline);
-  }, []);
 
   // GPS location reporting
   useEffect(() => {
@@ -331,36 +313,23 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
 
     // Step 2: Upload signature (separate try/catch so delivery is not lost)
-    const debugSteps: string[] = [`דיווח: ✅`];
     if (signatureData) {
-      debugSteps.push(`חתימה: ${signatureData.length} bytes...`);
       try {
         await apiService.uploadSignature(orderId, signatureData);
-        debugSteps.push(`חתימה: ✅`);
-      } catch (sigErr: any) {
-        debugSteps.push(`חתימה: ❌ ${sigErr?.message || 'שגיאה'}`);
+      } catch {
         addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
         warnings.push('החתימה תישלח כשהחיבור ישתפר');
       }
-    } else {
-      debugSteps.push(`חתימה: לא נחתם`);
     }
 
     // Step 3: Upload photos (separate try/catch)
     if (photoFiles.length > 0) {
-      debugSteps.push(`תמונות: ${photoFiles.length}...`);
       try {
         await apiService.uploadPhotos(orderId, photoFiles);
-        debugSteps.push(`תמונות: ✅`);
-      } catch (photoErr: any) {
-        debugSteps.push(`תמונות: ❌ ${photoErr?.message || 'שגיאה'}`);
+      } catch {
         warnings.push('התמונות לא נשלחו - נסה שוב מאוחר יותר');
       }
     }
-
-    // Show debug info temporarily
-    setSnackbar({ message: debugSteps.join(' | '), severity: 'info' });
-    await new Promise((r) => setTimeout(r, 5000)); // show for 5 seconds
 
     queryClient.invalidateQueries({ queryKey: [queryKey] });
     setDeliveryDialog(null);
