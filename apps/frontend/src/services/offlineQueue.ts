@@ -65,10 +65,13 @@ export async function processQueue(
 
   for (const action of queue) {
     try {
+      console.log(`[OfflineQueue] Syncing: ${action.type} → ${action.method} ${action.endpoint}`);
       await apiCall(action.method, action.endpoint, action.data);
+      console.log(`[OfflineQueue] Success: ${action.type}`);
       removeFromQueue(action.id);
       success++;
-    } catch {
+    } catch (err) {
+      console.error(`[OfflineQueue] Failed: ${action.type}`, err);
       // Update retry count
       action.retries++;
       if (action.retries >= 5) {

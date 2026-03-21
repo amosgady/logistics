@@ -241,48 +241,23 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     const orderId = deliveryDialog.orderId;
     const deliveryData = { result: deliveryResult, notes: deliveryNotes || undefined };
     const basePath = isDriver ? '/driver' : '/installer';
+    const warnings: string[] = [];
 
+    // Get signature data before closing dialog
+    let signatureData: string | null = null;
+    if (signatureRef.current && !signatureRef.current.isEmpty()) {
+      signatureData = signatureRef.current.toDataURL('image/png');
+    }
+
+    // Step 1: Record delivery
     try {
       await apiService.recordDelivery(orderId, deliveryData);
-
-      if (signatureRef.current && !signatureRef.current.isEmpty()) {
-        const signatureData = signatureRef.current.toDataURL('image/png');
-        await apiService.uploadSignature(orderId, signatureData);
-      }
-
-      if (photoFiles.length > 0) {
-        await apiService.uploadPhotos(orderId, photoFiles);
-      }
-
-      queryClient.invalidateQueries({ queryKey: [queryKey] });
-      setDeliveryDialog(null);
-      setDeliveryResult('');
-      setDeliveryNotes('');
-      setHasSignature(false);
-      setPhotoFiles([]);
-      setPhotoPreviews([]);
-      setSnackbar({ message: 'הדיווח נשמר בהצלחה', severity: 'success' });
-    } catch (err: unknown) {
-      // If offline, queue the delivery for later sync
+    } catch {
       if (!navigator.onLine) {
-        // Queue delivery
-        addToQueue({
-          type: 'delivery',
-          endpoint: `${basePath}/orders/${orderId}/delivery`,
-          method: 'POST',
-          data: deliveryData,
-        });
-        // Queue signature (Base64 PNG ~10-50KB, fits in localStorage)
-        if (signatureRef.current && !signatureRef.current.isEmpty()) {
-          const signatureData = signatureRef.current.toDataURL('image/png');
-          addToQueue({
-            type: 'signature',
-            endpoint: `${basePath}/orders/${orderId}/signature`,
-            method: 'POST',
-            data: { signature: signatureData },
-          });
+        addToQueue({ type: 'delivery', endpoint: `${basePath}/orders/${orderId}/delivery`, method: 'POST', data: deliveryData });
+        if (signatureData) {
+          addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
         }
-        // Photos are too large for localStorage - warn user
         const photoWarning = photoFiles.length > 0 ? ' (תמונות לא נשמרו - צלם שוב כשיהיה חיבור)' : '';
         queryClient.invalidateQueries({ queryKey: [queryKey] });
         setDeliveryDialog(null);
@@ -292,13 +267,48 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         setPhotoFiles([]);
         setPhotoPreviews([]);
         setSnackbar({ message: `אין חיבור - הדיווח והחתימה נשמרו ויישלחו כשהחיבור יחזור${photoWarning}`, severity: 'warning' });
-      } else {
-        const msg = (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message || 'שגיאה בשמירת הדיווח';
-        setSnackbar({ message: msg, severity: 'error' });
+        setSubmitting(false);
+        return;
       }
-    } finally {
+      setSnackbar({ message: 'שגיאה בשמירת הדיווח', severity: 'error' });
       setSubmitting(false);
+      return;
     }
+
+    // Step 2: Upload signature (separate try/catch so delivery is not lost)
+    if (signatureData) {
+      try {
+        await apiService.uploadSignature(orderId, signatureData);
+      } catch {
+        // Queue signature for retry
+        addToQueue({ type: 'signature', endpoint: `${basePath}/orders/${orderId}/signature`, method: 'POST', data: { signature: signatureData } });
+        warnings.push('החתימה תישלח כשהחיבור ישתפר');
+      }
+    }
+
+    // Step 3: Upload photos (separate try/catch)
+    if (photoFiles.length > 0) {
+      try {
+        await apiService.uploadPhotos(orderId, photoFiles);
+      } catch {
+        warnings.push('התמונות לא נשלחו - נסה שוב מאוחר יותר');
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: [queryKey] });
+    setDeliveryDialog(null);
+    setDeliveryResult('');
+    setDeliveryNotes('');
+    setHasSignature(false);
+    setPhotoFiles([]);
+    setPhotoPreviews([]);
+
+    if (warnings.length > 0) {
+      setSnackbar({ message: `הדיווח נשמר. ${warnings.join('. ')}`, severity: 'warning' });
+    } else {
+      setSnackbar({ message: 'הדיווח נשמר בהצלחה', severity: 'success' });
+    }
+    setSubmitting(false);
   };
 
   const handleSignDeliveryNote = async () => {
