@@ -199,6 +199,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
 
   const handleScanResult = useCallback(async (barcodeValue: string) => {
     if (!scanMode) return;
+    // Stop scanner first, then process
+    if (html5QrCodeRef.current) {
+      try { await html5QrCodeRef.current.stop(); } catch { /* */ }
+      html5QrCodeRef.current = null;
+    }
     try {
       const res = await driverApi.scanPallet(barcodeValue, scanMode);
       const d = res.data;
@@ -225,24 +230,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       const msg = err?.response?.data?.error?.message || 'שגיאה בסריקה';
       setScanMessage({ text: msg, severity: 'error' });
     }
-    // Continue scanning
-    scanFoundRef.current = false;
+    // Restart scanner for next scan after short delay
+    setTimeout(() => restartScanner(), 1000);
   }, [scanMode, scanOrderId, selectedDate, stopScanner]);
 
-  const startScanner = useCallback(async (mode: 'LOAD' | 'UNLOAD', orderId?: number) => {
-    setScanMode(mode);
-    setScanOrderId(orderId || null);
-    setScanMessage(null);
-    setScannerOpen(true);
-    scanFoundRef.current = false;
-
-    if (mode === 'LOAD') {
-      try {
-        const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
-        setLoadingStatus(ls.data);
-      } catch { /* */ }
-    }
-
+  const initScanner = useCallback(async () => {
     await new Promise(r => setTimeout(r, 500));
     const scannerDiv = document.getElementById('driver-scanner');
     if (!scannerDiv) return;
@@ -262,16 +254,18 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     });
     html5QrCodeRef.current = html5QrCode;
 
+    let found = false;
     try {
       await html5QrCode.start(
         { facingMode: 'environment' },
         {
           fps: 10,
           qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
+          disableFlip: false,
         },
         (decodedText: string) => {
-          if (scanFoundRef.current) return;
-          scanFoundRef.current = true;
+          if (found) return;
+          found = true;
           handleScanResult(decodedText);
         },
         () => {},
@@ -285,7 +279,27 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         if (caps?.torch) setHasTorch(true);
       }
     } catch { setScannerOpen(false); }
-  }, [selectedDate, handleScanResult]);
+  }, [handleScanResult]);
+
+  const restartScanner = useCallback(() => {
+    initScanner();
+  }, [initScanner]);
+
+  const startScanner = useCallback(async (mode: 'LOAD' | 'UNLOAD', orderId?: number) => {
+    setScanMode(mode);
+    setScanOrderId(orderId || null);
+    setScanMessage(null);
+    setScannerOpen(true);
+
+    if (mode === 'LOAD') {
+      try {
+        const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
+        setLoadingStatus(ls.data);
+      } catch { /* */ }
+    }
+
+    initScanner();
+  }, [selectedDate, initScanner]);
 
   const toggleTorch = useCallback(() => {
     const video = document.getElementById('driver-scanner')?.querySelector('video');
