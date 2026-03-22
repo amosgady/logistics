@@ -496,18 +496,23 @@ export default function CheckerPage() {
 
                   const pw = window.open('', '_blank');
                   if (!pw) return;
+                  const barcodeValue = (idx: number) => `${od.orderNumber}-${idx}`;
                   pw.document.write(`
                     <html dir="rtl"><head><title>מדבקות - ${od.orderNumber}</title>
+                    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>
                     <style>
                       @page { size: 100mm 100mm; margin: 0; }
                       body { margin: 0; font-family: Arial, sans-serif; }
-                      .label { width: 100mm; height: 100mm; box-sizing: border-box; padding: 8mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; border: 1px dashed #ccc; }
+                      .label { width: 100mm; height: 100mm; box-sizing: border-box; padding: 6mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; page-break-after: always; }
                       .label:last-child { page-break-after: avoid; }
-                      .customer { font-size: 18pt; font-weight: bold; margin-bottom: 4mm; }
-                      .address { font-size: 14pt; margin-bottom: 3mm; }
-                      .phone { font-size: 14pt; margin-bottom: 3mm; }
-                      .order { font-size: 12pt; margin-bottom: 3mm; color: #555; }
-                      .pallet { font-size: 20pt; font-weight: bold; text-align: center; margin-top: 4mm; color: #1976d2; }
+                      .customer { font-size: 18pt; font-weight: bold; margin-bottom: 3mm; }
+                      .address { font-size: 14pt; margin-bottom: 2mm; }
+                      .phone { font-size: 14pt; margin-bottom: 2mm; }
+                      .order { font-size: 12pt; margin-bottom: 2mm; color: #555; }
+                      .barcode { margin: 2mm 0; }
+                      .barcode svg { height: 15mm; }
+                      .pallet { font-size: 20pt; font-weight: bold; margin-top: 2mm; color: #1976d2; }
+                      @media print { .label { border: none; } }
                     </style></head><body>
                     ${labels.map(i => `
                       <div class="label">
@@ -515,9 +520,13 @@ export default function CheckerPage() {
                         <div class="address">${od.address}, ${od.city}</div>
                         <div class="phone">טל: ${od.phone}</div>
                         <div class="order">הזמנה: ${od.orderNumber}</div>
+                        <div class="barcode"><svg class="barcode-${i}"></svg></div>
                         <div class="pallet">משטח ${i}/${count}</div>
                       </div>
                     `).join('')}
+                    <script>
+                      ${labels.map(i => `JsBarcode('.barcode-${i}', '${barcodeValue(i)}', { format: 'CODE128', width: 2, height: 40, displayValue: true, fontSize: 12 });`).join('\n')}
+                    <\/script>
                     </body></html>
                   `);
                   pw.document.close();
