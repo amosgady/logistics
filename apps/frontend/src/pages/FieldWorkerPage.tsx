@@ -235,9 +235,12 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   }, [scanMode, scanOrderId, selectedDate, stopScanner]);
 
   const initScanner = useCallback(async () => {
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 800));
     const scannerDiv = document.getElementById('driver-scanner');
-    if (!scannerDiv) return;
+    if (!scannerDiv) {
+      setScanMessage({ text: 'שגיאה: אלמנט סורק לא נמצא', severity: 'error' });
+      return;
+    }
     scannerDiv.innerHTML = '';
 
     const html5QrCode = new Html5Qrcode('driver-scanner', {
@@ -278,7 +281,10 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         if (caps?.focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
         if (caps?.torch) setHasTorch(true);
       }
-    } catch { setScannerOpen(false); }
+    } catch (err: any) {
+      setScanMessage({ text: `שגיאה בהפעלת סורק: ${err?.message || err}`, severity: 'error' });
+      setScannerOpen(false);
+    }
   }, [handleScanResult]);
 
   const restartScanner = useCallback(() => {
