@@ -249,7 +249,15 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     scannerDiv.innerHTML = '';
 
     const html5QrCode = new Html5Qrcode('driver-scanner', {
-      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13],
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.ITF,
+        Html5QrcodeSupportedFormats.CODABAR,
+      ],
+      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
       verbose: false,
     });
     html5QrCodeRef.current = html5QrCode;
@@ -260,6 +268,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         {
           fps: 10,
           qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
+          videoConstraints: {
+            facingMode: { exact: 'environment' },
+            width: { min: 1280, ideal: 1920 },
+            height: { min: 720, ideal: 1080 },
+          },
         },
         (decodedText: string) => {
           if (scanFoundRef.current) return;
