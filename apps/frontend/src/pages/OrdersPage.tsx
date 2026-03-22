@@ -241,7 +241,7 @@ export default function OrdersPage() {
           .order { font-size: 12pt; margin-bottom: 2mm; color: #555; }
           .barcode { margin: 2mm 0; }
           .barcode svg { height: 15mm; }
-          .pallet { font-size: 20pt; font-weight: bold; margin-top: 2mm; color: #1976d2; }
+          .pallet { font-size: 20pt; font-weight: bold; margin-top: 2mm; color: #000; }
           @media print { .label { border: none; } }
         </style>
       </head>
