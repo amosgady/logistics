@@ -268,11 +268,6 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         {
           fps: 10,
           qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
-          videoConstraints: {
-            facingMode: 'environment',
-            width: { min: 1280, ideal: 1920 },
-            height: { min: 720, ideal: 1080 },
-          },
         },
         (decodedText: string) => {
           if (scanFoundRef.current) return;

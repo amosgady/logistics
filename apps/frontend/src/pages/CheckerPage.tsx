@@ -132,11 +132,6 @@ export default function CheckerPage() {
             return { width: w, height: h };
           },
           disableFlip: false,
-          videoConstraints: {
-            facingMode: { exact: 'environment' },
-            width: { min: 1280, ideal: 1920 },
-            height: { min: 720, ideal: 1080 },
-          },
         },
         (decodedText: string) => {
           if (found) return;
