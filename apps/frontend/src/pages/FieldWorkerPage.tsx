@@ -247,6 +247,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
     scannerDiv.innerHTML = '';
 
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const html5QrCode = new Html5Qrcode('driver-scanner', {
       formatsToSupport: [
         Html5QrcodeSupportedFormats.CODE_128,
@@ -256,7 +257,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         Html5QrcodeSupportedFormats.ITF,
         Html5QrcodeSupportedFormats.CODABAR,
       ],
-      experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+      experimentalFeatures: { useBarCodeDetectorIfSupported: !isIOS },
       verbose: false,
     });
     html5QrCodeRef.current = html5QrCode;
@@ -266,9 +267,10 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       await html5QrCode.start(
         { facingMode: 'environment' },
         {
-          fps: 15,
+          fps: isIOS ? 5 : 15,
           qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.4) }),
           disableFlip: false,
+          aspectRatio: isIOS ? 1.0 : undefined,
         },
         (decodedText: string) => {
           if (found) return;

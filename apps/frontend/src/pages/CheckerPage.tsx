@@ -104,6 +104,7 @@ export default function CheckerPage() {
       const scannerDiv = document.getElementById('html5-qrcode-scanner');
       if (!scannerDiv) return;
 
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
       const html5QrCode = new Html5Qrcode('html5-qrcode-scanner', {
         formatsToSupport: [
           Html5QrcodeSupportedFormats.CODE_128,
@@ -115,7 +116,7 @@ export default function CheckerPage() {
         ],
         verbose: false,
         experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true,
+          useBarCodeDetectorIfSupported: !isIOS,
         },
       });
       html5QrCodeRef.current = html5QrCode;
@@ -125,13 +126,14 @@ export default function CheckerPage() {
       await html5QrCode.start(
         { facingMode: 'environment' },
         {
-          fps: 10,
+          fps: isIOS ? 5 : 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
             const w = Math.floor(viewfinderWidth * 0.9);
-            const h = Math.floor(viewfinderHeight * 0.3);
+            const h = Math.floor(viewfinderHeight * 0.4);
             return { width: w, height: h };
           },
           disableFlip: false,
+          aspectRatio: isIOS ? 1.0 : undefined,
         },
         (decodedText: string) => {
           if (found) return;
