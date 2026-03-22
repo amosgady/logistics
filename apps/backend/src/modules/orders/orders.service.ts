@@ -240,6 +240,14 @@ export class OrdersService {
     });
   }
 
+  async updatePhone(orderId: number, phone: string, phone2: string | null) {
+    return prisma.order.update({
+      where: { id: orderId },
+      data: { phone, phone2: phone2 || null },
+      include: { orderLines: true, zone: true },
+    });
+  }
+
   async updateCoordinates(orderId: number, lat: number, lng: number) {
     return prisma.order.update({
       where: { id: orderId },

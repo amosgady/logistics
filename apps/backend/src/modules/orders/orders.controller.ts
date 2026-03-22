@@ -140,6 +140,13 @@ export const ordersController = {
     res.json({ success: true, data: order });
   }),
 
+  updatePhone: asyncHandler(async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id as string);
+    const { phone, phone2 } = req.body;
+    const order = await ordersService.updatePhone(id, phone, phone2);
+    res.json({ success: true, data: order });
+  }),
+
   updateCoordinates: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const { lat, lng } = req.body;

@@ -233,6 +233,72 @@ function EditablePalletCount({ order }: { order: Order }) {
   );
 }
 
+function EditablePhone({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [phone1, setPhone1] = useState(order.phone || '');
+  const [phone2, setPhone2] = useState(order.phone2 || '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editing]);
+
+  const mutation = useMutation({
+    mutationFn: () => orderApi.updatePhone(order.id, phone1.trim(), phone2.trim() || null),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+  });
+
+  const save = () => {
+    if (phone1.trim() !== (order.phone || '') || phone2.trim() !== (order.phone2 || '')) {
+      mutation.mutate();
+    }
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        <TextField
+          inputRef={inputRef}
+          size="small"
+          value={phone1}
+          onChange={(e) => setPhone1(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+          variant="standard"
+          placeholder="טלפון 1"
+          sx={{ width: 110, fontSize: 13 }}
+        />
+        <TextField
+          size="small"
+          value={phone2}
+          onChange={(e) => setPhone2(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') setEditing(false); }}
+          variant="standard"
+          placeholder="טלפון 2"
+          sx={{ width: 110, fontSize: 13 }}
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover', borderRadius: 1 }, px: 0.5 }}
+      onClick={() => { setPhone1(order.phone || ''); setPhone2(order.phone2 || ''); setEditing(true); }}
+    >
+      <Typography variant="body2">{order.phone || '-'}</Typography>
+      {order.phone2 && (
+        <Typography variant="caption" color="text.secondary" display="block">{order.phone2}</Typography>
+      )}
+    </Box>
+  );
+}
+
 function EditablePrice({ order }: { order: Order }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -915,16 +981,7 @@ function renderCellContent(
     case 'address':
       return <EditableAddress order={order} />;
     case 'phone':
-      return (
-        <>
-          {order.phone}
-          {order.phone2 && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              {order.phone2}
-            </Typography>
-          )}
-        </>
-      );
+      return <EditablePhone order={order} />;
     case 'deliveryDate':
       return <EditableDeliveryDate order={order} onUpdate={onUpdateDeliveryDate} />;
     case 'department':
