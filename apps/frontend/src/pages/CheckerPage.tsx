@@ -116,24 +116,33 @@ export default function CheckerPage() {
         ],
         verbose: false,
         experimentalFeatures: {
-          useBarCodeDetectorIfSupported: !isIOS,
+          useBarCodeDetectorIfSupported: false,
         },
       });
       html5QrCodeRef.current = html5QrCode;
 
+      // Find back camera for iOS
+      let cameraConfig: any = { facingMode: 'environment' };
+      if (isIOS) {
+        try {
+          const cameras = await Html5Qrcode.getCameras();
+          const backCam = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+          if (backCam) cameraConfig = backCam.id;
+        } catch { /* fallback to facingMode */ }
+      }
+
       let found = false;
 
       await html5QrCode.start(
-        { facingMode: 'environment' },
+        cameraConfig,
         {
-          fps: isIOS ? 5 : 10,
+          fps: isIOS ? 2 : 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const w = Math.floor(viewfinderWidth * 0.9);
-            const h = Math.floor(viewfinderHeight * 0.4);
+            const w = Math.floor(viewfinderWidth * 0.85);
+            const h = Math.floor(viewfinderHeight * 0.5);
             return { width: w, height: h };
           },
           disableFlip: false,
-          aspectRatio: isIOS ? 1.0 : undefined,
         },
         (decodedText: string) => {
           if (found) return;

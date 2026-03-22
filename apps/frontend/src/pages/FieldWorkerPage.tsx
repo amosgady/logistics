@@ -257,20 +257,29 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         Html5QrcodeSupportedFormats.ITF,
         Html5QrcodeSupportedFormats.CODABAR,
       ],
-      experimentalFeatures: { useBarCodeDetectorIfSupported: !isIOS },
+      experimentalFeatures: { useBarCodeDetectorIfSupported: false },
       verbose: false,
     });
     html5QrCodeRef.current = html5QrCode;
 
+    // Find back camera for iOS
+    let cameraConfig: any = { facingMode: 'environment' };
+    if (isIOS) {
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        const backCam = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+        if (backCam) cameraConfig = backCam.id;
+      } catch { /* fallback to facingMode */ }
+    }
+
     let found = false;
     try {
       await html5QrCode.start(
-        { facingMode: 'environment' },
+        cameraConfig,
         {
-          fps: isIOS ? 5 : 15,
-          qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.4) }),
+          fps: isIOS ? 2 : 15,
+          qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.85), height: Math.floor(vh * 0.5) }),
           disableFlip: false,
-          aspectRatio: isIOS ? 1.0 : undefined,
         },
         (decodedText: string) => {
           if (found) return;
