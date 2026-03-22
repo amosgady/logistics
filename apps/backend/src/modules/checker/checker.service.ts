@@ -88,6 +88,12 @@ export class CheckerService {
         driverNote: true,
         checkerNote: true,
         palletCount: true,
+        faucetCount: true,
+        bathtubCount: true,
+        panelCount: true,
+        showerCount: true,
+        rodCount: true,
+        cabinetCount: true,
         orderLines: {
           orderBy: { lineNumber: 'asc' },
           select: {
@@ -170,6 +176,25 @@ export class CheckerService {
       where: { id: orderId },
       data: { palletCount },
       select: { id: true, palletCount: true },
+    });
+  }
+
+  async updateOrderCounts(orderId: number, counts: Record<string, number | null>) {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    const allowedFields = ['faucetCount', 'bathtubCount', 'panelCount', 'showerCount', 'rodCount', 'cabinetCount'];
+    const data: Record<string, number | null> = {};
+    for (const [key, val] of Object.entries(counts)) {
+      if (allowedFields.includes(key)) {
+        data[key] = val;
+      }
+    }
+
+    return prisma.order.update({
+      where: { id: orderId },
+      data,
+      select: { id: true, faucetCount: true, bathtubCount: true, panelCount: true, showerCount: true, rodCount: true, cabinetCount: true },
     });
   }
 }

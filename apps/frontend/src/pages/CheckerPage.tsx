@@ -273,6 +273,14 @@ export default function CheckerPage() {
     },
   });
 
+  const countsMutation = useMutation({
+    mutationFn: ({ orderId, counts }: { orderId: number; counts: Record<string, number | null> }) =>
+      checkerApi.updateOrderCounts(orderId, counts),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checker-lines', selectedOrder] });
+    },
+  });
+
   const handleSearch = () => setSearchQuery(searchInput);
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter') handleSearch(); };
 
@@ -422,6 +430,34 @@ export default function CheckerPage() {
                   inputProps={{ min: 0, style: { textAlign: 'center', width: 50, padding: '4px 8px' } }}
                   sx={{ bgcolor: '#fff' }}
                 />
+              </Box>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                {[
+                  { key: 'faucetCount', label: 'ברזים' },
+                  { key: 'bathtubCount', label: 'אמבטיות' },
+                  { key: 'panelCount', label: 'פאנל' },
+                  { key: 'showerCount', label: 'מקלחונים' },
+                  { key: 'rodCount', label: 'מוטות' },
+                  { key: 'cabinetCount', label: 'ארונות' },
+                ].map(({ key, label }) => (
+                  <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Typography variant="body2"><strong>{label}:</strong></Typography>
+                    <TextField
+                      type="number"
+                      size="small"
+                      defaultValue={(orderDetail as any)[key] ?? ''}
+                      key={`${key}-${orderDetail.id}-${(orderDetail as any)[key]}`}
+                      onBlur={(e) => {
+                        const val = e.target.value ? parseInt(e.target.value) : null;
+                        if (val !== ((orderDetail as any)[key] ?? null)) {
+                          countsMutation.mutate({ orderId: orderDetail.id, counts: { [key]: val } });
+                        }
+                      }}
+                      inputProps={{ min: 0, style: { textAlign: 'center', width: 40, padding: '4px 8px' } }}
+                      sx={{ bgcolor: '#fff' }}
+                    />
+                  </Box>
+                ))}
               </Box>
               {orderDetail.driverNote && (
                 <Alert severity="info" sx={{ mt: 1, py: 0.5 }} icon={false}>

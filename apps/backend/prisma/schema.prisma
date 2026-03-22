@@ -222,6 +222,12 @@ model Order {
   // Installation counts
   doorCount     Int?    @map("door_count")
   handleCount   Int?    @map("handle_count")
+  faucetCount   Int?    @map("faucet_count")
+  bathtubCount  Int?    @map("bathtub_count")
+  panelCount    Int?    @map("panel_count")
+  showerCount   Int?    @map("shower_count")
+  rodCount      Int?    @map("rod_count")
+  cabinetCount  Int?    @map("cabinet_count")
   price         String? @map("price")
 
   // Delivery note PDF

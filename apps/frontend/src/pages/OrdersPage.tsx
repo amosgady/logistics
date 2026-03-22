@@ -22,6 +22,7 @@ import {
   Map as MapIcon,
   LocationOn as LocationIcon,
   WarningAmber as WarningIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
@@ -192,6 +193,69 @@ export default function OrdersPage() {
     } catch {
       setSnackbar({ message: 'שגיאה בעדכון תאריך אספקה', severity: 'error' });
     }
+  };
+
+  const handlePrintLabels = () => {
+    const selectedOrders = orders.filter((o: any) => selectedOrderIds.has(o.id));
+    if (selectedOrders.length === 0) return;
+
+    const labels: { customerName: string; address: string; phone: string; orderNumber: string; labelIndex: number; totalLabels: number }[] = [];
+
+    for (const order of selectedOrders) {
+      const totalItems = (order.palletCount || 0) + (order.faucetCount || 0) + (order.bathtubCount || 0) +
+        (order.panelCount || 0) + (order.showerCount || 0) + (order.rodCount || 0) + (order.cabinetCount || 0);
+      const count = Math.max(totalItems, 1);
+      for (let i = 1; i <= count; i++) {
+        labels.push({
+          customerName: order.customerName || '',
+          address: `${order.address || ''}, ${order.city || ''}`,
+          phone: order.phone || '',
+          orderNumber: order.orderNumber || '',
+          labelIndex: i,
+          totalLabels: count,
+        });
+      }
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html dir="rtl">
+      <head>
+        <title>הדפסת מדבקות</title>
+        <style>
+          @page { size: 100mm 100mm; margin: 0; }
+          body { margin: 0; font-family: Arial, sans-serif; }
+          .label {
+            width: 100mm; height: 100mm; box-sizing: border-box;
+            padding: 8mm; display: flex; flex-direction: column;
+            justify-content: center; page-break-after: always;
+            border: 1px dashed #ccc;
+          }
+          .label:last-child { page-break-after: avoid; }
+          .customer { font-size: 18pt; font-weight: bold; margin-bottom: 4mm; }
+          .address { font-size: 14pt; margin-bottom: 3mm; }
+          .phone { font-size: 14pt; margin-bottom: 3mm; }
+          .order { font-size: 12pt; margin-bottom: 3mm; color: #555; }
+          .pallet { font-size: 20pt; font-weight: bold; text-align: center; margin-top: 4mm; color: #1976d2; }
+        </style>
+      </head>
+      <body>
+        ${labels.map(l => `
+          <div class="label">
+            <div class="customer">${l.customerName}</div>
+            <div class="address">${l.address}</div>
+            <div class="phone">טל: ${l.phone}</div>
+            <div class="order">הזמנה: ${l.orderNumber}</div>
+            <div class="pallet">משטח ${l.labelIndex}/${l.totalLabels}</div>
+          </div>
+        `).join('')}
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
   };
 
   return (
@@ -395,6 +459,16 @@ export default function OrdersPage() {
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
             מחיקה
+          </Button>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={handlePrintLabels}
+            disabled={selectedOrderIds.size === 0}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            הדפסת מדבקות
           </Button>
         </Paper>
       )}

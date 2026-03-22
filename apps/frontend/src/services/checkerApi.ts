@@ -38,6 +38,12 @@ export interface CheckerOrderDetail {
   driverNote: string | null;
   checkerNote: string | null;
   palletCount: number;
+  faucetCount: number | null;
+  bathtubCount: number | null;
+  panelCount: number | null;
+  showerCount: number | null;
+  rodCount: number | null;
+  cabinetCount: number | null;
   orderLines: CheckerOrderLine[];
 }
 
@@ -59,4 +65,7 @@ export const checkerApi = {
 
   updateOrderPalletCount: (orderId: number, palletCount: number) =>
     api.patch(`/checker/orders/${orderId}/pallet-count`, { palletCount }).then((r) => r.data.data),
+
+  updateOrderCounts: (orderId: number, counts: Record<string, number | null>) =>
+    api.patch(`/checker/orders/${orderId}/counts`, counts).then((r) => r.data.data),
 };

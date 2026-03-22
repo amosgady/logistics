@@ -47,4 +47,10 @@ export const checkerController = {
     const result = await checkerService.updateOrderPalletCount(orderId, palletCount);
     res.json({ success: true, data: result });
   }),
+
+  updateOrderCounts: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const result = await checkerService.updateOrderCounts(orderId, req.body);
+    res.json({ success: true, data: result });
+  }),
 };
