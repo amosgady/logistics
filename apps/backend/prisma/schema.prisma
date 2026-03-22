@@ -102,6 +102,7 @@ model User {
   sentMessages     Message[] @relation("MessagesSent")
   receivedMessages Message[] @relation("MessagesReceived")
   userZones        UserZone[]
+  palletScans      PalletScan[]
 
   @@map("users")
 }
@@ -254,6 +255,7 @@ model Order {
   route         Route?               @relation(fields: [routeId], references: [id])
   orderLines    OrderLine[]
   delivery      Delivery?
+  palletScans   PalletScan[]
   statusHistory    OrderStatusHistory[]
   smsLogs          SmsLog[]
   smsReplySessions SmsReplySession[]
@@ -365,6 +367,21 @@ model Route {
   @@unique([truckId, routeDate, roundNumber])
   @@unique([installerProfileId, routeDate, roundNumber])
   @@map("routes")
+}
+
+model PalletScan {
+  id          Int      @id @default(autoincrement())
+  orderId     Int      @map("order_id")
+  palletIndex Int      @map("pallet_index")
+  scanType    String   @map("scan_type") // LOAD or UNLOAD
+  scannedAt   DateTime @default(now()) @map("scanned_at")
+  scannedBy   Int?     @map("scanned_by")
+
+  order Order @relation(fields: [orderId], references: [id])
+  user  User? @relation(fields: [scannedBy], references: [id])
+
+  @@unique([orderId, palletIndex, scanType])
+  @@map("pallet_scans")
 }
 
 model Delivery {

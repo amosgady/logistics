@@ -29,11 +29,16 @@ import {
   Photo as PhotoIcon,
   Message as MessageIcon,
   PictureAsPdf as PdfIcon,
+  QrCodeScanner as ScannerIcon,
+  FlashlightOn as FlashOnIcon,
+  FlashlightOff as FlashOffIcon,
+  Inventory as LoadIcon,
 } from '@mui/icons-material';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { driverApi } from '../services/driverApi';
 import { installerFieldApi } from '../services/installerFieldApi';
 import { trackingApi } from '../services/trackingApi';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { addToQueue } from '../services/offlineQueue';
 import { useAuthStore } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
@@ -161,6 +166,153 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   const signatureRef = useRef<SignatureCanvas | null>(null);
   const signNoteRef = useRef<SignatureCanvas | null>(null);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Scanning state
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<'LOAD' | 'UNLOAD' | null>(null);
+  const [scanOrderId, setScanOrderId] = useState<number | null>(null);
+  const [scanMessage, setScanMessage] = useState<{ text: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState<{ orders: any[]; totalPallets: number; scannedPallets: number } | null>(null);
+  const [unloadedOrders, setUnloadedOrders] = useState<Set<number>>(new Set());
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [hasTorch, setHasTorch] = useState(false);
+  const scanFoundRef = useRef(false);
+
+  // Scanner functions
+  const calcTotalPallets = (order: any) =>
+    (order.palletCount || 0) + (order.faucetCount || 0) + (order.bathtubCount || 0) +
+    (order.panelCount || 0) + (order.showerCount || 0) + (order.rodCount || 0) + (order.cabinetCount || 0);
+
+  const stopScanner = useCallback(async () => {
+    if (html5QrCodeRef.current) {
+      try {
+        const state = html5QrCodeRef.current.getState();
+        if (state === 2 || state === 3) await html5QrCodeRef.current.stop();
+      } catch { /* */ }
+      html5QrCodeRef.current = null;
+    }
+    setScannerOpen(false);
+    setTorchOn(false);
+    setHasTorch(false);
+  }, []);
+
+  const handleScanResult = useCallback(async (barcodeValue: string) => {
+    if (!scanMode) return;
+    try {
+      const res = await driverApi.scanPallet(barcodeValue, scanMode);
+      const d = res.data;
+      if (d.status === 'ALREADY_SCANNED') {
+        setScanMessage({ text: d.message, severity: 'info' });
+      } else {
+        setScanMessage({ text: d.message, severity: 'success' });
+      }
+      // Refresh loading status
+      if (scanMode === 'LOAD') {
+        const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
+        setLoadingStatus(ls.data);
+      } else if (scanMode === 'UNLOAD' && scanOrderId) {
+        const us = await driverApi.getUnloadingStatus(scanOrderId);
+        if (us.data.complete) {
+          setUnloadedOrders(prev => new Set([...prev, scanOrderId]));
+          setScanMessage({ text: 'הפריקה הושלמה! ✅', severity: 'success' });
+          setTimeout(() => stopScanner(), 1500);
+          return;
+        }
+        setScanMessage({ text: `${us.data.scannedPallets}/${us.data.totalPallets} משטחים נסרקו`, severity: 'success' });
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'שגיאה בסריקה';
+      setScanMessage({ text: msg, severity: 'error' });
+    }
+    // Continue scanning
+    scanFoundRef.current = false;
+  }, [scanMode, scanOrderId, selectedDate, stopScanner]);
+
+  const startScanner = useCallback(async (mode: 'LOAD' | 'UNLOAD', orderId?: number) => {
+    setScanMode(mode);
+    setScanOrderId(orderId || null);
+    setScanMessage(null);
+    setScannerOpen(true);
+    scanFoundRef.current = false;
+
+    if (mode === 'LOAD') {
+      try {
+        const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
+        setLoadingStatus(ls.data);
+      } catch { /* */ }
+    }
+
+    await new Promise(r => setTimeout(r, 500));
+    const scannerDiv = document.getElementById('driver-scanner');
+    if (!scannerDiv) return;
+    scannerDiv.innerHTML = '';
+
+    const html5QrCode = new Html5Qrcode('driver-scanner', {
+      formatsToSupport: [Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.EAN_13],
+      verbose: false,
+    });
+    html5QrCodeRef.current = html5QrCode;
+
+    try {
+      await html5QrCode.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
+        },
+        (decodedText: string) => {
+          if (scanFoundRef.current) return;
+          scanFoundRef.current = true;
+          handleScanResult(decodedText);
+        },
+        () => {},
+      );
+      const videoElem = scannerDiv.querySelector('video');
+      if (videoElem) {
+        const track = (videoElem.srcObject as MediaStream)?.getVideoTracks()[0];
+        const caps = track?.getCapabilities?.() as any;
+        if (caps?.zoom) await track.applyConstraints({ advanced: [{ zoom: Math.min(2.0, caps.zoom.max) } as any] });
+        if (caps?.focusMode?.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+        if (caps?.torch) setHasTorch(true);
+      }
+    } catch { setScannerOpen(false); }
+  }, [selectedDate, handleScanResult]);
+
+  const toggleTorch = useCallback(() => {
+    const video = document.getElementById('driver-scanner')?.querySelector('video');
+    const track = (video?.srcObject as MediaStream)?.getVideoTracks()[0];
+    if (track) {
+      const newState = !torchOn;
+      (track as any).applyConstraints({ advanced: [{ torch: newState }] });
+      setTorchOn(newState);
+    }
+  }, [torchOn]);
+
+  const handleFinishLoading = useCallback(async () => {
+    try {
+      const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
+      const data = ls.data;
+      setLoadingStatus(data);
+      const missing: string[] = [];
+      for (const o of data.orders) {
+        for (let i = 1; i <= o.totalPallets; i++) {
+          if (o.scannedPallets < i) {
+            missing.push(`הזמנה ${o.orderNumber} משטח ${i}/${o.totalPallets}`);
+          }
+        }
+      }
+      if (missing.length > 0) {
+        const missingCount = data.totalPallets - data.scannedPallets;
+        setScanMessage({ text: `חסרים ${missingCount} משטחים:\n${missing.slice(0, 5).join('\n')}${missing.length > 5 ? `\n...ועוד ${missing.length - 5}` : ''}`, severity: 'warning' });
+      } else {
+        setScanMessage({ text: 'כל המשטחים נסרקו בהצלחה! ✅', severity: 'success' });
+        setTimeout(() => { stopScanner(); setScanMode(null); }, 2000);
+      }
+    } catch {
+      setScanMessage({ text: 'שגיאה בבדיקת סטטוס', severity: 'error' });
+    }
+  }, [selectedDate, stopScanner]);
 
   // Recover pending deliveries from localStorage (in case app was killed mid-submission)
   useEffect(() => {
@@ -482,6 +634,19 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
           </Paper>
         )}
 
+        {/* Loading control button - drivers only */}
+        {isDriver && orders.length > 0 && (
+          <Button
+            variant="contained"
+            fullWidth
+            startIcon={<LoadIcon />}
+            onClick={() => startScanner('LOAD')}
+            sx={{ mb: 2, py: 1.5, fontSize: '1.1rem', bgcolor: '#1565c0', '&:hover': { bgcolor: '#0d47a1' } }}
+          >
+            בקרת העמסה ({orders.reduce((sum, o) => sum + calcTotalPallets(o), 0)} משטחים)
+          </Button>
+        )}
+
         {/* Delivery cards */}
         {orders.map((order, idx) => {
           const isExpanded = expandedId === order.id;
@@ -704,12 +869,28 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                       </Button>
                     )}
                   </Box>
+                  {!isCompleted && isDriver && calcTotalPallets(order) > 0 && !unloadedOrders.has(order.id) && (
+                    <Button
+                      startIcon={<ScannerIcon />}
+                      variant="outlined"
+                      fullWidth
+                      size="large"
+                      sx={{ mb: 1 }}
+                      onClick={() => startScanner('UNLOAD', order.id)}
+                    >
+                      בקרת פריקה ({calcTotalPallets(order)} משטחים)
+                    </Button>
+                  )}
+                  {!isCompleted && isDriver && unloadedOrders.has(order.id) && (
+                    <Alert severity="success" sx={{ mb: 1, py: 0 }}>פריקה הושלמה ✅</Alert>
+                  )}
                   {!isCompleted && (
                     <Button
                       startIcon={<CompleteIcon />}
                       variant="contained"
                       fullWidth
                       size="large"
+                      disabled={isDriver && calcTotalPallets(order) > 0 && !unloadedOrders.has(order.id)}
                       onClick={() => {
                         setDeliveryResult('');
                         setDeliveryNotes('');
@@ -979,6 +1160,63 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       <Snackbar open={!!snackbar} autoHideDuration={3000} onClose={() => setSnackbar(null)}>
         {snackbar ? <Alert severity={snackbar.severity}>{snackbar.message}</Alert> : undefined}
       </Snackbar>
+
+      {/* Scanner overlay */}
+      {scannerOpen && (
+        <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, bgcolor: 'black', display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1, bgcolor: 'rgba(0,0,0,0.7)' }}>
+            <IconButton onClick={() => { stopScanner(); setScanMode(null); }} sx={{ color: 'white' }}>
+              <CloseIcon />
+            </IconButton>
+            <Typography color="white" fontWeight="bold">
+              {scanMode === 'LOAD' ? 'בקרת העמסה' : 'בקרת פריקה'}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {hasTorch && (
+                <IconButton onClick={toggleTorch} sx={{ color: torchOn ? '#ffc107' : 'white' }}>
+                  {torchOn ? <FlashOnIcon /> : <FlashOffIcon />}
+                </IconButton>
+              )}
+            </Box>
+          </Box>
+
+          {/* Scanner area */}
+          <Box id="driver-scanner" sx={{ width: '100%', flexGrow: 1 }} />
+
+          {/* Status bar */}
+          <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10, bgcolor: 'rgba(0,0,0,0.85)', p: 2 }}>
+            {scanMessage && (
+              <Alert severity={scanMessage.severity} sx={{ mb: 1, whiteSpace: 'pre-line' }}>
+                {scanMessage.text}
+              </Alert>
+            )}
+            {scanMode === 'LOAD' && loadingStatus && (
+              <Box sx={{ mb: 1 }}>
+                <Typography color="white" variant="body2" sx={{ mb: 0.5 }}>
+                  נסרקו {loadingStatus.scannedPallets}/{loadingStatus.totalPallets} משטחים
+                </Typography>
+                <LinearProgress
+                  variant="determinate"
+                  value={loadingStatus.totalPallets > 0 ? (loadingStatus.scannedPallets / loadingStatus.totalPallets) * 100 : 0}
+                  sx={{ height: 8, borderRadius: 4 }}
+                />
+              </Box>
+            )}
+            {scanMode === 'LOAD' && (
+              <Button
+                variant="contained"
+                fullWidth
+                color="success"
+                size="large"
+                onClick={handleFinishLoading}
+              >
+                סיום העמסה
+              </Button>
+            )}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 }

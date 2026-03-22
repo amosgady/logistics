@@ -20,4 +20,13 @@ export const driverApi = {
 
   signDeliveryNote: (orderId: number, signature: string) =>
     api.post(`/driver/orders/${orderId}/sign-delivery-note`, { signature }).then((r) => r.data),
+
+  scanPallet: (barcode: string, scanType: 'LOAD' | 'UNLOAD') =>
+    api.post('/driver/scan-pallet', { barcode, scanType }).then((r) => r.data),
+
+  getLoadingStatus: (date?: string) =>
+    api.get('/driver/loading-status', { params: date ? { date } : {} }).then((r) => r.data),
+
+  getUnloadingStatus: (orderId: number) =>
+    api.get(`/driver/orders/${orderId}/unloading-status`).then((r) => r.data),
 };

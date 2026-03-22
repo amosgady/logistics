@@ -41,4 +41,22 @@ export const driverController = {
     const result = await driverService.signDeliveryNote(req.user!.userId, orderId, signature);
     res.json({ success: true, data: result });
   }),
+
+  scanPallet: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { barcode, scanType } = req.body;
+    const result = await driverService.scanPallet(req.user!.userId, barcode, scanType);
+    res.json({ success: true, data: result });
+  }),
+
+  getLoadingStatus: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const date = req.query.date as string | undefined;
+    const result = await driverService.getLoadingStatus(req.user!.userId, date);
+    res.json({ success: true, data: result });
+  }),
+
+  getUnloadingStatus: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const result = await driverService.getUnloadingStatus(orderId);
+    res.json({ success: true, data: result });
+  }),
 };

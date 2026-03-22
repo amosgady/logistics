@@ -30,5 +30,8 @@ router.post('/orders/:orderId/delivery', driverController.recordDelivery);
 router.post('/orders/:orderId/signature', driverController.uploadSignature);
 router.post('/orders/:orderId/photos', uploadPhotos.array('photos', 5), driverController.uploadPhotos);
 router.post('/orders/:orderId/sign-delivery-note', driverController.signDeliveryNote);
+router.post('/scan-pallet', driverController.scanPallet);
+router.get('/loading-status', driverController.getLoadingStatus);
+router.get('/orders/:orderId/unloading-status', driverController.getUnloadingStatus);
 
 export default router;

@@ -265,6 +265,116 @@ export class DriverService {
 
     return { signedDeliveryNoteUrl: updated.signedDeliveryNoteUrl };
   }
+
+  private calcTotalPallets(order: any): number {
+    return (order.palletCount || 0) + (order.faucetCount || 0) + (order.bathtubCount || 0) +
+      (order.panelCount || 0) + (order.showerCount || 0) + (order.rodCount || 0) + (order.cabinetCount || 0);
+  }
+
+  async scanPallet(userId: number, barcode: string, scanType: 'LOAD' | 'UNLOAD') {
+    // Parse barcode format: orderNumber-palletIndex
+    const parts = barcode.split('-');
+    if (parts.length < 2) throw new AppError(400, 'INVALID_BARCODE', 'ברקוד לא תקין');
+    const palletIndex = parseInt(parts[parts.length - 1]);
+    const orderNumber = parts.slice(0, -1).join('-');
+    if (isNaN(palletIndex)) throw new AppError(400, 'INVALID_BARCODE', 'ברקוד לא תקין');
+
+    // Find order by order number
+    const order = await prisma.order.findFirst({
+      where: { orderNumber },
+      include: { route: { include: { truck: true } } },
+    });
+    if (!order) throw new AppError(404, 'NOT_FOUND', `הזמנה ${orderNumber} לא נמצאה`);
+
+    const totalPallets = this.calcTotalPallets(order);
+    if (palletIndex < 1 || palletIndex > totalPallets) {
+      throw new AppError(400, 'INVALID_PALLET', `מספר משטח ${palletIndex} לא תקין. להזמנה ${totalPallets} משטחים`);
+    }
+
+    // For LOAD: verify order belongs to driver's truck
+    if (scanType === 'LOAD') {
+      const driverProfile = await prisma.driverProfile.findUnique({ where: { userId } });
+      if (!driverProfile) throw new AppError(403, 'NOT_DRIVER', 'משתמש אינו נהג');
+
+      const assignment = await prisma.truckAssignment.findFirst({
+        where: { driverProfileId: driverProfile.id, isActive: true },
+        include: { truck: true },
+      });
+      if (!assignment) throw new AppError(403, 'NO_TRUCK', 'אין משאית משויכת');
+
+      if (!order.route || order.route.truckId !== assignment.truckId) {
+        // Find which truck this order belongs to
+        const otherTruckName = order.route?.truck?.name || 'לא ידוע';
+        throw new AppError(400, 'WRONG_TRUCK', `משטח זה לא שייך למשאית שלך. המשטח שייך למשאית ${otherTruckName}`);
+      }
+    }
+
+    // Check if already scanned
+    const existing = await prisma.palletScan.findUnique({
+      where: { orderId_palletIndex_scanType: { orderId: order.id, palletIndex, scanType } },
+    });
+    if (existing) {
+      return { status: 'ALREADY_SCANNED', orderNumber, palletIndex, totalPallets, message: `משטח ${palletIndex}/${totalPallets} כבר נסרק` };
+    }
+
+    // Save scan
+    await prisma.palletScan.create({
+      data: { orderId: order.id, palletIndex, scanType, scannedBy: userId },
+    });
+
+    return { status: 'OK', orderNumber, palletIndex, totalPallets, message: `נסרק: הזמנה ${orderNumber} משטח ${palletIndex}/${totalPallets}` };
+  }
+
+  async getLoadingStatus(userId: number, date?: string) {
+    const driverProfile = await prisma.driverProfile.findUnique({ where: { userId } });
+    if (!driverProfile) throw new AppError(403, 'NOT_DRIVER', 'משתמש אינו נהג');
+
+    const assignment = await prisma.truckAssignment.findFirst({
+      where: { driverProfileId: driverProfile.id, isActive: true },
+      include: { truck: true },
+    });
+    if (!assignment) return { orders: [], totalPallets: 0, scannedPallets: 0 };
+
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfDay = new Date(targetDate); startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate); endOfDay.setHours(23, 59, 59, 999);
+
+    const routes = await prisma.route.findMany({
+      where: { truckId: assignment.truckId, routeDate: { gte: startOfDay, lte: endOfDay } },
+      include: {
+        orders: {
+          where: { status: { in: ['APPROVED', 'SENT_TO_DRIVER', 'COMPLETED'] } },
+          include: { palletScans: { where: { scanType: 'LOAD' } } },
+        },
+      },
+    });
+
+    const orders = routes.flatMap(r => r.orders);
+    let totalPallets = 0;
+    let scannedPallets = 0;
+    const orderStatus = orders.map(o => {
+      const total = this.calcTotalPallets(o);
+      const scanned = o.palletScans.length;
+      totalPallets += total;
+      scannedPallets += scanned;
+      return { orderId: o.id, orderNumber: o.orderNumber, customerName: o.customerName, totalPallets: total, scannedPallets: scanned };
+    });
+
+    return { orders: orderStatus, totalPallets, scannedPallets };
+  }
+
+  async getUnloadingStatus(orderId: number) {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { palletScans: { where: { scanType: 'UNLOAD' } } },
+    });
+    if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');
+
+    const totalPallets = this.calcTotalPallets(order);
+    const scannedPallets = order.palletScans.length;
+
+    return { orderId, orderNumber: order.orderNumber, totalPallets, scannedPallets, complete: scannedPallets >= totalPallets };
+  }
 }
 
 export const driverService = new DriverService();
