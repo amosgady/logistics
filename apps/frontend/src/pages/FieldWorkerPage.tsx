@@ -267,9 +267,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         { facingMode: 'environment' },
         {
           fps: 10,
-          qrbox: (vw, vh) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
+          qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
           videoConstraints: {
-            facingMode: { exact: 'environment' },
+            facingMode: 'environment',
             width: { min: 1280, ideal: 1920 },
             height: { min: 720, ideal: 1080 },
           },
@@ -1195,7 +1195,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
           </Box>
 
           {/* Scanner area */}
-          <Box id="driver-scanner" sx={{ width: '100%', flexGrow: 1 }} />
+          <Box id="driver-scanner" sx={{
+            width: '100%', height: '100%', flexGrow: 1,
+            '& video': { objectFit: 'cover !important' },
+            '& #qr-shaded-region': { borderColor: '#ff1744 !important' },
+          }} />
 
           {/* Status bar */}
           <Box sx={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10, bgcolor: 'rgba(0,0,0,0.85)', p: 2 }}>
