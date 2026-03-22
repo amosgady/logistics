@@ -121,20 +121,10 @@ export default function CheckerPage() {
       });
       html5QrCodeRef.current = html5QrCode;
 
-      // Find back camera for iOS
-      let cameraConfig: any = { facingMode: 'environment' };
-      if (isIOS) {
-        try {
-          const cameras = await Html5Qrcode.getCameras();
-          const backCam = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-          if (backCam) cameraConfig = backCam.id;
-        } catch { /* fallback to facingMode */ }
-      }
-
       let found = false;
 
       await html5QrCode.start(
-        cameraConfig,
+        { facingMode: 'environment' },
         {
           fps: isIOS ? 2 : 10,
           qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -143,6 +133,12 @@ export default function CheckerPage() {
             return { width: w, height: h };
           },
           disableFlip: false,
+          videoConstraints: isIOS ? {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: 'continuous' as any,
+          } : undefined,
         },
         (decodedText: string) => {
           if (found) return;
