@@ -17,6 +17,7 @@ import {
   Close as CloseIcon,
   FlashlightOn as FlashOnIcon,
   FlashlightOff as FlashOffIcon,
+  Print as PrintIcon,
 } from '@mui/icons-material';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -481,6 +482,55 @@ export default function CheckerPage() {
                 sx={{ mt: 1.5, bgcolor: '#fff' }}
                 size="small"
               />
+              <Button
+                variant="outlined"
+                startIcon={<PrintIcon />}
+                sx={{ mt: 1.5 }}
+                fullWidth
+                onClick={() => {
+                  const od = orderDetail;
+                  const totalItems = (od.palletCount || 0) + (od.faucetCount || 0) + (od.bathtubCount || 0) +
+                    (od.panelCount || 0) + (od.showerCount || 0) + (od.rodCount || 0) + (od.cabinetCount || 0);
+                  const count = Math.max(totalItems, 1);
+                  const labels = Array.from({ length: count }, (_, i) => i + 1);
+
+                  const pw = window.open('', '_blank');
+                  if (!pw) return;
+                  pw.document.write(`
+                    <html dir="rtl"><head><title>מדבקות - ${od.orderNumber}</title>
+                    <style>
+                      @page { size: 100mm 100mm; margin: 0; }
+                      body { margin: 0; font-family: Arial, sans-serif; }
+                      .label { width: 100mm; height: 100mm; box-sizing: border-box; padding: 8mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; border: 1px dashed #ccc; }
+                      .label:last-child { page-break-after: avoid; }
+                      .customer { font-size: 18pt; font-weight: bold; margin-bottom: 4mm; }
+                      .address { font-size: 14pt; margin-bottom: 3mm; }
+                      .phone { font-size: 14pt; margin-bottom: 3mm; }
+                      .order { font-size: 12pt; margin-bottom: 3mm; color: #555; }
+                      .pallet { font-size: 20pt; font-weight: bold; text-align: center; margin-top: 4mm; color: #1976d2; }
+                    </style></head><body>
+                    ${labels.map(i => `
+                      <div class="label">
+                        <div class="customer">${od.customerName}</div>
+                        <div class="address">${od.address}, ${od.city}</div>
+                        <div class="phone">טל: ${od.phone}</div>
+                        <div class="order">הזמנה: ${od.orderNumber}</div>
+                        <div class="pallet">משטח ${i}/${count}</div>
+                      </div>
+                    `).join('')}
+                    </body></html>
+                  `);
+                  pw.document.close();
+                  pw.print();
+                }}
+              >
+                הדפסת מדבקות ({(() => {
+                  const od = orderDetail;
+                  const total = (od.palletCount || 0) + (od.faucetCount || 0) + (od.bathtubCount || 0) +
+                    (od.panelCount || 0) + (od.showerCount || 0) + (od.rodCount || 0) + (od.cabinetCount || 0);
+                  return Math.max(total, 1);
+                })()})
+              </Button>
             </Box>
           )}
           <Divider sx={{ mb: 2 }} />
