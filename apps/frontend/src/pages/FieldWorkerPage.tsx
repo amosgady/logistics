@@ -170,7 +170,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   // Scanning state
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<'LOAD' | 'UNLOAD' | null>(null);
+  const scanModeRef = useRef<'LOAD' | 'UNLOAD' | null>(null);
   const [scanOrderId, setScanOrderId] = useState<number | null>(null);
+  const scanOrderIdRef = useRef<number | null>(null);
   const [scanMessage, setScanMessage] = useState<{ text: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
   const [loadingStatus, setLoadingStatus] = useState<{ orders: any[]; totalPallets: number; scannedPallets: number } | null>(null);
   const [unloadedOrders, setUnloadedOrders] = useState<Set<number>>(new Set());
@@ -198,14 +200,16 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   }, []);
 
   const handleScanResult = useCallback(async (barcodeValue: string) => {
-    if (!scanMode) return;
+    const mode = scanModeRef.current;
+    const ordId = scanOrderIdRef.current;
+    if (!mode) return;
     // Stop scanner first, then process
     if (html5QrCodeRef.current) {
       try { await html5QrCodeRef.current.stop(); } catch { /* */ }
       html5QrCodeRef.current = null;
     }
     try {
-      const res = await driverApi.scanPallet(barcodeValue, scanMode);
+      const res = await driverApi.scanPallet(barcodeValue, mode);
       const d = res.data;
       if (d.status === 'ALREADY_SCANNED') {
         setScanMessage({ text: d.message, severity: 'info' });
@@ -213,13 +217,13 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
         setScanMessage({ text: d.message, severity: 'success' });
       }
       // Refresh loading status
-      if (scanMode === 'LOAD') {
+      if (mode === 'LOAD') {
         const ls = await driverApi.getLoadingStatus(toDateString(selectedDate));
         setLoadingStatus(ls.data);
-      } else if (scanMode === 'UNLOAD' && scanOrderId) {
-        const us = await driverApi.getUnloadingStatus(scanOrderId);
+      } else if (mode === 'UNLOAD' && ordId) {
+        const us = await driverApi.getUnloadingStatus(ordId);
         if (us.data.complete) {
-          setUnloadedOrders(prev => new Set([...prev, scanOrderId]));
+          setUnloadedOrders(prev => new Set([...prev, ordId]));
           setScanMessage({ text: 'הפריקה הושלמה! ✅', severity: 'success' });
           setTimeout(() => stopScanner(), 1500);
           return;
@@ -232,7 +236,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
     }
     // Restart scanner for next scan after short delay
     setTimeout(() => restartScanner(), 1000);
-  }, [scanMode, scanOrderId, selectedDate, stopScanner]);
+  }, [selectedDate, stopScanner]);
 
   const initScanner = useCallback(async () => {
     await new Promise(r => setTimeout(r, 800));
@@ -262,8 +266,8 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
       await html5QrCode.start(
         { facingMode: 'environment' },
         {
-          fps: 10,
-          qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.3) }),
+          fps: 15,
+          qrbox: (vw: number, vh: number) => ({ width: Math.floor(vw * 0.9), height: Math.floor(vh * 0.4) }),
           disableFlip: false,
         },
         (decodedText: string) => {
@@ -293,7 +297,9 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
 
   const startScanner = useCallback(async (mode: 'LOAD' | 'UNLOAD', orderId?: number) => {
     setScanMode(mode);
+    scanModeRef.current = mode;
     setScanOrderId(orderId || null);
+    scanOrderIdRef.current = orderId || null;
     setScanMessage(null);
     setScannerOpen(true);
 
