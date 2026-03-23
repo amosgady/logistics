@@ -8,6 +8,7 @@ const router = Router();
 router.get('/twiml/order/:orderId', ivrController.orderTwiml);
 router.post('/twiml/order/:orderId', ivrController.orderTwiml);
 router.post('/gather/:orderId', ivrController.gatherOrder);
+router.post('/status/:orderId', ivrController.statusCallback);
 
 // Protected routes (user-initiated calls)
 router.post('/call/order/:orderId', authMiddleware, requireRole('ADMIN', 'COORDINATOR'), ivrController.callOrder);

@@ -48,6 +48,9 @@ class IvrService {
       To: normalizedPhone,
       From: TWILIO_PHONE_NUMBER,
       Url: twimlUrl,
+      StatusCallback: `${BASE_URL}/api/v1/ivr/status/${orderId}`,
+      StatusCallbackMethod: 'POST',
+      StatusCallbackEvent: 'completed',
     });
 
     const response = await fetch(url, {
