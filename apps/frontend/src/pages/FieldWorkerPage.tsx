@@ -604,36 +604,15 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
           </IconButton>
         </Toolbar>
 
-        {/* Date navigation strip */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'primary.dark', py: 0.5, gap: 1 }}>
-          <IconButton
-            size="small"
-            color="inherit"
-            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-            disabled={toDateString(selectedDate) <= toDateString(new Date())}
-          >
+        {/* Date navigation strip - same as checker */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'white', py: 0.5, mx: 2, mt: 1, borderRadius: 1 }}>
+          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, 1))} disabled={isFutureLimit}>
             <ChevronRightIcon />
           </IconButton>
-          <Button
-            color="inherit"
-            size="small"
-            onClick={() => setSelectedDate(new Date())}
-            sx={{ minWidth: 140, textTransform: 'none' }}
-          >
-            <Typography variant="body2" fontWeight="bold">
-              {isToday
-                ? 'היום'
-                : `יום ${DAY_NAMES[selectedDate.getDay()]}`}
-              {' · '}
-              {selectedDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' })}
-            </Typography>
-          </Button>
-          <IconButton
-            size="small"
-            color="inherit"
-            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-            disabled={isFutureLimit}
-          >
+          <Typography variant="body1" fontWeight="bold" sx={{ mx: 2, minWidth: 100, textAlign: 'center' }}>
+            {isToday ? 'היום' : selectedDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })}
+          </Typography>
+          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, -1))} disabled={toDateString(selectedDate) <= toDateString(new Date())}>
             <ChevronLeftIcon />
           </IconButton>
         </Box>
