@@ -908,6 +908,16 @@ export default function PlanningPage() {
                                 {deptGeoSorted && <Chip label="מסודר גיאוגרפית" color="success" size="small" icon={<PlaceIcon />} />}
                               </Box>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="success"
+                                  startIcon={<PlaceIcon />}
+                                  onClick={() => handleGeoSort(deptOrders.map((o) => o.id))}
+                                  disabled={geoSortMutation.isPending || deptOrders.length < 2}
+                                >
+                                  סידור גיאוגרפי
+                                </Button>
                                 <FormControl size="small" sx={{ minWidth: 150 }}>
                                   <InputLabel>בחר משאית</InputLabel>
                                   <Select
