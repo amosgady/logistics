@@ -1265,15 +1265,17 @@ export default function PlanningPage() {
                   </Box>
                 )}
 
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
-                  <Chip icon={<ClockIcon />} label={`זמן כולל: ${formatMinutes(optimizeResult.totalTimeMinutes)}`} />
-                  {optimizeResult.totalDistanceKm > 0 && (
-                    <Chip icon={<PlaceIcon />} label={`מרחק: ${optimizeResult.totalDistanceKm} ק"מ`} />
-                  )}
-                  <Chip icon={<TruckIcon />} label={`נ.יציאה: ${optimizeResult.warehouseAddress || 'מבוא הספנים 2, אשדוד'}`} variant="outlined" />
-                </Box>
+                {layoutMode !== 'fullmap' && (
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
+                    <Chip icon={<ClockIcon />} label={`זמן כולל: ${formatMinutes(optimizeResult.totalTimeMinutes)}`} />
+                    {optimizeResult.totalDistanceKm > 0 && (
+                      <Chip icon={<PlaceIcon />} label={`מרחק: ${optimizeResult.totalDistanceKm} ק"מ`} />
+                    )}
+                    <Chip icon={<TruckIcon />} label={`נ.יציאה: ${optimizeResult.warehouseAddress || 'מבוא הספנים 2, אשדוד'}`} variant="outlined" />
+                  </Box>
+                )}
 
-                {optimizeResult.exceedsWorkHours && (
+                {layoutMode !== 'fullmap' && optimizeResult.exceedsWorkHours && (
                   <Alert severity="warning" sx={{ flexShrink: 0 }}>
                     המסלול חורג ב-{formatMinutes(optimizeResult.overtimeMinutes)} מזמן העבודה המקסימלי ({formatMinutes(optimizeResult.maxWorkMinutes)})
                   </Alert>
