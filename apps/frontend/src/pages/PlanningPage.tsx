@@ -1251,7 +1251,7 @@ export default function PlanningPage() {
           {optimizeResult && (
             <>
               {/* Map section */}
-              <Box sx={{ flex: layoutMode === 'fullmap' ? '0 0 100%' : layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, transition: 'flex 0.3s ease' }}>
+              <Box sx={{ flex: layoutMode === 'fullmap' ? '1 1 100%' : layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: layoutMode === 'fullmap' ? 0 : 3, pt: layoutMode === 'fullmap' ? 0 : 1, pb: layoutMode === 'fullmap' ? 0 : 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, transition: 'flex 0.3s ease', overflow: 'hidden' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
                   <Box sx={{ flex: 1, minHeight: 0 }}>
