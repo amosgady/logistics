@@ -29,6 +29,7 @@ import {
   Map as MapIcon,
   ViewList as ListIcon,
   VerticalSplit as EqualIcon,
+  Fullscreen as FullscreenIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -469,7 +470,7 @@ export default function PlanningPage() {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [optimizeResult, setOptimizeResult] = useState<any>(null);
-  const [layoutMode, setLayoutMode] = useState<'map' | 'equal' | 'list'>('equal'); // map=65/35, equal=50/50, list=35/65
+  const [layoutMode, setLayoutMode] = useState<'fullmap' | 'map' | 'equal' | 'list'>('equal');
   const [optimizingRouteId, setOptimizingRouteId] = useState<number | null>(null);
   const [optimizedRouteId, setOptimizedRouteId] = useState<number | null>(null);
   const [manualStops, setManualStops] = useState<any[] | null>(null);
@@ -1207,6 +1208,15 @@ export default function PlanningPage() {
             תוצאות אופטימיזציה
             <Button
               size="small"
+              variant={layoutMode === 'fullmap' ? 'contained' : 'outlined'}
+              startIcon={<FullscreenIcon />}
+              onClick={() => setLayoutMode('fullmap')}
+              sx={{ minWidth: 'auto', fontSize: '0.75rem' }}
+            >
+              מפה מלאה
+            </Button>
+            <Button
+              size="small"
               variant={layoutMode === 'map' ? 'contained' : 'outlined'}
               startIcon={<MapIcon />}
               onClick={() => setLayoutMode('map')}
@@ -1241,7 +1251,7 @@ export default function PlanningPage() {
           {optimizeResult && (
             <>
               {/* Map section */}
-              <Box sx={{ flex: layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, transition: 'flex 0.3s ease' }}>
+              <Box sx={{ flex: layoutMode === 'fullmap' ? '0 0 100%' : layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, transition: 'flex 0.3s ease' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
                   <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -1271,7 +1281,7 @@ export default function PlanningPage() {
               </Box>
 
               {/* List section */}
-              <Box sx={{ flex: layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease' }}>
+              <Box sx={{ flex: layoutMode === 'fullmap' ? '0 0 0%' : layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease', display: layoutMode === 'fullmap' ? 'none' : 'block' }}>
                 {/* Per-stop details table */}
                 {(manualStops || optimizeResult.optimizedStops)?.length > 0 && (
                   <Box sx={{ overflowX: 'auto' }}>
