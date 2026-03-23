@@ -532,10 +532,12 @@ model SmsLog {
   message      String
   status       SmsStatus        @default(PENDING)
   reminderType SmsReminderType  @default(MANUAL) @map("reminder_type")
-  providerRef  String?          @map("provider_ref")
-  errorMsg     String?          @map("error_msg")
-  sentBy       Int              @map("sent_by")
-  sentAt       DateTime         @default(now()) @map("sent_at")
+  providerRef       String?          @map("provider_ref")
+  errorMsg          String?          @map("error_msg")
+  deliveryStatus    String?          @default("PENDING") @map("delivery_status")
+  deliveryCheckedAt DateTime?        @map("delivery_checked_at")
+  sentBy            Int              @map("sent_by")
+  sentAt            DateTime         @default(now()) @map("sent_at")
 
   order Order? @relation(fields: [orderId], references: [id])
 

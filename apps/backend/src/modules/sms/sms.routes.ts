@@ -16,6 +16,9 @@ router.post('/send/route/:routeId', smsController.sendRouteSms);
 // Test SMS
 router.post('/test', smsController.sendTest);
 
+// Delivery status
+router.get('/delivery-status/:orderId', smsController.getDeliveryStatus);
+
 // SMS logs
 router.get('/logs', smsController.getLogs);
 

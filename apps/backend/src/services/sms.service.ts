@@ -223,6 +223,134 @@ export class SmsService {
       .replace(/{orderNumber}/g, data.orderNumber || '')
       .replace(/{companyPhone}/g, ''); // Will be filled from settings if needed
   }
+  /**
+   * Map 019 DLR status code to our delivery status.
+   */
+  private mapDlrStatus(code: number): string {
+    if (code === 0 || code === 102) return 'DELIVERED';
+    if (code === 15) return 'KOSHER_PHONE';
+    if (code === 103) return 'EXPIRED';
+    if (code === -1) return 'PENDING'; // Sent without confirmation
+    // All other codes = undelivered
+    return 'UNDELIVERED';
+  }
+
+  /**
+   * Format date for 019 DLR API: "dd/mm/yy hh:mm"
+   */
+  private formatDlrDate(date: Date): string {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = String(date.getFullYear()).slice(-2);
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${d}/${m}/${y} ${h}:${min}`;
+  }
+
+  /**
+   * Check delivery report for a specific message via 019 DLR API.
+   */
+  async checkDeliveryReport(providerRef: string, sentAt: Date): Promise<{ status: string; rawCode?: number }> {
+    const creds = await this.getCredentials();
+    if (!creds || !creds.apiToken) {
+      return { status: 'PENDING' };
+    }
+
+    const fromDate = new Date(sentAt.getTime() - 60 * 60 * 1000); // 1 hour before
+    const toDate = new Date(); // now
+
+    const payload = {
+      dlr: {
+        user: { username: creds.username },
+        transactions: {
+          external_id: [{ _: providerRef }],
+        },
+        date_range: {
+          from: this.formatDlrDate(fromDate),
+          to: this.formatDlrDate(toDate),
+        },
+      },
+    };
+
+    try {
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${creds.apiToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      // Parse response - look for status in the response
+      if (data.status === 0 && data.data && Array.isArray(data.data) && data.data.length > 0) {
+        const report = data.data[0];
+        const dlrCode = typeof report.status !== 'undefined' ? Number(report.status) : -1;
+        return { status: this.mapDlrStatus(dlrCode), rawCode: dlrCode };
+      }
+
+      // If no data returned yet, still pending
+      if (data.status === 0 && (!data.data || data.data.length === 0)) {
+        return { status: 'PENDING' };
+      }
+
+      console.log('[DLR] Unexpected response:', JSON.stringify(data));
+      return { status: 'PENDING' };
+    } catch (err: any) {
+      console.error('[DLR] Error checking delivery report:', err.message);
+      return { status: 'PENDING' };
+    }
+  }
+
+  /**
+   * Check delivery reports for all pending SMS logs.
+   */
+  async checkPendingDeliveryReports(): Promise<{ checked: number; updated: number }> {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // Last 24 hours
+
+    const pendingLogs = await prisma.smsLog.findMany({
+      where: {
+        status: 'SENT',
+        deliveryStatus: 'PENDING',
+        providerRef: { not: null },
+        sentAt: { gte: cutoff },
+      },
+      take: 50,
+      orderBy: { sentAt: 'asc' },
+    });
+
+    let updated = 0;
+
+    for (const log of pendingLogs) {
+      const result = await this.checkDeliveryReport(log.providerRef!, log.sentAt);
+
+      if (result.status !== 'PENDING') {
+        await prisma.smsLog.update({
+          where: { id: log.id },
+          data: {
+            deliveryStatus: result.status,
+            deliveryCheckedAt: new Date(),
+          },
+        });
+        updated++;
+        console.log(`[DLR] SMS ${log.id} to ${log.phone}: ${result.status} (code: ${result.rawCode})`);
+      } else {
+        // Update checked time even if still pending
+        await prisma.smsLog.update({
+          where: { id: log.id },
+          data: { deliveryCheckedAt: new Date() },
+        });
+      }
+
+      // Small delay between API calls to avoid rate limiting
+      await new Promise((r) => setTimeout(r, 200));
+    }
+
+    return { checked: pendingLogs.length, updated };
+  }
 }
 
 export const smsService = new SmsService();

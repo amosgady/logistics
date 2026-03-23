@@ -23,12 +23,24 @@ export class SmsSchedulerService {
     if (this.cronJob) return;
 
     console.log('[SMS Scheduler] Starting...');
-    // Run every 5 minutes
+    // Run reminders every 5 minutes
     this.cronJob = cron.schedule('*/5 * * * *', async () => {
       try {
         await this.processReminders();
       } catch (err) {
         console.error('[SMS Scheduler] Error:', err);
+      }
+    });
+
+    // Check delivery reports every 2 minutes
+    cron.schedule('*/2 * * * *', async () => {
+      try {
+        const result = await smsService.checkPendingDeliveryReports();
+        if (result.checked > 0) {
+          console.log(`[DLR Scheduler] Checked ${result.checked}, updated ${result.updated}`);
+        }
+      } catch (err) {
+        console.error('[DLR Scheduler] Error:', err);
       }
     });
 

@@ -73,6 +73,8 @@ interface Order {
   customerNotes: string | null;
   respondedAt: string | null;
   smsReplySessions: { replyBody: string | null; repliedAt: string | null; status: string }[];
+  smsLogs?: { deliveryStatus: string | null; sentAt: string }[];
+  smsDeliveryStatus?: string | null;
   sentToDriver: boolean;
   exportedToCsv: boolean;
   sentToChecker: boolean;
@@ -211,7 +213,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
               </TableCell>
               <TableCell>
                 {order.phone ? (
-                  <Box sx={{ display: 'flex', gap: 0.25 }}>
+                  <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
                     <Tooltip title="SMS קישור">
                       <IconButton size="small" color="info" onClick={(e) => handleSmsClick(e, order, 'LINK')} disabled={sendSmsPending}>
                         <LinkIcon fontSize="small" />
@@ -222,6 +224,23 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                         <SmsIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    {(() => {
+                      const dlrStatus = order.smsLogs?.[0]?.deliveryStatus;
+                      if (!dlrStatus || dlrStatus === 'PENDING') return null;
+                      const label = dlrStatus === 'DELIVERED' ? 'SMS נמסר ✅' :
+                        dlrStatus === 'KOSHER_PHONE' ? 'טלפון כשר - SMS לא נמסר 📱' :
+                        dlrStatus === 'UNDELIVERED' ? 'SMS לא נמסר ❌' :
+                        dlrStatus === 'EXPIRED' ? 'SMS פג תוקף ⏳' : '';
+                      const icon = dlrStatus === 'DELIVERED' ? '✅' :
+                        dlrStatus === 'KOSHER_PHONE' ? '📱' :
+                        dlrStatus === 'UNDELIVERED' ? '❌' :
+                        dlrStatus === 'EXPIRED' ? '⏳' : '';
+                      return (
+                        <Tooltip title={label}>
+                          <Typography component="span" sx={{ fontSize: 14, ml: 0.5 }}>{icon}</Typography>
+                        </Tooltip>
+                      );
+                    })()}
                   </Box>
                 ) : '-'}
               </TableCell>

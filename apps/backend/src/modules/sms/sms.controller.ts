@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { smsModuleService } from './sms.service';
 import { AuthRequest } from '../../middleware/auth';
 import { asyncHandler } from '../../utils/asyncHandler';
+import prisma from '../../utils/prisma';
 
 export const smsController = {
   /**
@@ -28,6 +29,16 @@ export const smsController = {
   /**
    * Get SMS logs.
    */
+  getDeliveryStatus: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const orderId = parseInt(req.params.orderId as string);
+    const latestLog = await prisma.smsLog.findFirst({
+      where: { orderId, status: 'SENT' },
+      orderBy: { sentAt: 'desc' },
+      select: { id: true, deliveryStatus: true, deliveryCheckedAt: true, sentAt: true, phone: true },
+    });
+    res.json({ success: true, data: latestLog });
+  }),
+
   getLogs: asyncHandler(async (req: AuthRequest, res: Response) => {
     const orderId = req.query.orderId ? parseInt(req.query.orderId as string) : undefined;
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
