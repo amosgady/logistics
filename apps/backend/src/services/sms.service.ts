@@ -298,7 +298,20 @@ export class SmsService {
       const data = await response.json();
       console.log('[DLR] Response:', JSON.stringify(data).slice(0, 500));
 
-      // Parse response - look for status in the response
+      // Parse dlrByDate response - transactions array with phone, status, shipment_id
+      if (data.status === 0 && data.transactions && Array.isArray(data.transactions)) {
+        // Find matching transaction by phone (filter out null phones)
+        const validTransactions = data.transactions.filter((t: any) => t.phone && t.status);
+        if (validTransactions.length > 0) {
+          // Use first valid transaction
+          const report = validTransactions[0];
+          const dlrCode = Number(report.status);
+          return { status: this.mapDlrStatus(dlrCode), rawCode: dlrCode };
+        }
+        return { status: 'PENDING' };
+      }
+
+      // Parse dlr response (alternative format)
       if (data.status === 0 && data.data && Array.isArray(data.data) && data.data.length > 0) {
         const report = data.data[0];
         const dlrCode = typeof report.status !== 'undefined' ? Number(report.status) : -1;
@@ -306,7 +319,7 @@ export class SmsService {
       }
 
       // If no data returned yet, still pending
-      if (data.status === 0 && (!data.data || data.data.length === 0)) {
+      if (data.status === 0) {
         return { status: 'PENDING' };
       }
 
