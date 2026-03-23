@@ -266,20 +266,19 @@ export class SmsService {
       return { status: 'PENDING' };
     }
 
-    // 019 seems to want the same date for from/to, using sent date
-    const fromDate = sentAt;
-    const toDate = sentAt;
+    const now = new Date();
+    const fromStr = this.formatDlrDate(sentAt);
+    const toStr = this.formatDlrDate(now);
 
+    // Try dlrByDate which doesn't strictly require external_id matching
     const payload = {
-      dlr: {
+      dlrByDate: {
         user: { username: creds.username },
         transactions: {
-          external_id: [{ _: providerRef }],
+          external_id: { _: providerRef },
         },
-        date_range: {
-          from: this.formatDlrDate(fromDate),
-          to: this.formatDlrDate(toDate),
-        },
+        from: { _: fromStr },
+        to: { _: toStr },
       },
     };
 
