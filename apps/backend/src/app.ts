@@ -18,6 +18,7 @@ import smsRoutes from './modules/sms/sms.routes';
 import trackingRoutes from './modules/tracking/tracking.routes';
 import confirmRoutes from './modules/confirmation/confirmation.routes';
 import smsWebhookRoutes from './modules/sms-webhook/sms-webhook.routes';
+import ivrRoutes from './modules/ivr/ivr.routes';
 import checkerRoutes from './modules/checker/checker.routes';
 
 const app = express();
@@ -38,6 +39,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // Public routes (no auth)
 app.use('/api/v1/confirm', confirmRoutes);
 app.use('/api/v1/sms-webhook', smsWebhookRoutes);
+app.use('/api/v1/ivr', ivrRoutes);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
