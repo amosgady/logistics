@@ -167,12 +167,17 @@ export class SmsService {
       });
 
       const data = await response.json();
+      console.log('[SMS 019] Response:', JSON.stringify(data));
 
       // 019 API returns status 0 for success
       if (data.status === 0) {
+        // Extract message_id from various possible response structures
+        const ref = data.message_id || data.id || data.data?.message_id || data.data?.id ||
+                    (data.data && Array.isArray(data.data) && data.data[0]?.message_id) ||
+                    String(data.status);
         return {
           success: true,
-          providerRef: data.message_id || data.id || String(data.status),
+          providerRef: String(ref),
         };
       }
 
