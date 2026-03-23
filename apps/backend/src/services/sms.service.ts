@@ -266,8 +266,9 @@ export class SmsService {
       return { status: 'PENDING' };
     }
 
-    const fromDate = new Date(sentAt.getTime() - 5 * 60 * 1000); // 5 min before sent
-    const toDate = new Date(); // now
+    // 019 seems to want the same date for from/to, using sent date
+    const fromDate = sentAt;
+    const toDate = sentAt;
 
     const payload = {
       dlr: {
