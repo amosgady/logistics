@@ -1247,11 +1247,24 @@ export default function PlanningPage() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: layoutMode === 'fullmap' ? 'hidden' : 'hidden' }}>
           {optimizeResult && (
             <>
               {/* Map section */}
-              <Box sx={{ flex: layoutMode === 'fullmap' ? '1 1 auto' : layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: layoutMode === 'fullmap' ? 0 : 3, pt: layoutMode === 'fullmap' ? 0 : 1, pb: layoutMode === 'fullmap' ? 0 : 0.5, display: 'flex', flexDirection: 'column', gap: layoutMode === 'fullmap' ? 0 : 0.5, minHeight: layoutMode === 'fullmap' ? 'calc(100vh - 64px)' : 0, overflow: 'hidden' }}>
+              {layoutMode === 'fullmap' ? (
+                <Box sx={{ width: '100%', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+                  {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
+                    <Suspense fallback={<Skeleton variant="rectangular" height="100%" />}>
+                      <RouteMap
+                        stops={manualStops || optimizeResult.optimizedStops}
+                        warehouse={optimizeResult.warehouse}
+                        height="100%"
+                      />
+                    </Suspense>
+                  )}
+                </Box>
+              ) : (
+              <Box sx={{ flex: layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, overflow: 'hidden' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
                   <Box sx={{ flex: 1, minHeight: 0 }}>
@@ -1275,7 +1288,7 @@ export default function PlanningPage() {
                   </Box>
                 )}
 
-                {layoutMode !== 'fullmap' && optimizeResult.exceedsWorkHours && (
+                {optimizeResult.exceedsWorkHours && (
                   <Alert severity="warning" sx={{ flexShrink: 0 }}>
                     המסלול חורג ב-{formatMinutes(optimizeResult.overtimeMinutes)} מזמן העבודה המקסימלי ({formatMinutes(optimizeResult.maxWorkMinutes)})
                   </Alert>
@@ -1283,7 +1296,7 @@ export default function PlanningPage() {
               </Box>
 
               {/* List section */}
-              <Box sx={{ flex: layoutMode === 'fullmap' ? '0 0 0%' : layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0, transition: 'flex 0.3s ease', display: layoutMode === 'fullmap' ? 'none' : 'block' }}>
+              <Box sx={{ flex: layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0 }}>
                 {/* Per-stop details table */}
                 {(manualStops || optimizeResult.optimizedStops)?.length > 0 && (
                   <Box sx={{ overflowX: 'auto' }}>
@@ -1386,6 +1399,7 @@ export default function PlanningPage() {
                   </Alert>
                 )}
               </Box>
+              )}
             </>
           )}
         </DialogContent>
