@@ -1247,11 +1247,11 @@ export default function PlanningPage() {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+        <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {optimizeResult && (
             <>
               {/* Map section */}
-              <Box sx={layoutMode === 'fullmap' ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', flexDirection: 'column' } : { flex: layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0 }}>
+              <Box sx={{ flex: layoutMode === 'fullmap' ? '1 1 auto' : layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: layoutMode === 'fullmap' ? 0 : 3, pt: layoutMode === 'fullmap' ? 0 : 1, pb: layoutMode === 'fullmap' ? 0 : 0.5, display: 'flex', flexDirection: 'column', gap: layoutMode === 'fullmap' ? 0 : 0.5, minHeight: layoutMode === 'fullmap' ? 'calc(100vh - 64px)' : 0, overflow: 'hidden' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
                   <Box sx={{ flex: 1, minHeight: 0 }}>
