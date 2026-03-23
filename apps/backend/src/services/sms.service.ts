@@ -296,6 +296,7 @@ export class SmsService {
       });
 
       const data = await response.json();
+      console.log('[DLR] Response:', JSON.stringify(data).slice(0, 500));
 
       // Parse response - look for status in the response
       if (data.status === 0 && data.data && Array.isArray(data.data) && data.data.length > 0) {
