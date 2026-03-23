@@ -11,6 +11,7 @@ import {
   DialogActions,
   TextField,
   Paper,
+  LinearProgress,
 } from '@mui/material';
 import {
   Upload as ImportIcon,
@@ -63,9 +64,24 @@ export default function OrdersPage() {
     onError: () => setSnackbar({ message: 'שגיאה בשיוך אזורים', severity: 'error' }),
   });
 
+  const [validateProgress, setValidateProgress] = useState<{ current: number; total: number } | null>(null);
   const validateAddressesMutation = useMutation({
-    mutationFn: (orderIds: number[]) => orderApi.validateAddresses(orderIds),
+    mutationFn: async (orderIds: number[]) => {
+      const BATCH_SIZE = 10;
+      let totalGeocoded = 0;
+      let totalFailed = 0;
+      setValidateProgress({ current: 0, total: orderIds.length });
+      for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+        const batch = orderIds.slice(i, i + BATCH_SIZE);
+        const result = await orderApi.validateAddresses(batch);
+        totalGeocoded += result.data?.geocoded || 0;
+        totalFailed += result.data?.failed || 0;
+        setValidateProgress({ current: Math.min(i + BATCH_SIZE, orderIds.length), total: orderIds.length });
+      }
+      return { data: { geocoded: totalGeocoded, failed: totalFailed } };
+    },
     onSuccess: (result) => {
+      setValidateProgress(null);
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       const { geocoded, failed } = result.data || {};
       setSnackbar({
@@ -73,7 +89,7 @@ export default function OrdersPage() {
         severity: failed > 0 ? 'warning' as any : 'success',
       });
     },
-    onError: () => setSnackbar({ message: 'שגיאה באימות כתובות', severity: 'error' }),
+    onError: () => { setValidateProgress(null); setSnackbar({ message: 'שגיאה באימות כתובות', severity: 'error' }); },
   });
 
   const orders = data?.data || [];
@@ -325,8 +341,13 @@ export default function OrdersPage() {
             borderRadius: 2,
           }}
         >
-          {validateAddressesMutation.isPending ? 'מאמת...' : `אימות כתובות${selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}`}
+          {validateAddressesMutation.isPending ? `מאמת... ${validateProgress ? `${validateProgress.current}/${validateProgress.total}` : ''}` : `אימות כתובות${selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}`}
         </Button>
+        {validateProgress && (
+          <Box sx={{ width: 120, ml: -1 }}>
+            <LinearProgress variant="determinate" value={(validateProgress.current / validateProgress.total) * 100} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: '#4caf50' } }} />
+          </Box>
+        )}
         <Button
           variant="contained"
           size="small"
