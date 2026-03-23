@@ -272,7 +272,7 @@ export class SmsService {
       dlr: {
         user: { username: creds.username },
         transactions: {
-          shipment_id: [{ _: providerRef }],
+          external_id: [{ _: providerRef }],
         },
         date_range: {
           from: this.formatDlrDate(fromDate),
