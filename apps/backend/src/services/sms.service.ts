@@ -268,12 +268,15 @@ export class SmsService {
     const fromDate = new Date(sentAt.getTime() - 5 * 60 * 1000); // 5 min before sent
     const toDate = new Date(); // now
 
-    // Try with just shipment_id (no date_range - maybe not required)
     const payload = {
       dlr: {
         user: { username: creds.username },
         transactions: {
           external_id: [{ _: providerRef }],
+        },
+        date_range: {
+          from: this.formatDlrDate(fromDate),
+          to: this.formatDlrDate(toDate),
         },
       },
     };
@@ -323,7 +326,7 @@ export class SmsService {
       where: {
         status: 'SENT',
         deliveryStatus: 'PENDING',
-        providerRef: { not: null },
+        providerRef: { not: null, notIn: ['0', ''] },
         sentAt: { gte: cutoff },
       },
       take: 50,
