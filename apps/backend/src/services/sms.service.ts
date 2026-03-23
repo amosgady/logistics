@@ -171,8 +171,9 @@ export class SmsService {
 
       // 019 API returns status 0 for success
       if (data.status === 0) {
-        // Extract message_id from various possible response structures
-        const ref = data.message_id || data.id || data.data?.message_id || data.data?.id ||
+        // Extract reference ID from response - 019 returns shipment_id
+        const ref = data.shipment_id || data.message_id || data.id || data.data?.shipment_id ||
+                    data.data?.message_id || data.data?.id ||
                     (data.data && Array.isArray(data.data) && data.data[0]?.message_id) ||
                     String(data.status);
         return {
@@ -242,13 +243,16 @@ export class SmsService {
 
   /**
    * Format date for 019 DLR API: "dd/mm/yy hh:mm"
+   * Note: server timezone is UTC, 019 expects Israel time (UTC+2/3)
    */
   private formatDlrDate(date: Date): string {
-    const d = String(date.getDate()).padStart(2, '0');
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const y = String(date.getFullYear()).slice(-2);
-    const h = String(date.getHours()).padStart(2, '0');
-    const min = String(date.getMinutes()).padStart(2, '0');
+    // Convert to Israel time
+    const ilDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
+    const d = String(ilDate.getDate()).padStart(2, '0');
+    const m = String(ilDate.getMonth() + 1).padStart(2, '0');
+    const y = String(ilDate.getFullYear()).slice(-2);
+    const h = String(ilDate.getHours()).padStart(2, '0');
+    const min = String(ilDate.getMinutes()).padStart(2, '0');
     return `${d}/${m}/${y} ${h}:${min}`;
   }
 
@@ -268,7 +272,7 @@ export class SmsService {
       dlr: {
         user: { username: creds.username },
         transactions: {
-          external_id: [{ _: providerRef }],
+          shipment_id: [{ _: providerRef }],
         },
         date_range: {
           from: this.formatDlrDate(fromDate),
@@ -276,6 +280,8 @@ export class SmsService {
         },
       },
     };
+
+    console.log('[DLR] Request payload:', JSON.stringify(payload));
 
     try {
       const response = await fetch(this.apiUrl, {
