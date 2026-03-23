@@ -224,6 +224,11 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                         <SmsIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    <Tooltip title="חייג IVR">
+                      <IconButton size="small" color="success" onClick={() => handleIvrCall(order)} disabled={ivrCallPending}>
+                        <PhoneIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     {(() => {
                       const dlrStatus = order.smsLogs?.[0]?.deliveryStatus;
                       if (!dlrStatus || dlrStatus === 'PENDING') return null;
@@ -606,6 +611,24 @@ export default function CoordinationPage() {
       setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בשליחת SMS', severity: 'error' });
     },
   });
+
+  // IVR call mutation
+  const ivrCallMutation = useMutation({
+    mutationFn: ({ orderId, phone }: { orderId: number; phone?: string }) =>
+      smsApi.callOrder(orderId, phone),
+    onSuccess: (result) => {
+      setSnackbar({ message: `שיחת IVR נשלחה ל-${result.data?.phone || 'לקוח'}`, severity: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
+    onError: (error: any) => {
+      setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בחיוג IVR', severity: 'error' });
+    },
+  });
+  const ivrCallPending = ivrCallMutation.isPending;
+
+  const handleIvrCall = (order: Order) => {
+    ivrCallMutation.mutate({ orderId: order.id, phone: order.phone });
+  };
 
   const uploadPdfMutation = useMutation({
     mutationFn: ({ orderId, file }: { orderId: number; file: File }) =>

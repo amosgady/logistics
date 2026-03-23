@@ -1,11 +1,15 @@
 import { Router } from 'express';
+import { authMiddleware, requireRole } from '../../middleware/auth';
 import { ivrController } from './ivr.controller';
 
 const router = Router();
 
-// These endpoints are PUBLIC (no auth) - Twilio calls them
-router.get('/twiml/test', ivrController.testTwiml);
-router.post('/twiml/test', ivrController.testTwiml);
-router.post('/gather-result', ivrController.gatherResult);
+// Public routes (Twilio webhooks - no auth)
+router.get('/twiml/order/:orderId', ivrController.orderTwiml);
+router.post('/twiml/order/:orderId', ivrController.orderTwiml);
+router.post('/gather/:orderId', ivrController.gatherOrder);
+
+// Protected routes (user-initiated calls)
+router.post('/call/order/:orderId', authMiddleware, requireRole('ADMIN', 'COORDINATOR'), ivrController.callOrder);
 
 export default router;

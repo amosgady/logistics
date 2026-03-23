@@ -48,6 +48,10 @@ export const smsApi = {
   sendRouteSms: (routeId: number, method?: 'LINK' | 'REPLY') =>
     api.post(`/sms/send/route/${routeId}`, method ? { method } : {}).then((r) => r.data),
 
+  // IVR call for single order
+  callOrder: (orderId: number, phone?: string) =>
+    api.post(`/ivr/call/order/${orderId}`, phone ? { phone } : {}).then((r) => r.data),
+
   // Send test SMS
   sendTest: (phone: string) =>
     api.post('/sms/test', { phone }).then((r) => r.data),
