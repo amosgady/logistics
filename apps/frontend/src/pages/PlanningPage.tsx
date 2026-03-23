@@ -1279,25 +1279,23 @@ export default function PlanningPage() {
                   </Box>
                 )}
 
-                {layoutMode !== 'fullmap' && (
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
-                    <Chip icon={<ClockIcon />} label={`זמן כולל: ${formatMinutes(optimizeResult.totalTimeMinutes)}`} />
-                    {optimizeResult.totalDistanceKm > 0 && (
-                      <Chip icon={<PlaceIcon />} label={`מרחק: ${optimizeResult.totalDistanceKm} ק"מ`} />
-                    )}
-                    <Chip icon={<TruckIcon />} label={`נ.יציאה: ${optimizeResult.warehouseAddress || 'מבוא הספנים 2, אשדוד'}`} variant="outlined" />
-                  </Box>
-                )}
-
-                {optimizeResult.exceedsWorkHours && (
-                  <Alert severity="warning" sx={{ flexShrink: 0 }}>
-                    המסלול חורג ב-{formatMinutes(optimizeResult.overtimeMinutes)} מזמן העבודה המקסימלי ({formatMinutes(optimizeResult.maxWorkMinutes)})
-                  </Alert>
-                )}
               </Box>
 
               {/* List section */}
               <Box sx={{ flex: layoutMode === 'map' ? '0 0 15%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 85%', overflow: 'auto', px: 3, pb: 2, minHeight: 0 }}>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 1, flexShrink: 0 }}>
+                  <Chip icon={<ClockIcon />} label={`זמן כולל: ${formatMinutes(optimizeResult.totalTimeMinutes)}`} />
+                  {optimizeResult.totalDistanceKm > 0 && (
+                    <Chip icon={<PlaceIcon />} label={`מרחק: ${optimizeResult.totalDistanceKm} ק"מ`} />
+                  )}
+                  <Chip icon={<TruckIcon />} label={`נ.יציאה: ${optimizeResult.warehouseAddress || 'מבוא הספנים 2, אשדוד'}`} variant="outlined" />
+                </Box>
+
+                {optimizeResult.exceedsWorkHours && (
+                  <Alert severity="warning" sx={{ mb: 1, flexShrink: 0 }}>
+                    המסלול חורג ב-{formatMinutes(optimizeResult.overtimeMinutes)} מזמן העבודה המקסימלי ({formatMinutes(optimizeResult.maxWorkMinutes)})
+                  </Alert>
+                )}
                 {/* Per-stop details table */}
                 {(manualStops || optimizeResult.optimizedStops)?.length > 0 && (
                   <Box sx={{ overflowX: 'auto' }}>
