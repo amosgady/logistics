@@ -1264,6 +1264,7 @@ export default function PlanningPage() {
                   )}
                 </Box>
               ) : (
+              <>
               <Box sx={{ flex: layoutMode === 'map' ? '0 0 85%' : layoutMode === 'equal' ? '0 0 50%' : '0 0 15%', px: 3, pt: 1, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5, minHeight: 0, overflow: 'hidden' }}>
                 {/* Route Map */}
                 {optimizeResult.warehouse && (manualStops || optimizeResult.optimizedStops)?.some((s: any) => s.latitude != null) && (
@@ -1399,6 +1400,7 @@ export default function PlanningPage() {
                   </Alert>
                 )}
               </Box>
+              </>
               )}
             </>
           )}
