@@ -81,6 +81,12 @@ export class PlanningService {
               take: 1,
               select: { replyBody: true, repliedAt: true, status: true },
             },
+            smsLogs: {
+              where: { status: 'SENT' },
+              orderBy: { sentAt: 'desc' },
+              take: 1,
+              select: { deliveryStatus: true, sentAt: true },
+            },
           },
           orderBy: { routeSequence: 'asc' },
         },
