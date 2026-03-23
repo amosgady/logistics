@@ -142,12 +142,16 @@ export class SmsService {
       return { success: false, error: 'No valid phone numbers' };
     }
 
+    // Generate unique external_id for DLR tracking
+    const externalId = `sms_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
     const payload = {
       sms: {
         user: {
           username: creds.username,
         },
         source: senderOverride || creds.sender,
+        external_id: externalId,
         destinations: {
           phone: cleanPhones.map((p) => ({ _: p })),
         },
@@ -171,11 +175,8 @@ export class SmsService {
 
       // 019 API returns status 0 for success
       if (data.status === 0) {
-        // Extract reference ID from response - 019 returns shipment_id
-        const ref = data.shipment_id || data.message_id || data.id || data.data?.shipment_id ||
-                    data.data?.message_id || data.data?.id ||
-                    (data.data && Array.isArray(data.data) && data.data[0]?.message_id) ||
-                    String(data.status);
+        // Use our external_id for DLR tracking
+        const ref = externalId;
         return {
           success: true,
           providerRef: String(ref),
@@ -272,7 +273,7 @@ export class SmsService {
       dlr: {
         user: { username: creds.username },
         transactions: {
-          shipment_id: [{ _: providerRef }],
+          external_id: [{ _: providerRef }],
         },
         date_range: {
           from: this.formatDlrDate(fromDate),
