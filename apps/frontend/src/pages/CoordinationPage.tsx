@@ -117,18 +117,20 @@ function CoordinationStatusChip({ status }: { status: string }) {
   return <Chip icon={<PhoneIcon />} label="לא תואם" size="small" color="default" />;
 }
 
-function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onViewMedia, onUploadPdf, onDeletePdf, onUnsendWms, onUnsendChecker, sendSmsPending, unsendPending }: {
+function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onIvrCall, onViewMedia, onUploadPdf, onDeletePdf, onUnsendWms, onUnsendChecker, sendSmsPending, ivrCallPending, unsendPending }: {
   orders: Order[];
   onToggleCoordination: (order: Order) => void;
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
   onSendSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') => void;
+  onIvrCall: (order: Order) => void;
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
   onUnsendWms: (orderId: number) => void;
   onUnsendChecker: (orderId: number) => void;
   sendSmsPending: boolean;
+  ivrCallPending: boolean;
   unsendPending: boolean;
 }) {
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
@@ -225,7 +227,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="חייג IVR">
-                      <IconButton size="small" color="success" onClick={() => handleIvrCall(order)} disabled={ivrCallPending}>
+                      <IconButton size="small" color="success" onClick={() => onIvrCall(order)} disabled={ivrCallPending}>
                         <PhoneIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -955,12 +957,14 @@ export default function CoordinationPage() {
                   onEditNotes={(order) => setNotesDialog({ orderId: order.id, notes: order.coordinationNotes || '' })}
                   onUnsendOrder={(orderId) => unsendOrderMutation.mutate(orderId)}
                   onSendSms={(orderId, phone?, method?) => sendOrderSmsMutation.mutate({ orderId, phone, method })}
+                  onIvrCall={handleIvrCall}
                   onViewMedia={(order) => setMediaDialog({ order })}
                   onUploadPdf={(orderId, file) => uploadPdfMutation.mutate({ orderId, file })}
                   onDeletePdf={(orderId) => deletePdfMutation.mutate(orderId)}
                   onUnsendWms={(orderId) => unsendWmsMutation.mutate(orderId)}
                   onUnsendChecker={(orderId) => unsendCheckerMutation.mutate(orderId)}
                   sendSmsPending={sendOrderSmsMutation.isPending}
+                  ivrCallPending={ivrCallPending}
                   unsendPending={unsendOrderMutation.isPending}
                 />
 
