@@ -250,7 +250,7 @@ export class SmsService {
     const ilDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
     const d = String(ilDate.getDate()).padStart(2, '0');
     const m = String(ilDate.getMonth() + 1).padStart(2, '0');
-    const y = String(ilDate.getFullYear()).slice(-2);
+    const y = String(ilDate.getFullYear());
     const h = String(ilDate.getHours()).padStart(2, '0');
     const min = String(ilDate.getMinutes()).padStart(2, '0');
     return `${d}/${m}/${y} ${h}:${min}`;
