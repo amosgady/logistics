@@ -1,0 +1,2 @@
+nakdimon-ort>=0.1.5
+edge-tts>=7.0.0
