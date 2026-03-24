@@ -142,6 +142,7 @@ function RouteCard({
   onSetColor,
   onAddRound,
   onSetDriverName,
+  onRemoveAllOrders,
 }: {
   route: Route;
   onRemoveOrder: (orderId: number) => void;
@@ -156,6 +157,7 @@ function RouteCard({
   onSetColor: (color: string | null) => void;
   onAddRound: () => void;
   onSetDriverName: (name: string | null) => void;
+  onRemoveAllOrders: () => void;
 }) {
   const isInstaller = !!route.installerProfile;
   const ownerName = isInstaller
@@ -456,6 +458,16 @@ function RouteCard({
           >
             + סבב נוסף
           </Button>
+          {route.orders.length > 0 && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={onRemoveAllOrders}
+            >
+              ביטול שיוך כללי
+            </Button>
+          )}
         </Box>
       </CardContent>
     </Card>
@@ -1159,6 +1171,11 @@ export default function PlanningPage() {
                     onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                     onAddRound={() => addRoundMutation.mutate(route.id)}
                     onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}
+                    onRemoveAllOrders={() => {
+                      if (confirm(`האם לבטל שיוך כל ${route.orders.length} ההזמנות מהמשאית?`)) {
+                        route.orders.forEach((o) => removeMutation.mutate(o.id));
+                      }
+                    }}
                   />
                 ))
               )}
@@ -1192,6 +1209,11 @@ export default function PlanningPage() {
                       onSetColor={(color) => setRouteColorMutation.mutate({ routeId: route.id, color })}
                       onAddRound={() => addRoundMutation.mutate(route.id)}
                     onSetDriverName={(name) => setDriverNameMutation.mutate({ routeId: route.id, driverName: name })}
+                    onRemoveAllOrders={() => {
+                      if (confirm(`האם לבטל שיוך כל ${route.orders.length} ההזמנות מהמתקין?`)) {
+                        route.orders.forEach((o) => removeMutation.mutate(o.id));
+                      }
+                    }}
                     />
                   ))
                 )}
