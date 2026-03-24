@@ -7,6 +7,7 @@ import sys
 import asyncio
 import hashlib
 import os
+import subprocess
 import argparse
 
 from nakdimon_ort import Nakdimon
@@ -44,8 +45,27 @@ def main():
         nikud_text = add_nikud(args.text, nakdimon)
 
     # Generate TTS
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
-    asyncio.run(generate_tts(nikud_text, args.output, args.voice))
+    output_dir = os.path.dirname(os.path.abspath(args.output))
+    os.makedirs(output_dir, exist_ok=True)
+
+    raw_path = args.output + ".raw.mp3"
+    asyncio.run(generate_tts(nikud_text, raw_path, args.voice))
+
+    # Trim leading silence with ffmpeg
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", raw_path,
+                "-af", "silenceremove=start_periods=1:start_duration=0:start_threshold=-30dB",
+                "-codec:a", "libmp3lame", "-b:a", "128k",
+                args.output,
+            ],
+            capture_output=True, timeout=10,
+        )
+        os.remove(raw_path)
+    except Exception:
+        # If ffmpeg fails, use the raw file as-is
+        os.rename(raw_path, args.output)
 
     # Output result for the calling process
     print(f"OK|{args.output}|{nikud_text}")
