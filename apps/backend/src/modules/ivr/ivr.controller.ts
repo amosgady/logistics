@@ -177,6 +177,7 @@ export const ivrController = {
   <Play>${audioUrl}</Play>
   <Gather numDigits="1" timeout="10" action="${BASE}/api/v1/ivr/gather/${orderId}" method="POST">
     <Play>${BASE}/uploads/ivr/confirm_prompt.mp3</Play>
+    <Play>${BASE}/uploads/ivr/replay_prompt.mp3</Play>
   </Gather>
   <Play>${BASE}/uploads/ivr/no_response.mp3</Play>
 </Response>`);
@@ -244,6 +245,7 @@ export const ivrController = {
   <Play>${BASE}/uploads/ivr/invalid.mp3</Play>
   <Gather numDigits="1" timeout="10" action="${BASE}/api/v1/ivr/gather/${orderId}" method="POST">
     <Play>${BASE}/uploads/ivr/confirm_prompt.mp3</Play>
+    <Play>${BASE}/uploads/ivr/replay_prompt.mp3</Play>
   </Gather>
   <Play>${BASE}/uploads/ivr/no_response.mp3</Play>
 </Response>`);
