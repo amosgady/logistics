@@ -55,10 +55,32 @@ async function getTtsUrl(text: string): Promise<string> {
 export const ivrController = {
   /**
    * Initiate an IVR call for an order.
+   * Pre-generates all TTS audio before starting the call so Twilio gets instant TwiML responses.
    */
   callOrder: asyncHandler(async (req: AuthRequest, res: Response) => {
     const orderId = parseInt(req.params.orderId as string);
     const targetPhone = req.body?.phone as string | undefined;
+
+    // Pre-generate all audio files before initiating the call
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, address: true, city: true, deliveryDate: true, timeWindow: true },
+    });
+
+    if (order) {
+      const messageText = buildOrderMessage(order);
+      console.log(`[IVR] Pre-generating TTS audio for order ${orderId}...`);
+      await Promise.all([
+        getTtsUrl(messageText),
+        getTtsUrl(STATIC_MESSAGES.confirm_prompt),
+        getTtsUrl(STATIC_MESSAGES.confirmed),
+        getTtsUrl(STATIC_MESSAGES.declined),
+        getTtsUrl(STATIC_MESSAGES.invalid),
+        getTtsUrl(STATIC_MESSAGES.no_response),
+      ]);
+      console.log(`[IVR] TTS audio ready for order ${orderId}`);
+    }
+
     const result = await ivrService.callOrder(orderId, req.user!.userId, targetPhone);
     res.json({ success: true, data: result });
   }),
