@@ -42,7 +42,7 @@ function buildOrderMessage(order: {
   const timeWindow = order.timeWindow === 'AFTERNOON' ? '12 עד 4 אחר הצהריים' : '8 עד 12';
   const address = `${order.address}, ${order.city}`;
 
-  return `שלום, כאן חברת פרפקט ליין. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
+  return `שלום, כאן חברת perfect line. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
 }
 
 /**
