@@ -18,7 +18,7 @@ const WEEKDAY_NAMES: Record<number, string> = {
 };
 
 const STATIC_MESSAGES = {
-  confirm_prompt: 'לאישור המשלוח לחצו 1, לסירוב לחצו 2, לשמיעה חוזרת לחצו 3',
+  confirm_prompt: 'לאישור המשלוח לחץ 1, לסירוב לחץ 2, לשמיעה חוזרת לחץ 3',
   confirmed: 'תודה, המשלוח אושר בהצלחה',
   declined: 'המשלוח סורב, נציג יחזור אליך בהקדם',
   invalid: 'הקלדה לא חוקית',
@@ -42,7 +42,7 @@ function buildOrderMessage(order: {
   const timeWindow = order.timeWindow === 'AFTERNOON' ? '12 עד 4 אחר הצהריים' : '8 עד 12';
   const address = `${order.address}, ${order.city}`;
 
-  return `שלום, כאן חברת פרפקט ליין. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
+  return `שלום, כאן חברת perfect line. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
 }
 
 /**
