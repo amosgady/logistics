@@ -42,7 +42,7 @@ function buildOrderMessage(order: {
   const timeWindow = order.timeWindow === 'AFTERNOON' ? '12 עד 4 אחר הצהריים' : '8 עד 12';
   const address = `${order.address}, ${order.city}`;
 
-  return `שלום, כאן חברת perfect line. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
+  return `המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
 }
 
 /**
@@ -120,6 +120,7 @@ export const ivrController = {
       res.type('text/xml');
       res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Play>${BASE}/uploads/ivr/intro.mp3</Play>
   <Play>${mainAudioUrl}</Play>
   <Gather numDigits="1" timeout="10" action="${BASE}/api/v1/ivr/gather/${orderId}" method="POST">
     <Play>${promptAudioUrl}</Play>
