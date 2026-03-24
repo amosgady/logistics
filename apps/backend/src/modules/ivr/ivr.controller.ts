@@ -13,8 +13,12 @@ const MONTH_NAMES: Record<number, string> = {
   7: 'יולי', 8: 'אוגוסט', 9: 'ספטמבר', 10: 'אוקטובר', 11: 'נובמבר', 12: 'דצמבר',
 };
 
+const WEEKDAY_NAMES: Record<number, string> = {
+  0: 'ראשון', 1: 'שני', 2: 'שלישי', 3: 'רביעי', 4: 'חמישי', 5: 'שישי', 6: 'שבת',
+};
+
 const STATIC_MESSAGES = {
-  confirm_prompt: 'לאישור המשלוח לחצו 1, לסירוב לחצו 2',
+  confirm_prompt: 'לאישור המשלוח לחצו 1, לסירוב לחצו 2, לשמיעה חוזרת לחצו 3',
   confirmed: 'תודה, המשלוח אושר בהצלחה',
   declined: 'המשלוח סורב, נציג יחזור אליך בהקדם',
   invalid: 'הקלדה לא חוקית',
@@ -34,10 +38,11 @@ function buildOrderMessage(order: {
   const day = date.getDate();
   const month = date.getMonth() + 1;
   const monthName = MONTH_NAMES[month];
-  const timeWindow = order.timeWindow === 'AFTERNOON' ? 'אחר הצהריים' : 'הבוקר';
+  const weekday = WEEKDAY_NAMES[date.getDay()];
+  const timeWindow = order.timeWindow === 'AFTERNOON' ? '12 עד 4 אחר הצהריים' : '8 עד 12';
   const address = `${order.address}, ${order.city}`;
 
-  return `שלום, כאן מערכת המשלוחים. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, בשעות ${timeWindow}`;
+  return `שלום, כאן חברת פרפקט ליין. המשלוח שלך לכתובת ${address}, מתוכנן לתאריך ${day} ב${monthName}, ביום ${weekday}, בשעות ${timeWindow}`;
 }
 
 /**
@@ -184,6 +189,11 @@ export const ivrController = {
       } catch {
         res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`);
       }
+    } else if (digits === '3') {
+      // Replay: redirect back to TwiML endpoint to replay the full message
+      console.log(`[IVR] Order ${orderId} requested replay`);
+      res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response><Redirect method="POST">${BASE}/api/v1/ivr/twiml/order/${orderId}</Redirect></Response>`);
     } else {
       try {
         const [invalidUrl, promptUrl, noResponseUrl] = await Promise.all([
