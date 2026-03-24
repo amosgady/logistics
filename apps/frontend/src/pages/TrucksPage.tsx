@@ -94,6 +94,7 @@ export default function TrucksPage() {
         licensePlate: truck.licensePlate,
         size: truck.size,
         hasCrane: truck.hasCrane,
+        truckType: (truck as any).truckType || '',
         maxWeightKg: Number(truck.maxWeightKg),
         maxPallets: truck.maxPallets,
         startTime: truck.startTime || '08:00',

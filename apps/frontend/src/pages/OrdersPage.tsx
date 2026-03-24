@@ -40,7 +40,7 @@ export default function OrdersPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState('');
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
   const [showNoZoneOnly, setShowNoZoneOnly] = useState(false);
   const { data, isLoading, error } = useOrders();

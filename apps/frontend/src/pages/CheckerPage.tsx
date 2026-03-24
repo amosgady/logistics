@@ -55,7 +55,7 @@ export default function CheckerPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [selectedOrder, setSelectedOrder] = useState<number | null>(null);
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
@@ -137,8 +137,8 @@ export default function CheckerPage() {
             facingMode: 'environment',
             width: { ideal: 1920 },
             height: { ideal: 1080 },
-            focusMode: 'continuous' as any,
-          } : undefined,
+            focusMode: 'continuous',
+          } as any : undefined,
         },
         (decodedText: string) => {
           if (found) return;

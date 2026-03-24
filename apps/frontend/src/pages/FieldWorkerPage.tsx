@@ -156,7 +156,7 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewMediaDialog, setViewMediaDialog] = useState<{ signatureUrl: string | null; photos: DeliveryPhoto[]; orderNumber: string } | null>(null);
-  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' } | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'info' | 'warning' } | null>(null);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [messagePopup, setMessagePopup] = useState<{ sender: string; text: string } | null>(null);
   const [signNoteDialog, setSignNoteDialog] = useState<{ orderId: number; orderNumber: string; deliveryNoteUrl: string; signedDeliveryNoteUrl: string | null } | null>(null);
@@ -274,8 +274,8 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
             facingMode: 'environment',
             width: { ideal: 1920 },
             height: { ideal: 1080 },
-            focusMode: 'continuous' as any,
-          } : undefined,
+            focusMode: 'continuous',
+          } as any : undefined,
         },
         (decodedText: string) => {
           if (found) return;

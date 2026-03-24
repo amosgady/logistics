@@ -956,7 +956,7 @@ export default function CoordinationPage() {
                     <TruckIcon color="primary" />
                     <Typography variant="h6">
                       {route.truck
-                        ? [route.truck.name, route.orders[0]?.department ? DEPARTMENT_LABELS[route.orders[0].department] || route.orders[0].department : null, route.orders[0]?.zone?.nameHe].filter(Boolean).join(' - ')
+                        ? [route.truck.name, route.orders[0]?.department ? DEPARTMENT_LABELS[route.orders[0].department] || route.orders[0].department : null, (route.orders[0] as any)?.zone?.nameHe].filter(Boolean).join(' - ')
                         : route.installerProfile?.user?.fullName || `מסלול ${route.id}`}
                       {(route as any).roundNumber > 1 && ` (סבב ${(route as any).roundNumber})`}
                     </Typography>

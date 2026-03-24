@@ -77,7 +77,6 @@ export default function Sidebar() {
       fontSize: '0.9rem',
     },
     '&.Mui-selected': {
-      bgcolor: 'rgba(30, 58, 95, 0.1)',
       bgcolor: 'rgba(30, 58, 95, 0.15)',
       '& .MuiListItemText-primary': {
         fontWeight: 700,
