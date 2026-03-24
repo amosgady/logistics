@@ -235,10 +235,30 @@ export const ivrController = {
       res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response><Play>${BASE}/uploads/ivr/declined.mp3</Play></Response>`);
     } else if (digits === '3') {
-      // Replay
+      // Replay - rebuild full TwiML inline
       console.log(`[IVR] Order ${orderId} requested replay`);
-      res.send(`<?xml version="1.0" encoding="UTF-8"?>
-<Response><Redirect method="POST">${BASE}/api/v1/ivr/twiml/order/${orderId}</Redirect></Response>`);
+      try {
+        const replayOrder = await prisma.order.findUnique({
+          where: { id: orderId },
+          select: { id: true, address: true, city: true, deliveryDate: true, timeWindow: true },
+        });
+        if (replayOrder) {
+          const audioUrl = await buildCallAudio(replayOrder);
+          res.send(`<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Play>${audioUrl}</Play>
+  <Gather numDigits="1" timeout="10" action="${BASE}/api/v1/ivr/gather/${orderId}" method="POST">
+    <Play>${BASE}/uploads/ivr/confirm_prompt.mp3</Play>
+    <Play>${BASE}/uploads/ivr/replay_prompt.mp3</Play>
+  </Gather>
+  <Play>${BASE}/uploads/ivr/no_response.mp3</Play>
+</Response>`);
+        } else {
+          res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`);
+        }
+      } catch {
+        res.send(`<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`);
+      }
     } else {
       res.send(`<?xml version="1.0" encoding="UTF-8"?>
 <Response>
