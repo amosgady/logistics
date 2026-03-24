@@ -123,7 +123,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
   onSendSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') => void;
-  onIvrCall: (order: Order) => void;
+  onIvrCall: (order: Order, event?: React.MouseEvent<HTMLElement>) => void;
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
@@ -227,7 +227,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="חייג IVR">
-                      <IconButton size="small" color="success" onClick={() => onIvrCall(order)} disabled={ivrCallPending}>
+                      <IconButton size="small" color="success" onClick={(e) => onIvrCall(order, e)} disabled={ivrCallPending}>
                         <PhoneIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -382,6 +382,26 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
         <MenuItem onClick={() => handleSmsMenuSelect(smsMenuOrder.phone2!)}>
           <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary={smsMenuOrder.phone2} secondary="טלפון 2" />
+        </MenuItem>
+      )}
+    </Menu>
+
+    {/* Phone selection menu for IVR */}
+    <Menu
+      anchorEl={ivrMenuAnchor}
+      open={Boolean(ivrMenuAnchor)}
+      onClose={() => { setIvrMenuAnchor(null); setIvrMenuOrder(null); }}
+    >
+      {ivrMenuOrder?.phone && (
+        <MenuItem onClick={() => handleIvrMenuSelect(ivrMenuOrder.phone)}>
+          <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary={ivrMenuOrder.phone} secondary="טלפון ראשי" />
+        </MenuItem>
+      )}
+      {ivrMenuOrder?.phone2 && (
+        <MenuItem onClick={() => handleIvrMenuSelect(ivrMenuOrder.phone2!)}>
+          <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary={ivrMenuOrder.phone2} secondary="טלפון 2" />
         </MenuItem>
       )}
     </Menu>
@@ -628,8 +648,24 @@ export default function CoordinationPage() {
   });
   const ivrCallPending = ivrCallMutation.isPending;
 
-  const handleIvrCall = (order: Order) => {
-    ivrCallMutation.mutate({ orderId: order.id, phone: order.phone });
+  const [ivrMenuAnchor, setIvrMenuAnchor] = useState<null | HTMLElement>(null);
+  const [ivrMenuOrder, setIvrMenuOrder] = useState<Order | null>(null);
+
+  const handleIvrCall = (order: Order, event?: React.MouseEvent<HTMLElement>) => {
+    if (order.phone2 && event) {
+      setIvrMenuAnchor(event.currentTarget);
+      setIvrMenuOrder(order);
+    } else {
+      ivrCallMutation.mutate({ orderId: order.id, phone: order.phone });
+    }
+  };
+
+  const handleIvrMenuSelect = (phone: string) => {
+    if (ivrMenuOrder) {
+      ivrCallMutation.mutate({ orderId: ivrMenuOrder.id, phone });
+    }
+    setIvrMenuAnchor(null);
+    setIvrMenuOrder(null);
   };
 
   const uploadPdfMutation = useMutation({
