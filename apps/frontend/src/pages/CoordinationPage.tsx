@@ -123,7 +123,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
   onSendSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') => void;
-  onIvrCall: (order: Order, event?: React.MouseEvent<HTMLElement>) => void;
+  onIvrCall: (order: Order, event?: React.MouseEvent<HTMLElement>, phone?: string) => void;
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
@@ -139,6 +139,25 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   const [smsMenuAnchor, setSmsMenuAnchor] = useState<null | HTMLElement>(null);
   const [smsMenuOrder, setSmsMenuOrder] = useState<Order | null>(null);
   const [smsMenuMethod, setSmsMenuMethod] = useState<'LINK' | 'REPLY'>('LINK');
+  const [ivrMenuAnchor, setIvrMenuAnchor] = useState<null | HTMLElement>(null);
+  const [ivrMenuOrder, setIvrMenuOrder] = useState<Order | null>(null);
+
+  const handleIvrClick = (order: Order, event?: React.MouseEvent<HTMLElement>) => {
+    if (order.phone2 && event) {
+      setIvrMenuAnchor(event.currentTarget);
+      setIvrMenuOrder(order);
+    } else {
+      onIvrCall(order);
+    }
+  };
+
+  const handleIvrMenuSelect = (phone: string) => {
+    if (ivrMenuOrder) {
+      onIvrCall(ivrMenuOrder, undefined, phone);
+    }
+    setIvrMenuAnchor(null);
+    setIvrMenuOrder(null);
+  };
 
   const handleSmsClick = (event: React.MouseEvent<HTMLElement>, order: Order, method: 'LINK' | 'REPLY') => {
     if (order.phone2) {
@@ -227,7 +246,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="חייג IVR">
-                      <IconButton size="small" color="success" onClick={(e) => onIvrCall(order, e)} disabled={ivrCallPending}>
+                      <IconButton size="small" color="success" onClick={(e) => handleIvrClick(order, e)} disabled={ivrCallPending}>
                         <PhoneIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -648,24 +667,8 @@ export default function CoordinationPage() {
   });
   const ivrCallPending = ivrCallMutation.isPending;
 
-  const [ivrMenuAnchor, setIvrMenuAnchor] = useState<null | HTMLElement>(null);
-  const [ivrMenuOrder, setIvrMenuOrder] = useState<Order | null>(null);
-
-  const handleIvrCall = (order: Order, event?: React.MouseEvent<HTMLElement>) => {
-    if (order.phone2 && event) {
-      setIvrMenuAnchor(event.currentTarget);
-      setIvrMenuOrder(order);
-    } else {
-      ivrCallMutation.mutate({ orderId: order.id, phone: order.phone });
-    }
-  };
-
-  const handleIvrMenuSelect = (phone: string) => {
-    if (ivrMenuOrder) {
-      ivrCallMutation.mutate({ orderId: ivrMenuOrder.id, phone });
-    }
-    setIvrMenuAnchor(null);
-    setIvrMenuOrder(null);
+  const handleIvrCall = (order: Order, _event?: React.MouseEvent<HTMLElement>, phone?: string) => {
+    ivrCallMutation.mutate({ orderId: order.id, phone: phone || order.phone });
   };
 
   const uploadPdfMutation = useMutation({
