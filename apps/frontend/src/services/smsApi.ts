@@ -11,6 +11,8 @@ export interface SmsSettings {
   isActive: boolean;
   confirmationMethod?: 'LINK' | 'REPLY';
   replyTemplate?: string;
+  linkTemplate?: string;
+  confirmPageTemplate?: string;
 }
 
 export interface SmsLogEntry {

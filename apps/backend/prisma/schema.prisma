@@ -498,8 +498,10 @@ model SmsSettings {
   replySenderPhone   String?            @map("reply_sender_phone")
   messageTemplate    String             @map("message_template")
   isActive           Boolean            @default(true) @map("is_active")
-  confirmationMethod ConfirmationMethod @default(LINK) @map("confirmation_method")
-  replyTemplate      String?            @map("reply_template")
+  confirmationMethod    ConfirmationMethod @default(LINK) @map("confirmation_method")
+  replyTemplate         String?            @map("reply_template")
+  linkTemplate          String?            @map("link_template")
+  confirmPageTemplate   String?            @map("confirm_page_template")
 
   @@map("sms_settings")
 }

@@ -25,6 +25,7 @@ interface OrderData {
   timeWindow: string | null;
   customerResponse: 'PENDING' | 'CONFIRMED' | 'DECLINED';
   respondedAt: string | null;
+  confirmPageTemplate: string | null;
 }
 
 function formatTimeWindow(tw: string | null): string {
@@ -123,12 +124,19 @@ function ConfirmationContent() {
           "{order.customerName}" שלום,
         </Typography>
         <Typography variant="body1" sx={{ mb: 1, fontSize: '1.1rem', lineHeight: 1.8 }}>
-          הזמנה מספר <strong>{order.orderNumber}</strong> תסופק לך
-          ב-<strong>{deliveryDateFormatted}</strong>
-          {timeWindowFormatted && (
-            <> בין השעות <strong>{timeWindowFormatted}</strong></>
-          )}
-          {' '}ל-<strong>{fullAddress}</strong>
+          {(() => {
+            const template = order.confirmPageTemplate ||
+              'הזמנה מספר {orderNumber} תסופק לך ב-{deliveryDate} {timeWindow} ל-{address}';
+            const text = template
+              .replace(/{customerName}/g, order.customerName || '')
+              .replace(/{orderNumber}/g, order.orderNumber || '')
+              .replace(/{deliveryDate}/g, deliveryDateFormatted)
+              .replace(/{timeWindow}/g, timeWindowFormatted ? `בין השעות ${timeWindowFormatted}` : '')
+              .replace(/{address}/g, fullAddress);
+            // Split by bold markers and render
+            const parts = text.split(/(\{[^}]+\})/);
+            return parts.map((p, i) => <span key={i}>{p}</span>);
+          })()}
         </Typography>
 
         {/* Notes field */}

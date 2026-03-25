@@ -32,6 +32,12 @@ const DEFAULT_SMS_TEMPLATE =
 const DEFAULT_REPLY_TEMPLATE =
   'שלום {customerName}, האם אתה מאשר הובלה ליום {deliveryDate}? לאישור הקש 1, לסירוב הקש 2';
 
+const DEFAULT_LINK_TEMPLATE =
+  '"{customerName}" שלום, אנחנו מתכננים לספק לך את הזמנתך מחברת פרפקט ליין. נא לחץ על הקישור ואשר את מועד האספקה: {confirmUrl}';
+
+const DEFAULT_CONFIRM_PAGE_TEMPLATE =
+  'הזמנה מספר {orderNumber} תסופק לך ב-{deliveryDate} {timeWindow} ל-{address}';
+
 const TEMPLATE_HELPER =
   'משתנים זמינים: {customerName}, {deliveryDate}, {timeWindow}, {address}, {city}, {orderNumber}, {companyPhone}';
 
@@ -105,6 +111,8 @@ export default function SettingsPage() {
     isActive: true,
     confirmationMethod: 'LINK',
     replyTemplate: DEFAULT_REPLY_TEMPLATE,
+    linkTemplate: DEFAULT_LINK_TEMPLATE,
+    confirmPageTemplate: DEFAULT_CONFIRM_PAGE_TEMPLATE,
   });
   const [smsFormDirty, setSmsFormDirty] = useState(false);
   const [testPhone, setTestPhone] = useState('');
@@ -121,6 +129,8 @@ export default function SettingsPage() {
         isActive: smsData.data.isActive !== false,
         confirmationMethod: smsData.data.confirmationMethod || 'LINK',
         replyTemplate: smsData.data.replyTemplate || DEFAULT_REPLY_TEMPLATE,
+        linkTemplate: smsData.data.linkTemplate || DEFAULT_LINK_TEMPLATE,
+        confirmPageTemplate: smsData.data.confirmPageTemplate || DEFAULT_CONFIRM_PAGE_TEMPLATE,
       });
     }
   }, [smsData]);
@@ -777,6 +787,33 @@ export default function SettingsPage() {
                 helperText="משתנים: {customerName}, {deliveryDate}, {orderNumber}. הלקוח ישיב 1 לאישור, 2 לסירוב."
               />
             )}
+
+            {smsForm.confirmationMethod === 'LINK' && (
+              <>
+                <Divider />
+                <Typography variant="subtitle2">תבנית SMS קישור אישור</Typography>
+                <TextField
+                  multiline
+                  rows={3}
+                  fullWidth
+                  value={smsForm.linkTemplate || DEFAULT_LINK_TEMPLATE}
+                  onChange={(e) => updateSmsField('linkTemplate', e.target.value)}
+                  helperText="משתנים: {customerName}, {orderNumber}, {deliveryDate}, {address}, {city}, {confirmUrl}"
+                />
+              </>
+            )}
+
+            <Divider />
+
+            <Typography variant="subtitle2">תבנית טקסט עמוד אישור ללקוח</Typography>
+            <TextField
+              multiline
+              rows={2}
+              fullWidth
+              value={smsForm.confirmPageTemplate || DEFAULT_CONFIRM_PAGE_TEMPLATE}
+              onChange={(e) => updateSmsField('confirmPageTemplate', e.target.value)}
+              helperText="משתנים: {customerName}, {orderNumber}, {deliveryDate}, {timeWindow}, {address}. זה הטקסט שהלקוח רואה בעמוד האישור."
+            />
 
             <Divider />
 

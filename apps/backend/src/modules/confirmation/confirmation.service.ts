@@ -25,7 +25,12 @@ export class ConfirmationService {
       throw new AppError(404, 'NOT_FOUND', 'קישור לא תקין או שפג תוקפו');
     }
 
-    return order;
+    // Fetch confirmation page template from SMS settings
+    const smsSettings = await prisma.smsSettings.findFirst({
+      select: { confirmPageTemplate: true },
+    });
+
+    return { ...order, confirmPageTemplate: smsSettings?.confirmPageTemplate || null };
   }
 
   /**

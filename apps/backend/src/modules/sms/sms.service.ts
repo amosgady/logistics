@@ -96,7 +96,15 @@ export class SmsModuleService {
       });
 
       const confirmUrl = `${env.BASE_URL}/confirm/${token}`;
-      message = `"${order.customerName}" שלום, אנחנו מתכננים לספק לך את הזמנתך מחברת פרפקט ליין. נא לחץ על הקישור ואשר את מועד האספקה: ${confirmUrl}`;
+      const deliveryDateStr = new Date(order.deliveryDate).toLocaleDateString('he-IL');
+      const linkTpl = smsSettings?.linkTemplate || `"{customerName}" שלום, אנחנו מתכננים לספק לך את הזמנתך מחברת פרפקט ליין. נא לחץ על הקישור ואשר את מועד האספקה: {confirmUrl}`;
+      message = linkTpl
+        .replace(/{customerName}/g, order.customerName || '')
+        .replace(/{confirmUrl}/g, confirmUrl)
+        .replace(/{orderNumber}/g, order.orderNumber || '')
+        .replace(/{deliveryDate}/g, deliveryDateStr)
+        .replace(/{address}/g, order.address || '')
+        .replace(/{city}/g, order.city || '');
     }
 
     // Reset customer response (both methods)
@@ -260,6 +268,8 @@ export class SmsModuleService {
     isActive: boolean;
     confirmationMethod?: 'LINK' | 'REPLY';
     replyTemplate?: string | null;
+    linkTemplate?: string | null;
+    confirmPageTemplate?: string | null;
   }) {
     const existing = await prisma.smsSettings.findFirst();
 
@@ -282,6 +292,12 @@ export class SmsModuleService {
     }
     if (data.replySenderPhone !== undefined) {
       updateData.replySenderPhone = data.replySenderPhone;
+    }
+    if (data.linkTemplate !== undefined) {
+      updateData.linkTemplate = data.linkTemplate;
+    }
+    if (data.confirmPageTemplate !== undefined) {
+      updateData.confirmPageTemplate = data.confirmPageTemplate;
     }
 
     if (existing) {
