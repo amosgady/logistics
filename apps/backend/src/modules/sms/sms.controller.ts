@@ -59,7 +59,7 @@ export const smsController = {
    * Update SMS settings.
    */
   updateSettings: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { inforuUsername, inforuPassword, apiToken, senderName, replySenderPhone, messageTemplate, isActive, confirmationMethod, replyTemplate } = req.body;
+    const { inforuUsername, inforuPassword, apiToken, senderName, replySenderPhone, messageTemplate, isActive, confirmationMethod, replyTemplate, linkTemplate, confirmPageTemplate } = req.body;
     const settings = await smsModuleService.updateSettings({
       inforuUsername,
       inforuPassword,
@@ -70,6 +70,8 @@ export const smsController = {
       isActive: isActive !== false,
       confirmationMethod,
       replyTemplate,
+      linkTemplate,
+      confirmPageTemplate,
     });
     res.json({ success: true, data: settings });
   }),
