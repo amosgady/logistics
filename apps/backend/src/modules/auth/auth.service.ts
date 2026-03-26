@@ -8,10 +8,11 @@ import { emailService } from '../../services/email.service';
 
 export class AuthService {
   async login(username: string, password: string) {
-    // First try exact username match, then fallback to email match
+    // Case-insensitive username match, then fallback to email match
+    const lowerUsername = username.toLowerCase();
     let user = await prisma.user.findFirst({
       where: {
-        username,
+        username: { equals: lowerUsername, mode: 'insensitive' },
         isActive: true,
       },
       include: {
@@ -22,7 +23,7 @@ export class AuthService {
     if (!user) {
       user = await prisma.user.findFirst({
         where: {
-          email: username,
+          email: { equals: lowerUsername, mode: 'insensitive' },
           isActive: true,
         },
         include: {
