@@ -20,7 +20,7 @@ export class PlanningService {
     // Get all orders in PLANNING/IN_COORDINATION/APPROVED status for this date
     const orders = await prisma.order.findMany({
       where: {
-        status: { in: ['PLANNING', 'ASSIGNED_TO_TRUCK', 'IN_COORDINATION', 'APPROVED'] },
+        status: { in: ['PLANNING', 'ASSIGNED_TO_TRUCK', 'IN_COORDINATION', 'APPROVED', 'SENT_TO_DRIVER'] },
         deliveryDate: {
           gte: startOfDay,
           lte: endOfDay,

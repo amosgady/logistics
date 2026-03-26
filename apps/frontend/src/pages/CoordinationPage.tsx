@@ -512,7 +512,7 @@ export default function CoordinationPage() {
   const routesWithOrders = routes
     .map((r) => ({
       ...r,
-      orders: r.orders.filter((o: any) => o.status === 'IN_COORDINATION' || o.status === 'APPROVED'),
+      orders: r.orders.filter((o: any) => o.status === 'IN_COORDINATION' || o.status === 'APPROVED' || o.status === 'SENT_TO_DRIVER'),
     }))
     .filter((r) => r.orders.length > 0);
 
