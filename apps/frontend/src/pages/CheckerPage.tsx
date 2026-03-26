@@ -560,7 +560,10 @@ export default function CheckerPage() {
                   <Box sx={{ flexGrow: 1, minWidth: 0 }}>
                     <Typography variant="body1" fontWeight="bold" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.product}</Typography>
                     {line.description && <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.description}</Typography>}
-                    <Typography variant="body2" color="text.secondary">כמות: {line.quantity} | משקל: {line.weight} ק"ג</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      כמות: {line.quantity} | משקל: {line.weight} ק"ג
+                      {orderDetail?.unitMeasure && orderDetail.unitMeasure > 0 && ` | קרטונים: ${Math.ceil(line.quantity / orderDetail.unitMeasure)}`}
+                    </Typography>
                   </Box>
                   <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
                 </Box>

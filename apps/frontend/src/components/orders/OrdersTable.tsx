@@ -103,6 +103,7 @@ interface Order {
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   price: string | null;
+  unitMeasure: number | null;
   geocodedAddress: string | null;
   geocodeValid: boolean | null;
   orderLines: OrderLine[];
@@ -150,6 +151,8 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount' },
+  { id: 'unitMeasure', label: 'יחידת מידה', sortKey: 'unitMeasure' },
+  { id: 'cartons', label: 'קרטונים' },
   { id: 'price', label: 'מחיר' },
   { id: 'geocodedAddress', label: 'כתובת גוגל' },
   { id: 'deliveryNote', label: 'תעודה' },
@@ -1016,6 +1019,14 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
+    case 'unitMeasure':
+      return <Typography variant="body2">{order.unitMeasure || '-'}</Typography>;
+    case 'cartons': {
+      const qty = order.orderLines?.reduce((sum: number, l: any) => sum + (l.quantity || 0), 0) || 0;
+      const um = order.unitMeasure;
+      const cartons = um && um > 0 ? Math.ceil(qty / um) : '-';
+      return <Typography variant="body2">{cartons}</Typography>;
+    }
     case 'price':
       return <EditablePrice order={order} />;
     case 'geocodedAddress':

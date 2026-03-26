@@ -231,6 +231,7 @@ model Order {
   rodCount      Int?    @map("rod_count")
   cabinetCount  Int?    @map("cabinet_count")
   price         String? @map("price")
+  unitMeasure   Int?    @map("unit_measure")
 
   // Delivery note PDF
   deliveryNoteUrl       String? @map("delivery_note_url")

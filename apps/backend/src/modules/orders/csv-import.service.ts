@@ -57,6 +57,8 @@ const COLUMN_MAP: Record<string, string> = {
   'current_stock': 'currentStock',
   'מחלקה': 'department',
   'department': 'department',
+  'יחידת מידה': 'unitMeasure',
+  'unit_measure': 'unitMeasure',
 };
 
 const DEPARTMENT_MAP: Record<string, string> = {
@@ -673,6 +675,7 @@ export class CsvImportService {
               contactPerson: firstLine.contactPerson || null,
               floor: parseIntOrNull(firstLine.floor),
               elevator: parseBoolean(firstLine.elevator),
+              unitMeasure: parseIntOrNull(firstLine.unitMeasure),
               department: department as any,
               status: 'PENDING',
               orderLines: {
