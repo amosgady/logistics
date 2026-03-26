@@ -91,19 +91,19 @@ export default function InWorkOrdersPage() {
     }
   };
 
-  const handleRevertToInWork = async () => {
+  const handleRevertToPending = async () => {
     if (selectedOrderIds.size === 0) return;
     try {
       const result = await bulkStatusMutation.mutateAsync({
         orderIds: Array.from(selectedOrderIds),
-        targetStatus: 'IN_WORK',
+        targetStatus: 'PENDING',
       });
       setSnackbar({
-        message: `${result.data.success.length} הזמנות הוחזרו לעבודה`,
+        message: `${result.data.success.length} הזמנות הוחזרו להמתנה`,
         severity: 'success',
       });
     } catch {
-      setSnackbar({ message: 'שגיאה בהחזרה לעבודה', severity: 'error' });
+      setSnackbar({ message: 'שגיאה בהחזרה להמתנה', severity: 'error' });
     }
   };
 
@@ -293,12 +293,12 @@ export default function InWorkOrdersPage() {
             variant="outlined"
             size="small"
             startIcon={<RevertIcon />}
-            onClick={handleRevertToInWork}
-            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
-            title={!allSelectedInPlanning ? 'ניתן להחזיר לעבודה רק הזמנות בסטטוס בתכנון' : ''}
+            onClick={handleRevertToPending}
+            disabled={bulkStatusMutation.isPending || !allSelectedInWork}
+            title={!allSelectedInWork ? 'ניתן להחזיר להמתנה רק הזמנות בסטטוס בעבודה' : ''}
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
-            החזר לעבודה
+            החזר להמתנה
           </Button>
           <Button
             size="small"
