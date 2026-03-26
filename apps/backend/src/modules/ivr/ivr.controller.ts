@@ -53,7 +53,7 @@ async function buildCallAudio(order: {
 
   // Generate TTS for dynamic parts
   const [weekdayUrl, addressUrl] = await Promise.all([
-    getTtsUrl(weekday),
+    getTtsUrl(`ביום ${weekday}`),
     getTtsUrl(`לכתובת ${address}`),
   ]);
 
