@@ -24,6 +24,7 @@ export interface CheckerOrderLine {
   checkedByInspector: boolean;
   checkedAt: string | null;
   checkerNote: string | null;
+  unitMeasure: number | null;
 }
 
 export interface CheckerOrderDetail {
@@ -44,7 +45,6 @@ export interface CheckerOrderDetail {
   showerCount: number | null;
   rodCount: number | null;
   cabinetCount: number | null;
-  unitMeasure: number | null;
   orderLines: CheckerOrderLine[];
 }
 

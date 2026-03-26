@@ -94,7 +94,6 @@ export class CheckerService {
         showerCount: true,
         rodCount: true,
         cabinetCount: true,
-        unitMeasure: true,
         orderLines: {
           orderBy: { lineNumber: 'asc' },
           select: {
@@ -107,6 +106,7 @@ export class CheckerService {
             checkedByInspector: true,
             checkedAt: true,
             checkerNote: true,
+            unitMeasure: true,
           },
         },
       },

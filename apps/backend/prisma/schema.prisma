@@ -231,7 +231,6 @@ model Order {
   rodCount      Int?    @map("rod_count")
   cabinetCount  Int?    @map("cabinet_count")
   price         String? @map("price")
-  unitMeasure   Int?    @map("unit_measure")
 
   // Delivery note PDF
   deliveryNoteUrl       String? @map("delivery_note_url")
@@ -289,6 +288,8 @@ model OrderLine {
   barcode        String?
   scannedLoad    Boolean @default(false) @map("scanned_load")
   scannedDeliver Boolean @default(false) @map("scanned_deliver")
+
+  unitMeasure    Int?    @map("unit_measure")
 
   checkedByInspector Boolean  @default(false) @map("checked_by_inspector")
   checkedAt          DateTime? @map("checked_at")

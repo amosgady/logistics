@@ -59,6 +59,7 @@ interface OrderLine {
   weight: string;
   currentStock: number;
   checkerNote: string | null;
+  unitMeasure: number | null;
 }
 
 interface DeliveryPhoto {
@@ -103,7 +104,6 @@ interface Order {
   deliveryNoteUrl: string | null;
   signedDeliveryNoteUrl: string | null;
   price: string | null;
-  unitMeasure: number | null;
   geocodedAddress: string | null;
   geocodeValid: boolean | null;
   orderLines: OrderLine[];
@@ -1019,13 +1019,17 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
-    case 'unitMeasure':
-      return <Typography variant="body2">{order.unitMeasure || '-'}</Typography>;
+    case 'unitMeasure': {
+      const units = order.orderLines?.map((l: any) => l.unitMeasure).filter(Boolean);
+      const unique = [...new Set(units)];
+      return <Typography variant="body2">{unique.length > 0 ? unique.join(', ') : '-'}</Typography>;
+    }
     case 'cartons': {
-      const qty = order.orderLines?.reduce((sum: number, l: any) => sum + (l.quantity || 0), 0) || 0;
-      const um = order.unitMeasure;
-      const cartons = um && um > 0 ? Math.ceil(qty / um) : '-';
-      return <Typography variant="body2">{cartons}</Typography>;
+      const total = order.orderLines?.reduce((sum: number, l: any) => {
+        if (l.unitMeasure && l.unitMeasure > 0) return sum + Math.ceil((l.quantity || 0) / l.unitMeasure);
+        return sum;
+      }, 0) || 0;
+      return <Typography variant="body2">{total > 0 ? total : '-'}</Typography>;
     }
     case 'price':
       return <EditablePrice order={order} />;

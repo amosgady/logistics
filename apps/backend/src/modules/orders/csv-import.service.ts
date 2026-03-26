@@ -644,6 +644,7 @@ export class CsvImportService {
                         totalPrice: parseDecimalOrNull(csvLine.totalPrice),
                         weight: new Prisma.Decimal(parseFloat(csvLine.weight) || 0),
                         currentStock: parseInt(csvLine.currentStock) || 0,
+                        unitMeasure: parseIntOrNull(csvLine.unitMeasure),
                         department: department as any,
                       },
                     });
@@ -675,7 +676,6 @@ export class CsvImportService {
               contactPerson: firstLine.contactPerson || null,
               floor: parseIntOrNull(firstLine.floor),
               elevator: parseBoolean(firstLine.elevator),
-              unitMeasure: parseIntOrNull(firstLine.unitMeasure),
               department: department as any,
               status: 'PENDING',
               orderLines: {
@@ -689,6 +689,7 @@ export class CsvImportService {
                   totalPrice: parseDecimalOrNull(line.totalPrice),
                   weight: new Prisma.Decimal(parseFloat(line.weight) || 0),
                   currentStock: parseInt(line.currentStock) || 0,
+                  unitMeasure: parseIntOrNull(line.unitMeasure),
                   department: department as any,
                 })),
               },
