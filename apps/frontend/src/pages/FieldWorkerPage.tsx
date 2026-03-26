@@ -606,13 +606,13 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
 
         {/* Date navigation strip - same as checker */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'white', py: 0.5, mx: 2, mt: 1, borderRadius: 1 }}>
-          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, 1))} disabled={isFutureLimit}>
+          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, 1))} disabled={isFutureLimit} sx={{ color: 'text.primary' }}>
             <ChevronRightIcon />
           </IconButton>
-          <Typography variant="body1" fontWeight="bold" sx={{ mx: 2, minWidth: 100, textAlign: 'center' }}>
+          <Typography variant="body1" fontWeight="bold" sx={{ mx: 2, minWidth: 100, textAlign: 'center', color: 'text.primary' }}>
             {isToday ? 'היום' : selectedDate.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: 'numeric' })}
           </Typography>
-          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, -1))} disabled={toDateString(selectedDate) <= toDateString(new Date())}>
+          <IconButton onClick={() => setSelectedDate(addDays(selectedDate, -1))} disabled={toDateString(selectedDate) <= toDateString(new Date())} sx={{ color: 'text.primary' }}>
             <ChevronLeftIcon />
           </IconButton>
         </Box>
