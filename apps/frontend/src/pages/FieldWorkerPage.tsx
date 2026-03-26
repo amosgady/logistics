@@ -694,6 +694,11 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="subtitle1" fontWeight="bold">
                       {order.customerName}
+                      {order.orderNumber && (
+                        <Typography component="span" variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                          {' '}הזמנה {order.orderNumber}
+                        </Typography>
+                      )}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
                       {order.address}, {order.city}
