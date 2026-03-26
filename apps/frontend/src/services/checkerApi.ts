@@ -24,7 +24,7 @@ export interface CheckerOrderLine {
   checkedByInspector: boolean;
   checkedAt: string | null;
   checkerNote: string | null;
-  unitMeasure: number | null;
+  unitMeasure: string | null;
 }
 
 export interface CheckerOrderDetail {

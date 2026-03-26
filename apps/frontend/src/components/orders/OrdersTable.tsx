@@ -59,7 +59,7 @@ interface OrderLine {
   weight: string;
   currentStock: number;
   checkerNote: string | null;
-  unitMeasure: number | null;
+  unitMeasure: string | null;
 }
 
 interface DeliveryPhoto {
@@ -864,8 +864,8 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
               </TableCell>
               <TableCell>{Number(line.weight)} ק"ג</TableCell>
               <TableCell align="center">{line.currentStock}</TableCell>
-              <TableCell align="center">{line.unitMeasure || '-'}</TableCell>
-              <TableCell align="center">{line.unitMeasure && line.unitMeasure > 0 ? Math.ceil(line.quantity / line.unitMeasure) : '-'}</TableCell>
+              <TableCell align="center">{line.unitMeasure ? Number(line.unitMeasure).toFixed(2) : '-'}</TableCell>
+              <TableCell align="center">{line.unitMeasure && Number(line.unitMeasure) > 0 ? Math.ceil(line.quantity / Number(line.unitMeasure)) : '-'}</TableCell>
               <TableCell sx={{ color: line.checkerNote ? 'warning.main' : 'text.secondary', fontStyle: line.checkerNote ? 'normal' : 'italic' }}>
                 {line.checkerNote || '-'}
               </TableCell>

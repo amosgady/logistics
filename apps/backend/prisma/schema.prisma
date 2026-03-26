@@ -289,7 +289,7 @@ model OrderLine {
   scannedLoad    Boolean @default(false) @map("scanned_load")
   scannedDeliver Boolean @default(false) @map("scanned_deliver")
 
-  unitMeasure    Int?    @map("unit_measure")
+  unitMeasure    Decimal? @db.Decimal(10, 2) @map("unit_measure")
 
   checkedByInspector Boolean  @default(false) @map("checked_by_inspector")
   checkedAt          DateTime? @map("checked_at")

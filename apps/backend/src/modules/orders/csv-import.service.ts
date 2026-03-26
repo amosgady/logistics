@@ -689,7 +689,7 @@ export class CsvImportService {
                   totalPrice: parseDecimalOrNull(line.totalPrice),
                   weight: new Prisma.Decimal(parseFloat(line.weight) || 0),
                   currentStock: parseInt(line.currentStock) || 0,
-                  unitMeasure: parseIntOrNull(line.unitMeasure),
+                  unitMeasure: parseDecimalOrNull(line.unitMeasure),
                   department: department as any,
                 })),
               },

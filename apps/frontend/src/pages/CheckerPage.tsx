@@ -562,7 +562,7 @@ export default function CheckerPage() {
                     {line.description && <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{line.description}</Typography>}
                     <Typography variant="body2" color="text.secondary">
                       כמות: {line.quantity} | משקל: {line.weight} ק"ג
-                      {line.unitMeasure && line.unitMeasure > 0 && ` | קרטונים: ${Math.ceil(line.quantity / line.unitMeasure)}`}
+                      {line.unitMeasure && Number(line.unitMeasure) > 0 && ` | קרטונים: ${Math.ceil(line.quantity / Number(line.unitMeasure))}`}
                     </Typography>
                   </Box>
                   <Typography variant="h6" color="text.secondary" sx={{ minWidth: 30, textAlign: 'center' }}>{line.lineNumber}</Typography>
