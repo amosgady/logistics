@@ -51,6 +51,7 @@ export function useBulkChangeStatus() {
       orderApi.bulkChangeStatus(orderIds, targetStatus),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['inWorkOrders'] });
       clearSelection();
     },
   });
