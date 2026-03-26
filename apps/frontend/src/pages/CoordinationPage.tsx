@@ -508,8 +508,13 @@ export default function CoordinationPage() {
   const board = data?.data;
   const routes: Route[] = board?.routes || [];
 
-  // Show all routes that have orders (don't filter by status so orders remain visible after sending)
-  const routesWithOrders = routes.filter((r) => r.orders.length > 0);
+  // Show only routes that have orders moved to coordination (IN_COORDINATION or APPROVED)
+  const routesWithOrders = routes
+    .map((r) => ({
+      ...r,
+      orders: r.orders.filter((o: any) => o.status === 'IN_COORDINATION' || o.status === 'APPROVED'),
+    }))
+    .filter((r) => r.orders.length > 0);
 
   const coordinationMutation = useMutation({
     mutationFn: ({ orderId, coordinationStatus, coordinationNotes }: {
