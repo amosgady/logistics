@@ -151,8 +151,6 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount' },
-  { id: 'unitMeasure', label: 'יחידת מידה', sortKey: 'unitMeasure' },
-  { id: 'cartons', label: 'קרטונים' },
   { id: 'price', label: 'מחיר' },
   { id: 'geocodedAddress', label: 'כתובת גוגל' },
   { id: 'deliveryNote', label: 'תעודה' },
@@ -838,6 +836,8 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
             <TableCell>סה"כ</TableCell>
             <TableCell>משקל</TableCell>
             <TableCell align="center">מלאי</TableCell>
+            <TableCell align="center">יח' מידה</TableCell>
+            <TableCell align="center">קרטונים</TableCell>
             <TableCell>הערת בודק</TableCell>
             {isPending && <TableCell align="center">פעולות</TableCell>}
           </TableRow>
@@ -864,6 +864,8 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
               </TableCell>
               <TableCell>{Number(line.weight)} ק"ג</TableCell>
               <TableCell align="center">{line.currentStock}</TableCell>
+              <TableCell align="center">{line.unitMeasure || '-'}</TableCell>
+              <TableCell align="center">{line.unitMeasure && line.unitMeasure > 0 ? Math.ceil(line.quantity / line.unitMeasure) : '-'}</TableCell>
               <TableCell sx={{ color: line.checkerNote ? 'warning.main' : 'text.secondary', fontStyle: line.checkerNote ? 'normal' : 'italic' }}>
                 {line.checkerNote || '-'}
               </TableCell>
@@ -1019,18 +1021,6 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
-    case 'unitMeasure': {
-      const units = order.orderLines?.map((l: any) => l.unitMeasure).filter(Boolean);
-      const unique = [...new Set(units)];
-      return <Typography variant="body2">{unique.length > 0 ? unique.join(', ') : '-'}</Typography>;
-    }
-    case 'cartons': {
-      const total = order.orderLines?.reduce((sum: number, l: any) => {
-        if (l.unitMeasure && l.unitMeasure > 0) return sum + Math.ceil((l.quantity || 0) / l.unitMeasure);
-        return sum;
-      }, 0) || 0;
-      return <Typography variant="body2">{total > 0 ? total : '-'}</Typography>;
-    }
     case 'price':
       return <EditablePrice order={order} />;
     case 'geocodedAddress':
