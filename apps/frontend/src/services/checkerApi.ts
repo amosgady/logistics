@@ -44,6 +44,7 @@ export interface CheckerOrderDetail {
   showerCount: number | null;
   rodCount: number | null;
   cabinetCount: number | null;
+  unitMeasure: number | null;
   orderLines: CheckerOrderLine[];
 }
 
