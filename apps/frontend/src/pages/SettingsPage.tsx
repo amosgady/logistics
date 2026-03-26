@@ -812,7 +812,7 @@ export default function SettingsPage() {
               fullWidth
               value={smsForm.confirmPageTemplate || DEFAULT_CONFIRM_PAGE_TEMPLATE}
               onChange={(e) => updateSmsField('confirmPageTemplate', e.target.value)}
-              helperText="משתנים: {customerName}, {orderNumber}, {deliveryDate}, {timeWindow}, {address}. זה הטקסט שהלקוח רואה בעמוד האישור."
+              helperText="משתנים: {customerName}, {orderNumber}, {deliveryDate}, {dayOfWeek}, {timeWindow}, {address}. זה הטקסט שהלקוח רואה בעמוד האישור."
             />
 
             <Divider />

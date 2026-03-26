@@ -106,7 +106,9 @@ function ConfirmationContent() {
   }
 
   // Confirmation form
-  const deliveryDateFormatted = new Date(order.deliveryDate).toLocaleDateString('he-IL');
+  const deliveryDate = new Date(order.deliveryDate);
+  const deliveryDateFormatted = deliveryDate.toLocaleDateString('he-IL');
+  const dayOfWeek = deliveryDate.toLocaleDateString('he-IL', { weekday: 'long' });
   const timeWindowFormatted = formatTimeWindow(order.timeWindow);
   const fullAddress = `${order.address}, ${order.city}`;
 
@@ -132,7 +134,8 @@ function ConfirmationContent() {
               .replace(/{orderNumber}/g, order.orderNumber || '')
               .replace(/{deliveryDate}/g, deliveryDateFormatted)
               .replace(/{timeWindow}/g, timeWindowFormatted ? `בין השעות ${timeWindowFormatted}` : '')
-              .replace(/{address}/g, fullAddress);
+              .replace(/{address}/g, fullAddress)
+              .replace(/{dayOfWeek}/g, dayOfWeek);
             // Split by bold markers and render
             const parts = text.split(/(\{[^}]+\})/);
             return parts.map((p, i) => <span key={i}>{p}</span>);
