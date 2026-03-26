@@ -33,7 +33,7 @@ import {
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
   StickyNote2 as NoteIcon,
-  MyLocation as CoordIcon,
+  LocationOn as CoordIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -386,7 +386,7 @@ function CoordinateEditor({ order }: { order: Order }) {
   return (
     <>
       <Tooltip title="עדכן קואורדינטות ידנית">
-        <IconButton size="small" color="warning" onClick={() => { setCoordText(''); setError(''); setOpen(true); }}>
+        <IconButton size="small" onClick={() => { setCoordText(''); setError(''); setOpen(true); }}>
           <CoordIcon fontSize="small" />
         </IconButton>
       </Tooltip>
