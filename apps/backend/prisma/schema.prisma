@@ -19,6 +19,7 @@ enum UserRole {
 
 enum OrderStatus {
   PENDING
+  IN_WORK
   PLANNING
   ASSIGNED_TO_TRUCK
   IN_COORDINATION

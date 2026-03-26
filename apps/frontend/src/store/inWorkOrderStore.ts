@@ -13,7 +13,7 @@ interface OrderFilters {
   pageSize: number;
 }
 
-interface OrderState {
+interface InWorkOrderState {
   selectedOrderIds: Set<number>;
   filters: OrderFilters;
   toggleSelect: (id: number) => void;
@@ -22,10 +22,10 @@ interface OrderState {
   setFilters: (filters: Partial<OrderFilters>) => void;
 }
 
-export const useOrderStore = create<OrderState>((set) => ({
+export const useInWorkOrderStore = create<InWorkOrderState>((set) => ({
   selectedOrderIds: new Set(),
   filters: {
-    status: ['PENDING'],
+    status: ['IN_WORK', 'PLANNING', 'ASSIGNED_TO_TRUCK', 'IN_COORDINATION', 'APPROVED', 'SENT_TO_DRIVER', 'COMPLETED'],
     page: 1,
     pageSize: 200,
   },

@@ -114,6 +114,14 @@ interface Props {
   total: number;
   loading: boolean;
   onUpdateDeliveryDate?: (id: number, deliveryDate: string) => void;
+  useStore?: () => {
+    selectedOrderIds: Set<number>;
+    toggleSelect: (id: number) => void;
+    selectAll: (ids: number[]) => void;
+    clearSelection: () => void;
+    filters: any;
+    setFilters: (f: any) => void;
+  };
 }
 
 // --- Column definition ---
@@ -1125,14 +1133,17 @@ function OrderRow({
   order,
   columnOrder,
   onUpdateDeliveryDate,
+  selectedOrderIds,
+  toggleSelect,
 }: {
   order: Order;
   columnOrder: string[];
   onUpdateDeliveryDate?: (id: number, date: string) => void;
+  selectedOrderIds: Set<number>;
+  toggleSelect: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
-  const { selectedOrderIds, toggleSelect } = useOrderStore();
   const isSelected = selectedOrderIds.has(order.id);
 
   const hasMedia = order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0);
@@ -1214,8 +1225,8 @@ function OrderRow({
 }
 
 // --- Main table ---
-export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDate }: Props) {
-  const { selectedOrderIds, selectAll, clearSelection, filters, setFilters } = useOrderStore();
+export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDate, useStore }: Props) {
+  const { selectedOrderIds, toggleSelect, selectAll, clearSelection, filters, setFilters } = (useStore || useOrderStore)();
   const userId = useAuthStore((s) => s.user?.id);
   const { sortedItems, sortConfig, handleSort } = useSortable(orders);
 
@@ -1339,6 +1350,8 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
                   order={order}
                   columnOrder={columnOrder}
                   onUpdateDeliveryDate={onUpdateDeliveryDate}
+                  selectedOrderIds={selectedOrderIds}
+                  toggleSelect={toggleSelect}
                 />
               ))
             )}

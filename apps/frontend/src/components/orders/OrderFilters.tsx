@@ -27,6 +27,7 @@ function shiftDate(dateStr: string, days: number): string {
 
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: 'בהמתנה' },
+  { value: 'IN_WORK', label: 'בעבודה' },
   { value: 'PLANNING', label: 'בתכנון' },
   { value: 'ASSIGNED_TO_TRUCK', label: 'משויך למשאית' },
   { value: 'IN_COORDINATION', label: 'בתיאום' },
@@ -65,8 +66,8 @@ const floatingLabelSx = {
   lineHeight: 1,
 };
 
-export default function OrderFilters() {
-  const { filters, setFilters } = useOrderStore();
+export default function OrderFilters({ useStore }: { useStore?: () => { filters: any; setFilters: (f: any) => void } } = {}) {
+  const { filters, setFilters } = (useStore || useOrderStore)();
 
   const currentDate = filters.deliveryDateFrom || filters.deliveryDateTo || new Date().toISOString().slice(0, 10);
 

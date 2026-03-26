@@ -11,97 +11,46 @@ import {
   DialogActions,
   TextField,
   Paper,
-  LinearProgress,
 } from '@mui/material';
 import {
-  Upload as ImportIcon,
   MoveDown as MoveIcon,
   Cancel as CancelIcon,
-  Delete as DeleteIcon,
+  Undo as RevertIcon,
   CalendarMonth as CalendarIcon,
-  Map as MapIcon,
-  LocationOn as LocationIcon,
-  WarningAmber as WarningIcon,
   Print as PrintIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
-import CsvImportDialog from '../components/orders/CsvImportDialog';
-import DeleteConfirmDialog from '../components/orders/DeleteConfirmDialog';
-import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, useBulkUpdateDeliveryDate } from '../hooks/useOrders';
-import { useOrderStore } from '../store/orderStore';
-import { zoneApi } from '../services/zoneApi';
-import { orderApi } from '../services/orderApi';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInWorkOrders, useBulkChangeStatusInWork, useBulkUpdateDeliveryDateInWork } from '../hooks/useInWorkOrders';
+import { useInWorkOrderStore } from '../store/inWorkOrderStore';
+import { useUpdateDeliveryDate } from '../hooks/useOrders';
 
-export default function OrdersPage() {
-  const [importOpen, setImportOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+export default function InWorkOrdersPage() {
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState('');
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
-  const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
-  const [showNoZoneOnly, setShowNoZoneOnly] = useState(false);
-  const { data, isLoading, error } = useOrders();
-  const bulkStatusMutation = useBulkChangeStatus();
-  const bulkDeleteMutation = useBulkDelete();
-  const bulkDeliveryDateMutation = useBulkUpdateDeliveryDate();
+  const { data, isLoading, error } = useInWorkOrders();
+  const bulkStatusMutation = useBulkChangeStatusInWork();
+  const bulkDeliveryDateMutation = useBulkUpdateDeliveryDateInWork();
   const deliveryDateMutation = useUpdateDeliveryDate();
-  const selectedOrderIds = useOrderStore((s) => s.selectedOrderIds);
-  const queryClient = useQueryClient();
-
-  const reassignZonesMutation = useMutation({
-    mutationFn: () => zoneApi.reassignZonesPending(),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      const { assigned, unmatched } = result.data;
-      setSnackbar({
-        message: `שויכו ${assigned} הזמנות לאזורים${unmatched > 0 ? `. ${unmatched} ללא התאמה` : ''}`,
-        severity: unmatched > 0 ? 'warning' : 'success',
-      });
-    },
-    onError: () => setSnackbar({ message: 'שגיאה בשיוך אזורים', severity: 'error' }),
-  });
-
-  const [validateProgress, setValidateProgress] = useState<{ current: number; total: number } | null>(null);
-  const validateAddressesMutation = useMutation({
-    mutationFn: async (orderIds: number[]) => {
-      const BATCH_SIZE = 10;
-      let totalGeocoded = 0;
-      let totalFailed = 0;
-      setValidateProgress({ current: 0, total: orderIds.length });
-      for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
-        const batch = orderIds.slice(i, i + BATCH_SIZE);
-        const result = await orderApi.validateAddresses(batch);
-        totalGeocoded += result.data?.geocoded || 0;
-        totalFailed += result.data?.failed || 0;
-        setValidateProgress({ current: Math.min(i + BATCH_SIZE, orderIds.length), total: orderIds.length });
-      }
-      return { data: { geocoded: totalGeocoded, failed: totalFailed } };
-    },
-    onSuccess: (result) => {
-      setValidateProgress(null);
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-      const { geocoded, failed } = result.data || {};
-      setSnackbar({
-        message: `אימות כתובות הושלם: ${geocoded || 0} תקינות, ${failed || 0} חשודות`,
-        severity: failed > 0 ? 'warning' as any : 'success',
-      });
-    },
-    onError: () => { setValidateProgress(null); setSnackbar({ message: 'שגיאה באימות כתובות', severity: 'error' }); },
-  });
+  const selectedOrderIds = useInWorkOrderStore((s) => s.selectedOrderIds);
 
   const orders = data?.data || [];
   const total = data?.meta?.total || 0;
 
-  // Check if some selected orders are NOT on the current page (cross-page selection)
   const hasCrossPageSelection = selectedOrderIds.size > 0 &&
     Array.from(selectedOrderIds).some((id) => !orders.find((o: any) => o.id === id));
 
-  const allSelectedDeletable = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
+  const allSelectedInWork = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
     Array.from(selectedOrderIds).every((id) => {
       const order = orders.find((o: any) => o.id === id);
-      return order?.status === 'PENDING' || order?.status === 'CANCELLED';
+      return order?.status === 'IN_WORK';
+    }));
+
+  const allSelectedInPlanning = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
+    Array.from(selectedOrderIds).every((id) => {
+      const order = orders.find((o: any) => o.id === id);
+      return order?.status === 'PLANNING';
     }));
 
   const hasLockedOrders = !hasCrossPageSelection && selectedOrderIds.size > 0 &&
@@ -110,25 +59,19 @@ export default function OrdersPage() {
       return order?.status === 'SENT_TO_DRIVER' || order?.status === 'COMPLETED';
     });
 
-  const allSelectedPending = selectedOrderIds.size > 0 && (hasCrossPageSelection ||
-    Array.from(selectedOrderIds).every((id) => {
-      const order = orders.find((o: any) => o.id === id);
-      return order?.status === 'PENDING';
-    }));
-
-  const handleMoveToInWork = async () => {
+  const handleMoveToPlanning = async () => {
     if (selectedOrderIds.size === 0) return;
     try {
       const result = await bulkStatusMutation.mutateAsync({
         orderIds: Array.from(selectedOrderIds),
-        targetStatus: 'IN_WORK',
+        targetStatus: 'PLANNING',
       });
       setSnackbar({
-        message: `${result.data.success.length} הזמנות הועברו לעבודה`,
+        message: `${result.data.success.length} הזמנות הועברו לתכנון`,
         severity: 'success',
       });
     } catch {
-      setSnackbar({ message: 'שגיאה בהעברה לעבודה', severity: 'error' });
+      setSnackbar({ message: 'שגיאה בהעברה לתכנון', severity: 'error' });
     }
   };
 
@@ -148,26 +91,19 @@ export default function OrdersPage() {
     }
   };
 
-
-  const handleDeleteConfirm = async () => {
+  const handleRevertToInWork = async () => {
+    if (selectedOrderIds.size === 0) return;
     try {
-      const result = await bulkDeleteMutation.mutateAsync(Array.from(selectedOrderIds));
-      setDeleteDialogOpen(false);
-      const successCount = result.data.success.length;
-      const failedCount = result.data.failed.length;
-      if (failedCount > 0) {
-        setSnackbar({
-          message: `${successCount} נמחקו, ${failedCount} נכשלו (ניתן למחוק רק הזמנות בהמתנה או שבוטלו)`,
-          severity: successCount > 0 ? 'success' : 'error',
-        });
-      } else {
-        setSnackbar({
-          message: `${successCount} הזמנות נמחקו`,
-          severity: 'success',
-        });
-      }
+      const result = await bulkStatusMutation.mutateAsync({
+        orderIds: Array.from(selectedOrderIds),
+        targetStatus: 'IN_WORK',
+      });
+      setSnackbar({
+        message: `${result.data.success.length} הזמנות הוחזרו לעבודה`,
+        severity: 'success',
+      });
     } catch {
-      setSnackbar({ message: 'שגיאה במחיקה', severity: 'error' });
+      setSnackbar({ message: 'שגיאה בהחזרה לעבודה', severity: 'error' });
     }
   };
 
@@ -260,9 +196,10 @@ export default function OrdersPage() {
     printWindow.print();
   };
 
+  const useStore = useInWorkOrderStore as any;
+
   return (
     <Box>
-      {/* Dark header bar - inspired by Nimble CRM */}
       <Paper
         elevation={0}
         sx={{
@@ -279,105 +216,13 @@ export default function OrdersPage() {
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', ml: 1 }}>
-          הזמנות בהמתנה
+          הזמנות בעבודה
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
-          ({showSuspiciousOnly ? `${orders.filter((o: any) => o.geocodeValid === false).length} חשודות` : showNoZoneOnly ? `${orders.filter((o: any) => !o.zoneId).length} ללא אזור` : total})
+          ({total})
         </Typography>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MapIcon />}
-          onClick={() => reassignZonesMutation.mutate()}
-          disabled={reassignZonesMutation.isPending}
-          sx={{
-            bgcolor: 'rgba(255,255,255,0.15)',
-            color: 'white',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
-            textTransform: 'none',
-            borderRadius: 2,
-          }}
-        >
-          שיוך אזורים
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<LocationIcon />}
-          onClick={() => {
-            const ids = selectedOrderIds.size > 0
-              ? Array.from(selectedOrderIds)
-              : orders.map((o: any) => o.id);
-            validateAddressesMutation.mutate(ids);
-          }}
-          disabled={validateAddressesMutation.isPending}
-          sx={{
-            bgcolor: 'rgba(255,255,255,0.15)',
-            color: 'white',
-            '&:hover': { bgcolor: 'rgba(255,255,255,0.25)' },
-            textTransform: 'none',
-            borderRadius: 2,
-          }}
-        >
-          {validateAddressesMutation.isPending ? `מאמת... ${validateProgress ? `${validateProgress.current}/${validateProgress.total}` : ''}` : `אימות כתובות${selectedOrderIds.size > 0 ? ` (${selectedOrderIds.size})` : ''}`}
-        </Button>
-        {validateProgress && (
-          <Box sx={{ width: 120, ml: -1 }}>
-            <LinearProgress variant="determinate" value={(validateProgress.current / validateProgress.total) * 100} sx={{ height: 6, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.2)', '& .MuiLinearProgress-bar': { bgcolor: '#4caf50' } }} />
-          </Box>
-        )}
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<WarningIcon />}
-          onClick={() => { setShowSuspiciousOnly(!showSuspiciousOnly); if (!showSuspiciousOnly) setShowNoZoneOnly(false); }}
-          sx={{
-            bgcolor: showSuspiciousOnly ? '#ff9800' : 'rgba(255,255,255,0.15)',
-            color: showSuspiciousOnly ? '#000' : 'white',
-            fontWeight: showSuspiciousOnly ? 700 : 400,
-            '&:hover': { bgcolor: showSuspiciousOnly ? '#f57c00' : 'rgba(255,255,255,0.25)' },
-            textTransform: 'none',
-            borderRadius: 2,
-            border: showSuspiciousOnly ? '2px solid #fff' : 'none',
-          }}
-        >
-          {showSuspiciousOnly ? '⬅ הצג הכל' : 'כתובות חשודות'}
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<MapIcon />}
-          onClick={() => { setShowNoZoneOnly(!showNoZoneOnly); if (!showNoZoneOnly) setShowSuspiciousOnly(false); }}
-          sx={{
-            bgcolor: showNoZoneOnly ? '#ff9800' : 'rgba(255,255,255,0.15)',
-            color: showNoZoneOnly ? '#000' : 'white',
-            fontWeight: showNoZoneOnly ? 700 : 400,
-            '&:hover': { bgcolor: showNoZoneOnly ? '#f57c00' : 'rgba(255,255,255,0.25)' },
-            textTransform: 'none',
-            borderRadius: 2,
-            border: showNoZoneOnly ? '2px solid #fff' : 'none',
-          }}
-        >
-          {showNoZoneOnly ? '⬅ הצג הכל' : 'ללא אזור'}
-        </Button>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<ImportIcon />}
-          onClick={() => setImportOpen(true)}
-          sx={{
-            bgcolor: '#2196f3',
-            color: 'white',
-            '&:hover': { bgcolor: '#1976d2' },
-            textTransform: 'none',
-            borderRadius: 2,
-          }}
-        >
-          יבוא CSV
-        </Button>
       </Paper>
 
-      {/* Filter bar */}
       <Paper
         elevation={0}
         sx={{
@@ -390,10 +235,9 @@ export default function OrdersPage() {
           borderRadius: 0,
         }}
       >
-        <OrderFilters />
+        <OrderFilters useStore={useStore} />
       </Paper>
 
-      {/* Selection action bar */}
       {selectedOrderIds.size > 0 && (
         <Paper
           elevation={0}
@@ -426,12 +270,12 @@ export default function OrdersPage() {
             variant="contained"
             size="small"
             startIcon={<MoveIcon />}
-            onClick={handleMoveToInWork}
-            disabled={bulkStatusMutation.isPending || !allSelectedPending}
-            title={!allSelectedPending ? 'העברה לעבודה אפשרית רק מסטטוס בהמתנה' : ''}
+            onClick={handleMoveToPlanning}
+            disabled={bulkStatusMutation.isPending || !allSelectedInWork}
+            title={!allSelectedInWork ? 'העברה לתכנון אפשרית רק מסטטוס בעבודה' : ''}
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
-            העבר לעבודה
+            העבר לתכנון
           </Button>
           <Button
             variant="outlined"
@@ -446,15 +290,15 @@ export default function OrdersPage() {
             ביטול
           </Button>
           <Button
-            variant="contained"
+            variant="outlined"
             size="small"
-            color="error"
-            startIcon={<DeleteIcon />}
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={!allSelectedDeletable || bulkDeleteMutation.isPending}
+            startIcon={<RevertIcon />}
+            onClick={handleRevertToInWork}
+            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
+            title={!allSelectedInPlanning ? 'ניתן להחזיר לעבודה רק הזמנות בסטטוס בתכנון' : ''}
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
-            מחיקה
+            החזר לעבודה
           </Button>
           <Button
             size="small"
@@ -476,25 +320,16 @@ export default function OrdersPage() {
       )}
 
       <OrdersTable
-        orders={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false) : showNoZoneOnly ? orders.filter((o: any) => !o.zoneId) : orders}
-        total={showSuspiciousOnly ? orders.filter((o: any) => o.geocodeValid === false).length : showNoZoneOnly ? orders.filter((o: any) => !o.zoneId).length : total}
+        orders={orders}
+        total={total}
         loading={isLoading}
+        useStore={useStore}
         onUpdateDeliveryDate={(id, deliveryDate) => {
           deliveryDateMutation.mutate({ id, deliveryDate }, {
             onSuccess: () => setSnackbar({ message: 'תאריך אספקה עודכן', severity: 'success' }),
             onError: () => setSnackbar({ message: 'שגיאה בעדכון תאריך אספקה', severity: 'error' }),
           });
         }}
-      />
-
-      <CsvImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
-
-      <DeleteConfirmDialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        onConfirm={handleDeleteConfirm}
-        isLoading={bulkDeleteMutation.isPending}
-        count={selectedOrderIds.size}
       />
 
       <Dialog open={bulkDateDialogOpen} onClose={() => setBulkDateDialogOpen(false)}>

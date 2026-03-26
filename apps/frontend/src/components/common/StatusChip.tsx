@@ -2,7 +2,8 @@ import { Chip } from '@mui/material';
 
 const STATUS_CONFIG: Record<string, { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' }> = {
   PENDING: { label: 'בהמתנה', color: 'warning' },
-  PLANNING: { label: 'בתכנון', color: 'info' },
+  IN_WORK: { label: 'בעבודה', color: 'info' },
+  PLANNING: { label: 'בתכנון', color: 'default' },
   ASSIGNED_TO_TRUCK: { label: 'משויך למשאית', color: 'default' },
   IN_COORDINATION: { label: 'בתיאום', color: 'primary' },
   APPROVED: { label: 'מתואם', color: 'primary' },

@@ -7,6 +7,7 @@ import RTLProvider from './theme/RTLProvider';
 import AppLayout from './components/layout/AppLayout';
 import LoginPage from './pages/LoginPage';
 import OrdersPage from './pages/OrdersPage';
+import InWorkOrdersPage from './pages/InWorkOrdersPage';
 import PlanningPage from './pages/PlanningPage';
 import CoordinationPage from './pages/CoordinationPage';
 import TrackingPage from './pages/TrackingPage';
@@ -114,6 +115,7 @@ export default function App() {
               >
                 <Route path="/" element={<RoleBasedRedirect />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/in-work" element={<InWorkOrdersPage />} />
                 <Route path="/planning" element={<PlanningPage />} />
                 <Route path="/coordination" element={<CoordinationPage />} />
                 <Route path="/tracking" element={<TrackingPage />} />

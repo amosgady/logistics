@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import {
   Inventory as OrdersIcon,
+  Engineering as InWorkIcon,
   CalendarMonth as PlanningIcon,
   Phone as CoordinationIcon,
   GpsFixed as TrackingIcon,
@@ -36,7 +37,8 @@ interface MenuItem {
 }
 
 const mainMenuItems: MenuItem[] = [
-  { path: '/orders', label: 'הזמנות', icon: <OrdersIcon /> },
+  { path: '/orders', label: 'הזמנות בהמתנה', icon: <OrdersIcon /> },
+  { path: '/in-work', label: 'הזמנות בעבודה', icon: <InWorkIcon /> },
   { path: '/planning', label: 'תכנון', icon: <PlanningIcon /> },
   { path: '/coordination', label: 'תיאום', icon: <CoordinationIcon /> },
   { path: '/tracking', label: 'מעקב', icon: <TrackingIcon /> },
