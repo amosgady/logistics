@@ -42,6 +42,7 @@ interface OrderLine {
   weight: string;
   checkedByInspector: boolean;
   checkerNote: string | null;
+  unitMeasure: string | null;
 }
 
 interface TrackingOrder {
@@ -53,6 +54,12 @@ interface TrackingOrder {
   city: string;
   timeWindow: string | null;
   palletCount: number;
+  faucetCount: number | null;
+  bathtubCount: number | null;
+  panelCount: number | null;
+  showerCount: number | null;
+  rodCount: number | null;
+  cabinetCount: number | null;
   checkerNote: string | null;
   driverNote: string | null;
   orderLines: OrderLine[];
@@ -219,6 +226,17 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                           {order.address}, {order.city}
                           {order.timeWindow && ` | ${order.timeWindow === 'MORNING' ? '8-12' : '12-16'}`}
                           {` | ${order.palletCount} משטחים`}
+                          {(() => {
+                            const acc = [
+                              order.faucetCount && `ברזים ${order.faucetCount}`,
+                              order.bathtubCount && `אמבטיות ${order.bathtubCount}`,
+                              order.panelCount && `פאנל ${order.panelCount}`,
+                              order.showerCount && `מקלחונים ${order.showerCount}`,
+                              order.rodCount && `מוטות ${order.rodCount}`,
+                              order.cabinetCount && `ארונות ${order.cabinetCount}`,
+                            ].filter(Boolean);
+                            return acc.length > 0 ? ` | ${acc.join(', ')}` : '';
+                          })()}
                         </Typography>
                       </Box>
                       <CheckerStatusChip orderLines={order.orderLines} />
@@ -270,6 +288,7 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                           <TableRow>
                             <TableCell>מוצר</TableCell>
                             <TableCell align="center">כמות</TableCell>
+                            <TableCell align="center">קרטונים</TableCell>
                             <TableCell align="center">משקל</TableCell>
                             <TableCell align="center">נבדק</TableCell>
                             <TableCell>הערת בודק</TableCell>
@@ -285,6 +304,11 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                                 )}
                               </TableCell>
                               <TableCell align="center">{line.quantity}</TableCell>
+                              <TableCell align="center">
+                                {line.unitMeasure && Number(line.unitMeasure) > 0
+                                  ? Math.ceil(line.quantity / Number(line.unitMeasure))
+                                  : '-'}
+                              </TableCell>
                               <TableCell align="center">{line.weight}</TableCell>
                               <TableCell align="center">
                                 {line.checkedByInspector ? <CheckedIcon fontSize="small" color="success" /> : <PendingIcon fontSize="small" color="disabled" />}

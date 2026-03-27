@@ -94,6 +94,12 @@ interface Order {
   palletCount: number;
   doorCount: number | null;
   handleCount: number | null;
+  faucetCount: number | null;
+  bathtubCount: number | null;
+  panelCount: number | null;
+  showerCount: number | null;
+  rodCount: number | null;
+  cabinetCount: number | null;
   zone: { id: number; nameHe: string } | null;
   coordinationStatus: string;
   sentToDriver: boolean;
@@ -151,6 +157,7 @@ const ALL_COLUMNS: ColumnDef[] = [
   { id: 'pallets', label: 'משטחים', sortKey: 'palletCount' },
   { id: 'doors', label: 'דלתות', sortKey: 'doorCount' },
   { id: 'handles', label: 'ידיות', sortKey: 'handleCount' },
+  { id: 'accessories', label: 'נלווים' },
   { id: 'price', label: 'מחיר' },
   { id: 'geocodedAddress', label: 'כתובת גוגל' },
   { id: 'deliveryNote', label: 'תעודה' },
@@ -1021,6 +1028,25 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="doorCount" updateFn={orderApi.updateDoorCount} />;
     case 'handles':
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
+    case 'accessories': {
+      const accessoryItems = [
+        { label: 'ברזים', value: order.faucetCount },
+        { label: 'אמבטיות', value: order.bathtubCount },
+        { label: 'פאנל', value: order.panelCount },
+        { label: 'מקלחונים', value: order.showerCount },
+        { label: 'מוטות', value: order.rodCount },
+        { label: 'ארונות', value: order.cabinetCount },
+      ].filter(item => item.value && item.value > 0);
+      return accessoryItems.length > 0 ? (
+        <Box sx={{ lineHeight: 1.6 }}>
+          {accessoryItems.map(item => (
+            <Typography key={item.label} variant="caption" display="block">
+              {item.label} {item.value}
+            </Typography>
+          ))}
+        </Box>
+      ) : <Typography variant="caption" color="text.disabled">-</Typography>;
+    }
     case 'price':
       return <EditablePrice order={order} />;
     case 'geocodedAddress':
