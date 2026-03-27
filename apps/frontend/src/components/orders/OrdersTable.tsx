@@ -1030,12 +1030,12 @@ function renderCellContent(
       return <EditableOptionalCount order={order} field="handleCount" updateFn={orderApi.updateHandleCount} />;
     case 'accessories': {
       const accessoryItems = [
-        { label: 'ברזים', value: order.faucetCount },
-        { label: 'אמבטיות', value: order.bathtubCount },
+        { label: 'ברז', value: order.faucetCount },
+        { label: 'אמבטיה', value: order.bathtubCount },
         { label: 'פאנל', value: order.panelCount },
-        { label: 'מקלחונים', value: order.showerCount },
-        { label: 'מוטות', value: order.rodCount },
-        { label: 'ארונות', value: order.cabinetCount },
+        { label: 'מקלחון', value: order.showerCount },
+        { label: 'מוט', value: order.rodCount },
+        { label: 'ארון', value: order.cabinetCount },
       ].filter(item => item.value && item.value > 0);
       return accessoryItems.length > 0 ? (
         <Box sx={{ lineHeight: 1.6 }}>

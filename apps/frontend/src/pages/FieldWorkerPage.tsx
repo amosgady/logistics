@@ -766,22 +766,22 @@ export default function FieldWorkerPage({ role }: FieldWorkerPageProps) {
                         <Chip label={`ידיות: ${order.handleCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.faucetCount != null && order.faucetCount > 0 && (
-                        <Chip label={`ברזים: ${order.faucetCount}`} size="small" variant="outlined" color="primary" />
+                        <Chip label={`ברז: ${order.faucetCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.bathtubCount != null && order.bathtubCount > 0 && (
-                        <Chip label={`אמבטיות: ${order.bathtubCount}`} size="small" variant="outlined" color="primary" />
+                        <Chip label={`אמבטיה: ${order.bathtubCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.panelCount != null && order.panelCount > 0 && (
                         <Chip label={`פאנל: ${order.panelCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.showerCount != null && order.showerCount > 0 && (
-                        <Chip label={`מקלחונים: ${order.showerCount}`} size="small" variant="outlined" color="primary" />
+                        <Chip label={`מקלחון: ${order.showerCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.rodCount != null && order.rodCount > 0 && (
-                        <Chip label={`מוטות: ${order.rodCount}`} size="small" variant="outlined" color="primary" />
+                        <Chip label={`מוט: ${order.rodCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.cabinetCount != null && order.cabinetCount > 0 && (
-                        <Chip label={`ארונות: ${order.cabinetCount}`} size="small" variant="outlined" color="primary" />
+                        <Chip label={`ארון: ${order.cabinetCount}`} size="small" variant="outlined" color="primary" />
                       )}
                       {order.price && (
                         <Chip label={`מחיר: ${order.price}`} size="small" variant="outlined" color="warning" />

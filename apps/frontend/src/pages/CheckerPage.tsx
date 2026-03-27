@@ -436,12 +436,12 @@ export default function CheckerPage() {
               </Box>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
                 {[
-                  { key: 'faucetCount', label: 'ברזים' },
-                  { key: 'bathtubCount', label: 'אמבטיות' },
+                  { key: 'faucetCount', label: 'ברז' },
+                  { key: 'bathtubCount', label: 'אמבטיה' },
                   { key: 'panelCount', label: 'פאנל' },
-                  { key: 'showerCount', label: 'מקלחונים' },
-                  { key: 'rodCount', label: 'מוטות' },
-                  { key: 'cabinetCount', label: 'ארונות' },
+                  { key: 'showerCount', label: 'מקלחון' },
+                  { key: 'rodCount', label: 'מוט' },
+                  { key: 'cabinetCount', label: 'ארון' },
                 ].map(({ key, label }) => (
                   <Box key={key} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography variant="body2"><strong>{label}:</strong></Typography>

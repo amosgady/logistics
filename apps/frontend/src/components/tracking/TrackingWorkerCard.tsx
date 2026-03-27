@@ -228,12 +228,12 @@ export default function TrackingWorkerCard({ worker, isExpanded, onToggle, onLoc
                           {` | ${order.palletCount} משטחים`}
                           {(() => {
                             const acc = [
-                              order.faucetCount && `ברזים ${order.faucetCount}`,
-                              order.bathtubCount && `אמבטיות ${order.bathtubCount}`,
+                              order.faucetCount && `ברז ${order.faucetCount}`,
+                              order.bathtubCount && `אמבטיה ${order.bathtubCount}`,
                               order.panelCount && `פאנל ${order.panelCount}`,
-                              order.showerCount && `מקלחונים ${order.showerCount}`,
-                              order.rodCount && `מוטות ${order.rodCount}`,
-                              order.cabinetCount && `ארונות ${order.cabinetCount}`,
+                              order.showerCount && `מקלחון ${order.showerCount}`,
+                              order.rodCount && `מוט ${order.rodCount}`,
+                              order.cabinetCount && `ארון ${order.cabinetCount}`,
                             ].filter(Boolean);
                             return acc.length > 0 ? ` | ${acc.join(', ')}` : '';
                           })()}
