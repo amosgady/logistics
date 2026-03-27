@@ -5,14 +5,14 @@ import { asyncHandler } from '../../utils/asyncHandler';
 
 export const authController = {
   login: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { username, password } = req.body;
-    const result = await authService.login(username, password);
+    const { username, password, deviceToken } = req.body;
+    const result = await authService.login(username, password, deviceToken);
     res.json({ success: true, data: result });
   }),
 
   verifyTwoFactor: asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { tempToken, code } = req.body;
-    const result = await authService.verifyTwoFactor(tempToken, code);
+    const { tempToken, code, rememberDevice } = req.body;
+    const result = await authService.verifyTwoFactor(tempToken, code, rememberDevice);
     res.json({ success: true, data: result });
   }),
 

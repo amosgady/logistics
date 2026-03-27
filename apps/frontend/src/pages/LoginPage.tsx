@@ -9,6 +9,8 @@ import {
   Alert,
   CircularProgress,
   Link,
+  FormControlLabel,
+  Checkbox,
 } from '@mui/material';
 import {
   LocalShipping as TruckIcon,
@@ -31,6 +33,7 @@ export default function LoginPage() {
   const [twoFactorMode, setTwoFactorMode] = useState(false);
   const [tempToken, setTempToken] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [resending, setResending] = useState(false);
   const [resendSuccess, setResendSuccess] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +50,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data } = await api.post('/auth/login', { username, password });
+      const savedDeviceToken = localStorage.getItem('trustedDeviceToken') || undefined;
+      const { data } = await api.post('/auth/login', { username, password, deviceToken: savedDeviceToken });
       const result = data.data;
 
       if (result.requiresTwoFactor) {
@@ -78,8 +82,12 @@ export default function LoginPage() {
       const { data } = await api.post('/auth/verify-2fa', {
         tempToken,
         code: verificationCode,
+        rememberDevice,
       });
       const result = data.data;
+      if (result.deviceToken) {
+        localStorage.setItem('trustedDeviceToken', result.deviceToken);
+      }
       login(result.user, result.accessToken, result.refreshToken);
       const role = result.user.role;
       const targetPath = role === 'DRIVER' ? '/driver' : role === 'INSTALLER' ? '/installer' : '/orders';
@@ -213,13 +221,24 @@ export default function LoginPage() {
                 }}
                 placeholder="______"
               />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberDevice}
+                    onChange={(e) => setRememberDevice(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label={<Typography variant="body2">זכור מכשיר זה</Typography>}
+                sx={{ mt: 1 }}
+              />
               <Button
                 fullWidth
                 type="submit"
                 variant="contained"
                 size="large"
                 disabled={loading || verificationCode.length !== 6}
-                sx={{ mt: 2 }}
+                sx={{ mt: 1 }}
               >
                 {loading ? <CircularProgress size={24} /> : 'אמת קוד'}
               </Button>

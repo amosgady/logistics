@@ -7,7 +7,7 @@ import { AppError } from '../../middleware/errorHandler';
 import { emailService } from '../../services/email.service';
 
 export class AuthService {
-  async login(username: string, password: string) {
+  async login(username: string, password: string, deviceToken?: string) {
     // Case-insensitive username match, then fallback to email match
     const lowerUsername = username.toLowerCase();
     let user = await prisma.user.findFirst({
@@ -43,6 +43,29 @@ export class AuthService {
 
     // Check if 2FA is enabled for this user
     if (user.twoFactorEnabled) {
+      // Check if this device is trusted (skip 2FA)
+      if (deviceToken) {
+        const trusted = await prisma.trustedDevice.findFirst({
+          where: { userId: user.id, deviceToken },
+        });
+        if (trusted) {
+          // Device is trusted — issue tokens directly
+          const userZoneIds = user.userZones?.map((uz: any) => uz.zoneId) || [];
+          const accessToken = jwt.sign(
+            { userId: user.id, role: user.role, department: user.department, zoneIds: userZoneIds },
+            env.JWT_SECRET,
+            { expiresIn: '8h' }
+          );
+          const refreshToken = jwt.sign(
+            { userId: user.id, type: 'refresh' },
+            env.JWT_REFRESH_SECRET,
+            { expiresIn: '30d' }
+          );
+          const { passwordHash: _, twoFactorCode: _c, twoFactorExpiry: _e, userZones: _uz, ...safeUser } = user;
+          return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds } };
+        }
+      }
+
       if (!user.email) {
         throw new AppError(400, 'NO_EMAIL', 'לא ניתן לבצע אימות דו-שלבי ללא כתובת אימייל');
       }
@@ -101,7 +124,7 @@ export class AuthService {
     return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds } };
   }
 
-  async verifyTwoFactor(tempToken: string, code: string) {
+  async verifyTwoFactor(tempToken: string, code: string, rememberDevice?: boolean) {
     // Verify temp token
     let payload: { userId: number; type: string };
     try {
@@ -162,7 +185,16 @@ export class AuthService {
 
     const { passwordHash: _, twoFactorCode: _c, twoFactorExpiry: _e, ...safeUser } = user;
 
-    return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds } };
+    // If remember device requested, create a trusted device token
+    let deviceToken: string | undefined;
+    if (rememberDevice) {
+      deviceToken = crypto.randomUUID();
+      await prisma.trustedDevice.create({
+        data: { userId: user.id, deviceToken },
+      });
+    }
+
+    return { accessToken, refreshToken, user: { ...safeUser, zoneIds: userZoneIds }, deviceToken };
   }
 
   async resendTwoFactorCode(tempToken: string) {

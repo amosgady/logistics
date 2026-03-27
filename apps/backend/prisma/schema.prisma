@@ -104,6 +104,7 @@ model User {
   receivedMessages Message[] @relation("MessagesReceived")
   userZones        UserZone[]
   palletScans      PalletScan[]
+  trustedDevices   TrustedDevice[]
 
   @@map("users")
 }
@@ -574,4 +575,16 @@ model SmsReplySession {
   @@index([phone, status])
   @@index([orderId])
   @@map("sms_reply_sessions")
+}
+
+model TrustedDevice {
+  id          Int      @id @default(autoincrement())
+  userId      Int      @map("user_id")
+  deviceToken String   @unique @map("device_token")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("trusted_devices")
 }
