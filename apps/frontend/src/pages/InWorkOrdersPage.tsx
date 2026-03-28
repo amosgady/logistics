@@ -421,18 +421,6 @@ export default function InWorkOrdersPage() {
             העבר לתכנון
           </Button>
           <Button
-            variant="contained"
-            size="small"
-            color="success"
-            startIcon={<MoveIcon />}
-            onClick={handleMoveToWork}
-            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
-            title={!allSelectedInPlanning ? 'העברה לעבודה אפשרית רק מסטטוס בתכנון' : ''}
-            sx={{ borderRadius: 2, textTransform: 'none' }}
-          >
-            העבר לעבודה
-          </Button>
-          <Button
             variant="outlined"
             size="small"
             color="error"
@@ -454,6 +442,17 @@ export default function InWorkOrdersPage() {
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
             החזר להמתנה
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RevertIcon />}
+            onClick={handleMoveToWork}
+            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
+            title={!allSelectedInPlanning ? 'החזרה לעבודה אפשרית רק מסטטוס בתכנון' : ''}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            החזר לעבודה
           </Button>
           <Button
             size="small"
