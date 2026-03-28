@@ -3,10 +3,10 @@ import { Chip } from '@mui/material';
 const STATUS_CONFIG: Record<string, { label: string; bgcolor: string; color: string }> = {
   PENDING: { label: 'בהמתנה', bgcolor: '#ff9800', color: '#fff' },
   IN_WORK: { label: 'בעבודה', bgcolor: '#1976d2', color: '#fff' },
-  PLANNING: { label: 'בתכנון', bgcolor: '#7b1fa2', color: '#fff' },
+  PLANNING: { label: 'בתכנון', bgcolor: '#ce93d8', color: '#4a148c' },
   ASSIGNED_TO_TRUCK: { label: 'משויך למשאית', bgcolor: '#795548', color: '#fff' },
   IN_COORDINATION: { label: 'בתיאום', bgcolor: '#00acc1', color: '#fff' },
-  APPROVED: { label: 'מתואם', bgcolor: '#66bb6a', color: '#fff' },
+  APPROVED: { label: 'מתואם', bgcolor: '#a5d6a7', color: '#1b5e20' },
   SENT_TO_DRIVER: { label: 'נשלח לנהג', bgcolor: '#5c35a4', color: '#fff' },
   COMPLETED: { label: 'הושלם', bgcolor: '#2e7d32', color: '#fff' },
   CANCELLED: { label: 'בוטל', bgcolor: '#d32f2f', color: '#fff' },
