@@ -126,6 +126,22 @@ export default function InWorkOrdersPage() {
     }
   };
 
+  const handleMoveToWork = async () => {
+    if (selectedOrderIds.size === 0) return;
+    try {
+      const result = await bulkStatusMutation.mutateAsync({
+        orderIds: Array.from(selectedOrderIds),
+        targetStatus: 'IN_WORK',
+      });
+      setSnackbar({
+        message: `${result.data.success.length} הזמנות הועברו לעבודה`,
+        severity: 'success',
+      });
+    } catch {
+      setSnackbar({ message: 'שגיאה בהעברה לעבודה', severity: 'error' });
+    }
+  };
+
   const handleCancel = async () => {
     if (selectedOrderIds.size === 0) return;
     try {
@@ -403,6 +419,18 @@ export default function InWorkOrdersPage() {
             sx={{ borderRadius: 2, textTransform: 'none' }}
           >
             העבר לתכנון
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            color="success"
+            startIcon={<MoveIcon />}
+            onClick={handleMoveToWork}
+            disabled={bulkStatusMutation.isPending || !allSelectedInPlanning}
+            title={!allSelectedInPlanning ? 'העברה לעבודה אפשרית רק מסטטוס בתכנון' : ''}
+            sx={{ borderRadius: 2, textTransform: 'none' }}
+          >
+            העבר לעבודה
           </Button>
           <Button
             variant="outlined"
