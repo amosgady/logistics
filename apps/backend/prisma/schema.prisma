@@ -544,6 +544,7 @@ model SmsLog {
   deliveryCheckedAt DateTime?        @map("delivery_checked_at")
   sentBy            Int              @map("sent_by")
   sentAt            DateTime         @default(now()) @map("sent_at")
+  channel           String           @default("sms")
 
   order Order? @relation(fields: [orderId], references: [id])
 

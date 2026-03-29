@@ -23,4 +23,7 @@ export const env = {
   SMTP_USER: process.env.SMTP_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || '',
   SMTP_FROM: process.env.SMTP_FROM || 'מערכת ניהול הובלות <noreply@example.com>',
+  // Twilio WhatsApp
+  TWILIO_WHATSAPP_NUMBER: process.env.TWILIO_WHATSAPP_NUMBER || '',
+  TWILIO_WA_TEMPLATE_SID: process.env.TWILIO_WA_TEMPLATE_SID || '',
 };

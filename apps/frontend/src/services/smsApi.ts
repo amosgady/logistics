@@ -81,4 +81,12 @@ export const smsApi = {
   // Update reminder config
   updateReminderConfig: (config: SmsReminderConfig) =>
     api.put('/sms/reminders', config).then((r) => r.data),
+
+  // WhatsApp - send for single order
+  sendOrderWhatsapp: (orderId: number, phone?: string) =>
+    api.post(`/whatsapp/send/order/${orderId}`, phone ? { phone } : {}).then((r) => r.data),
+
+  // WhatsApp - send for all orders in a route
+  sendRouteWhatsapp: (routeId: number) =>
+    api.post(`/whatsapp/send/route/${routeId}`).then((r) => r.data),
 };

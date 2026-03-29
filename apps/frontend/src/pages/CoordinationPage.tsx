@@ -29,6 +29,7 @@ import {
   Print as PrintIcon,
   ArrowForward as ArrowForwardIcon,
   FactCheck as FactCheckIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { planningApi } from '../services/planningApi';
@@ -117,13 +118,14 @@ function CoordinationStatusChip({ status }: { status: string }) {
   return <Chip icon={<PhoneIcon />} label="לא תואם" size="small" color="default" />;
 }
 
-function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onIvrCall, onViewMedia, onUploadPdf, onDeletePdf, onUnsendWms, onUnsendChecker, sendSmsPending, ivrCallPending, unsendPending }: {
+function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendOrder, onSendSms, onIvrCall, onWhatsappSend, onViewMedia, onUploadPdf, onDeletePdf, onUnsendWms, onUnsendChecker, sendSmsPending, ivrCallPending, whatsappPending, unsendPending }: {
   orders: Order[];
   onToggleCoordination: (order: Order) => void;
   onEditNotes: (order: Order) => void;
   onUnsendOrder: (orderId: number) => void;
   onSendSms: (orderId: number, phone?: string, method?: 'LINK' | 'REPLY') => void;
   onIvrCall: (order: Order, event?: React.MouseEvent<HTMLElement>, phone?: string) => void;
+  onWhatsappSend: (order: Order, event?: React.MouseEvent<HTMLElement>, phone?: string) => void;
   onViewMedia: (order: Order) => void;
   onUploadPdf: (orderId: number, file: File) => void;
   onDeletePdf: (orderId: number) => void;
@@ -131,6 +133,7 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   onUnsendChecker: (orderId: number) => void;
   sendSmsPending: boolean;
   ivrCallPending: boolean;
+  whatsappPending: boolean;
   unsendPending: boolean;
 }) {
   const pdfInputRef = useRef<HTMLInputElement | null>(null);
@@ -141,6 +144,8 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
   const [smsMenuMethod, setSmsMenuMethod] = useState<'LINK' | 'REPLY'>('LINK');
   const [ivrMenuAnchor, setIvrMenuAnchor] = useState<null | HTMLElement>(null);
   const [ivrMenuOrder, setIvrMenuOrder] = useState<Order | null>(null);
+  const [waMenuAnchor, setWaMenuAnchor] = useState<null | HTMLElement>(null);
+  const [waMenuOrder, setWaMenuOrder] = useState<Order | null>(null);
 
   const handleIvrClick = (order: Order, event?: React.MouseEvent<HTMLElement>) => {
     if (order.phone2 && event) {
@@ -157,6 +162,23 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
     }
     setIvrMenuAnchor(null);
     setIvrMenuOrder(null);
+  };
+
+  const handleWhatsappClick = (order: Order, event?: React.MouseEvent<HTMLElement>) => {
+    if (order.phone2 && event) {
+      setWaMenuAnchor(event.currentTarget);
+      setWaMenuOrder(order);
+    } else {
+      onWhatsappSend(order);
+    }
+  };
+
+  const handleWaMenuSelect = (phone: string) => {
+    if (waMenuOrder) {
+      onWhatsappSend(waMenuOrder, undefined, phone);
+    }
+    setWaMenuAnchor(null);
+    setWaMenuOrder(null);
   };
 
   const handleSmsClick = (event: React.MouseEvent<HTMLElement>, order: Order, method: 'LINK' | 'REPLY') => {
@@ -248,6 +270,11 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
                     <Tooltip title="חייג IVR">
                       <IconButton size="small" color="success" onClick={(e) => handleIvrClick(order, e)} disabled={ivrCallPending}>
                         <PhoneIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="שלח וואטסאפ">
+                      <IconButton size="small" sx={{ color: '#25D366' }} onClick={(e) => handleWhatsappClick(order, e)} disabled={whatsappPending}>
+                        <WhatsAppIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     {(() => {
@@ -421,6 +448,26 @@ function RouteOrdersTable({ orders, onToggleCoordination, onEditNotes, onUnsendO
         <MenuItem onClick={() => handleIvrMenuSelect(ivrMenuOrder.phone2!)}>
           <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
           <ListItemText primary={ivrMenuOrder.phone2} secondary="טלפון 2" />
+        </MenuItem>
+      )}
+    </Menu>
+
+    {/* Phone selection menu for WhatsApp */}
+    <Menu
+      anchorEl={waMenuAnchor}
+      open={Boolean(waMenuAnchor)}
+      onClose={() => { setWaMenuAnchor(null); setWaMenuOrder(null); }}
+    >
+      {waMenuOrder?.phone && (
+        <MenuItem onClick={() => handleWaMenuSelect(waMenuOrder.phone)}>
+          <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary={waMenuOrder.phone} secondary="טלפון ראשי" />
+        </MenuItem>
+      )}
+      {waMenuOrder?.phone2 && (
+        <MenuItem onClick={() => handleWaMenuSelect(waMenuOrder.phone2!)}>
+          <ListItemIcon><PhoneIcon fontSize="small" /></ListItemIcon>
+          <ListItemText primary={waMenuOrder.phone2} secondary="טלפון 2" />
         </MenuItem>
       )}
     </Menu>
@@ -676,6 +723,24 @@ export default function CoordinationPage() {
     ivrCallMutation.mutate({ orderId: order.id, phone: phone || order.phone });
   };
 
+  // WhatsApp mutation
+  const whatsappMutation = useMutation({
+    mutationFn: ({ orderId, phone }: { orderId: number; phone?: string }) =>
+      smsApi.sendOrderWhatsapp(orderId, phone),
+    onSuccess: (result) => {
+      setSnackbar({ message: `וואטסאפ נשלח ל-${result.data?.phone || 'לקוח'}`, severity: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['planning-board'] });
+    },
+    onError: (error: any) => {
+      setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בשליחת וואטסאפ', severity: 'error' });
+    },
+  });
+  const whatsappPending = whatsappMutation.isPending;
+
+  const handleWhatsappSend = (order: Order, _event?: React.MouseEvent<HTMLElement>, phone?: string) => {
+    whatsappMutation.mutate({ orderId: order.id, phone: phone || order.phone });
+  };
+
   const uploadPdfMutation = useMutation({
     mutationFn: ({ orderId, file }: { orderId: number; file: File }) =>
       orderApi.uploadDeliveryNote(orderId, file),
@@ -728,6 +793,24 @@ export default function CoordinationPage() {
     },
     onError: (error: any) => {
       setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בשליחת SMS', severity: 'error' });
+    },
+  });
+
+  const sendRouteWhatsappMutation = useMutation({
+    mutationFn: (routeId: number) => smsApi.sendRouteWhatsapp(routeId),
+    onSuccess: (result) => {
+      const { sentCount, failedCount, total } = result.data;
+      if (failedCount === 0) {
+        setSnackbar({ message: `נשלחו ${sentCount} הודעות וואטסאפ בהצלחה`, severity: 'success' });
+      } else {
+        setSnackbar({
+          message: `נשלחו ${sentCount}/${total} הודעות וואטסאפ, ${failedCount} נכשלו`,
+          severity: 'warning',
+        });
+      }
+    },
+    onError: (error: any) => {
+      setSnackbar({ message: error.response?.data?.error?.message || 'שגיאה בשליחת וואטסאפ', severity: 'error' });
     },
   });
 
@@ -1002,6 +1085,7 @@ export default function CoordinationPage() {
                   onUnsendOrder={(orderId) => unsendOrderMutation.mutate(orderId)}
                   onSendSms={(orderId, phone?, method?) => sendOrderSmsMutation.mutate({ orderId, phone, method })}
                   onIvrCall={handleIvrCall}
+                  onWhatsappSend={handleWhatsappSend}
                   onViewMedia={(order) => setMediaDialog({ order })}
                   onUploadPdf={(orderId, file) => uploadPdfMutation.mutate({ orderId, file })}
                   onDeletePdf={(orderId) => deletePdfMutation.mutate(orderId)}
@@ -1009,6 +1093,7 @@ export default function CoordinationPage() {
                   onUnsendChecker={(orderId) => unsendCheckerMutation.mutate(orderId)}
                   sendSmsPending={sendOrderSmsMutation.isPending}
                   ivrCallPending={ivrCallPending}
+                  whatsappPending={whatsappPending}
                   unsendPending={unsendOrderMutation.isPending}
                 />
 
@@ -1033,6 +1118,16 @@ export default function CoordinationPage() {
                     disabled={route.orders.length === 0 || sendRouteSmsReplyMutation.isPending || sendRouteSmsLinkMutation.isPending}
                   >
                     SMS 1/2
+                  </Button>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#128C7E' } }}
+                    startIcon={sendRouteWhatsappMutation.isPending ? <CircularProgress size={16} /> : <WhatsAppIcon />}
+                    onClick={() => sendRouteWhatsappMutation.mutate(route.id)}
+                    disabled={route.orders.length === 0 || sendRouteWhatsappMutation.isPending}
+                  >
+                    וואטסאפ
                   </Button>
                   <Button
                     variant="contained"

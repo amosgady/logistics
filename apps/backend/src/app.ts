@@ -20,6 +20,8 @@ import confirmRoutes from './modules/confirmation/confirmation.routes';
 import smsWebhookRoutes from './modules/sms-webhook/sms-webhook.routes';
 import ivrRoutes from './modules/ivr/ivr.routes';
 import checkerRoutes from './modules/checker/checker.routes';
+import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
+import whatsappWebhookRoutes from './modules/whatsapp-webhook/whatsapp-webhook.routes';
 
 const app = express();
 
@@ -40,6 +42,7 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use('/api/v1/confirm', confirmRoutes);
 app.use('/api/v1/sms-webhook', smsWebhookRoutes);
 app.use('/api/v1/ivr', ivrRoutes);
+app.use('/api/v1/whatsapp-webhook', whatsappWebhookRoutes);
 
 // Routes
 app.use('/api/v1/auth', authRoutes);
@@ -57,6 +60,7 @@ app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/sms', smsRoutes);
 app.use('/api/v1/tracking', trackingRoutes);
 app.use('/api/v1/checker', checkerRoutes);
+app.use('/api/v1/whatsapp', whatsappRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
