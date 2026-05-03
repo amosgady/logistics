@@ -35,6 +35,7 @@ router.post('/import/analyze', requireRole('COORDINATOR', 'ADMIN'), upload.singl
 router.patch('/:id/status', requireRole('COORDINATOR', 'ADMIN'), ordersController.changeStatus);
 router.post('/bulk-status', requireRole('COORDINATOR', 'ADMIN'), ordersController.bulkChangeStatus);
 router.post('/bulk-delete', requireRole('COORDINATOR', 'ADMIN'), ordersController.bulkDelete);
+router.delete('/delete-all', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteAllOrders);
 router.post('/bulk-delivery-date', requireRole('COORDINATOR', 'ADMIN'), ordersController.bulkUpdateDeliveryDate);
 router.patch('/lines/:lineId/quantity', requireRole('COORDINATOR', 'ADMIN'), ordersController.updateLineQuantity);
 router.delete('/lines/:lineId', requireRole('COORDINATOR', 'ADMIN'), ordersController.deleteOrderLine);

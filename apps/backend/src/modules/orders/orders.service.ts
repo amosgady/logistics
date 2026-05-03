@@ -316,6 +316,24 @@ export class OrdersService {
     return results;
   }
 
+  async deleteAllOrders() {
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.deliveryPhoto.deleteMany({});
+        await tx.delivery.deleteMany({});
+        await tx.smsReplySession.deleteMany({});
+        await tx.smsLog.deleteMany({ where: { orderId: { not: null } } });
+        await tx.palletScan.deleteMany({});
+        await tx.orderStatusHistory.deleteMany({});
+        // OrderLine rows cascade automatically via schema
+        await tx.order.deleteMany({});
+      },
+      { timeout: 60_000 },
+    );
+
+    return { deleted: true };
+  }
+
   async updateCoordination(orderId: number, data: { coordinationStatus: string; coordinationNotes?: string }) {
     const order = await prisma.order.findUnique({ where: { id: orderId } });
     if (!order) throw new AppError(404, 'NOT_FOUND', 'הזמנה לא נמצאה');

@@ -28,7 +28,7 @@ import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
 import CsvImportDialog from '../components/orders/CsvImportDialog';
 import DeleteConfirmDialog from '../components/orders/DeleteConfirmDialog';
-import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, useBulkUpdateDeliveryDate } from '../hooks/useOrders';
+import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, useBulkUpdateDeliveryDate, useDeleteAllOrders } from '../hooks/useOrders';
 import { useOrderStore } from '../store/orderStore';
 import { zoneApi } from '../services/zoneApi';
 import { orderApi } from '../services/orderApi';
@@ -37,6 +37,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 export default function OrdersPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
   const [bulkDateDialogOpen, setBulkDateDialogOpen] = useState(false);
   const [bulkDate, setBulkDate] = useState('');
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
@@ -46,6 +48,7 @@ export default function OrdersPage() {
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
   const bulkDeliveryDateMutation = useBulkUpdateDeliveryDate();
+  const deleteAllMutation = useDeleteAllOrders();
   const deliveryDateMutation = useUpdateDeliveryDate();
   const selectedOrderIds = useOrderStore((s) => s.selectedOrderIds);
   const queryClient = useQueryClient();
@@ -148,6 +151,17 @@ export default function OrdersPage() {
     }
   };
 
+
+  const handleDeleteAllConfirm = async () => {
+    try {
+      await deleteAllMutation.mutateAsync();
+      setDeleteAllDialogOpen(false);
+      setDeleteAllConfirmText('');
+      setSnackbar({ message: 'כל ההזמנות נמחקו בהצלחה', severity: 'success' });
+    } catch {
+      setSnackbar({ message: 'שגיאה במחיקת ההזמנות', severity: 'error' });
+    }
+  };
 
   const handleDeleteConfirm = async () => {
     try {
@@ -375,6 +389,21 @@ export default function OrdersPage() {
         >
           יבוא CSV
         </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<DeleteIcon />}
+          onClick={() => setDeleteAllDialogOpen(true)}
+          sx={{
+            bgcolor: '#b71c1c',
+            color: 'white',
+            '&:hover': { bgcolor: '#7f0000' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          מחק הכל
+        </Button>
       </Paper>
 
       {/* Filter bar */}
@@ -488,6 +517,48 @@ export default function OrdersPage() {
       />
 
       <CsvImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+
+      {/* Delete-all confirmation dialog - requires typing "מחק הכל" */}
+      <Dialog
+        open={deleteAllDialogOpen}
+        onClose={() => { setDeleteAllDialogOpen(false); setDeleteAllConfirmText(''); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: '#b71c1c', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningIcon sx={{ color: '#b71c1c' }} />
+          מחיקת כל ההזמנות
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            פעולה זו תמחק לצמיתות את כל ההזמנות במערכת, ללא קשר לסטטוס שלהן. לא ניתן לשחזר את הנתונים לאחר המחיקה.
+          </Alert>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            להמשך, הקלד <strong>מחק הכל</strong> בשדה למטה:
+          </Typography>
+          <TextField
+            value={deleteAllConfirmText}
+            onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+            fullWidth
+            placeholder="מחק הכל"
+            autoComplete="off"
+            inputProps={{ dir: 'rtl' }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setDeleteAllDialogOpen(false); setDeleteAllConfirmText(''); }}>
+            ביטול
+          </Button>
+          <Button
+            onClick={handleDeleteAllConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleteAllConfirmText !== 'מחק הכל' || deleteAllMutation.isPending}
+          >
+            {deleteAllMutation.isPending ? 'מוחק...' : 'מחק הכל'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <DeleteConfirmDialog
         open={deleteDialogOpen}

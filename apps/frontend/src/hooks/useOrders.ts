@@ -95,3 +95,16 @@ export function useBulkDelete() {
     },
   });
 }
+
+export function useDeleteAllOrders() {
+  const queryClient = useQueryClient();
+  const clearSelection = useOrderStore((s) => s.clearSelection);
+
+  return useMutation({
+    mutationFn: () => orderApi.deleteAllOrders(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      clearSelection();
+    },
+  });
+}

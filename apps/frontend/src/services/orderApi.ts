@@ -85,6 +85,9 @@ export const orderApi = {
   bulkDelete: (orderIds: number[]) =>
     api.post('/orders/bulk-delete', { orderIds }).then((r) => r.data),
 
+  deleteAllOrders: () =>
+    api.delete('/orders/delete-all').then((r) => r.data),
+
   bulkUpdateDeliveryDate: (orderIds: number[], deliveryDate: string) =>
     api.post('/orders/bulk-delivery-date', { orderIds, deliveryDate }).then((r) => r.data),
 

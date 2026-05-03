@@ -197,6 +197,11 @@ export const ordersController = {
     res.json({ success: true, data: result });
   }),
 
+  deleteAllOrders: asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const result = await ordersService.deleteAllOrders();
+    res.json({ success: true, data: result });
+  }),
+
   updateCoordination: asyncHandler(async (req: Request, res: Response) => {
     const id = parseInt(req.params.id as string);
     const order = await ordersService.updateCoordination(id, req.body);
