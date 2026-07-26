@@ -1,8 +1,9 @@
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load .env from project root
-dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+// Load env file from project root — override with ENV_FILE env var (e.g. .env.dev)
+const envFile = process.env.ENV_FILE || '.env';
+dotenv.config({ path: path.resolve(__dirname, `../../../../${envFile}`) });
 
 export const env = {
   PORT: parseInt(process.env.PORT || '3001', 10),
