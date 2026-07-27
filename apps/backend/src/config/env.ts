@@ -27,4 +27,6 @@ export const env = {
   // Twilio WhatsApp
   TWILIO_WHATSAPP_NUMBER: process.env.TWILIO_WHATSAPP_NUMBER || '',
   TWILIO_WA_TEMPLATE_SID: process.env.TWILIO_WA_TEMPLATE_SID || '',
+  // Tafnit ERP integration
+  TAFNIT_API_KEY: process.env.TAFNIT_API_KEY || '',
 };

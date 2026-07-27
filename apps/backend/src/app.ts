@@ -1,6 +1,8 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './modules/auth/auth.routes';
 import ordersRoutes from './modules/orders/orders.routes';
@@ -22,21 +24,75 @@ import ivrRoutes from './modules/ivr/ivr.routes';
 import checkerRoutes from './modules/checker/checker.routes';
 import whatsappRoutes from './modules/whatsapp/whatsapp.routes';
 import whatsappWebhookRoutes from './modules/whatsapp-webhook/whatsapp-webhook.routes';
+import tafnitRoutes from './modules/tafnit/tafnit.routes';
 
 const app = express();
 
 // Trust reverse proxy (Nginx) – required for correct IP and protocol detection
 app.set('trust proxy', 1);
 
+// Security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  contentSecurityPolicy: false, // Frontend handles its own CSP
+}));
+
+// Rate limiters
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: { error: 'יותר מדי ניסיונות כניסה, נסה שוב בעוד 15 דקות' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const smsLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 100,
+  message: { error: 'חריגה ממגבלת שליחת SMS' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:5174'],
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://log.perfectlinesite.com']
+    : ['http://localhost:5173', 'http://localhost:5174'],
   credentials: true,
   exposedHeaders: ['Content-Disposition'],
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/api', apiLimiter);
+
+// Protected static files – require valid JWT
+app.use('/uploads', (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.query.token as string);
+  if (!token) {
+    res.status(401).json({ error: 'נדרשת הזדהות' });
+    return;
+  }
+  try {
+    const jwt = require('jsonwebtoken');
+    jwt.verify(token, process.env.JWT_SECRET || '');
+    next();
+  } catch {
+    res.status(401).json({ error: 'טוקן לא תקין' });
+  }
+});
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Tafnit ERP integration (API-key auth, no JWT)
+app.use('/api/v1/tafnit', tafnitRoutes);
 
 // Public routes (no auth)
 app.use('/api/v1/confirm', confirmRoutes);
@@ -45,6 +101,10 @@ app.use('/api/v1/ivr', ivrRoutes);
 app.use('/api/v1/whatsapp-webhook', whatsappWebhookRoutes);
 
 // Routes
+app.use('/api/v1/auth/login', loginLimiter);
+app.use('/api/v1/auth/verify-2fa', loginLimiter);
+app.use('/api/v1/sms', smsLimiter);
+app.use('/api/v1/whatsapp', smsLimiter);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/orders', ordersRoutes);
 app.use('/api/v1/zones', zonesRoutes);
