@@ -1,15 +1,15 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { importOrdersFromXml } from './tafnit.service';
+import { importOrderFromJson } from './tafnit.service';
 
 export const tafnitController = {
-  importOrders: asyncHandler(async (req: Request, res: Response) => {
-    const xml = req.body as string;
-    if (!xml || typeof xml !== 'string' || !xml.trim()) {
-      res.status(400).json({ success: false, error: 'XML body is required' });
+  importOrder: asyncHandler(async (req: Request, res: Response) => {
+    const body = req.body;
+    if (!body || typeof body !== 'object') {
+      res.status(400).json({ success: false, error: 'JSON body required' });
       return;
     }
-    const result = await importOrdersFromXml(xml);
+    const result = await importOrderFromJson(body);
     res.json({ success: true, data: result });
   }),
 };
