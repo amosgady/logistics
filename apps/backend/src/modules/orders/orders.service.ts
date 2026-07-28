@@ -11,6 +11,7 @@ interface OrderFilters {
   deliveryDateTo?: string;
   search?: string;
   department?: string[];
+  scopedDepartments?: string[];
   sentToWms?: boolean;
   sentToChecker?: boolean;
   page?: number;
@@ -46,19 +47,34 @@ export class OrdersService {
     if (filters.department && filters.department.length > 0) {
       where.department = { in: filters.department as any[] };
     }
-    if (filters.search) {
-      where.OR = [
-        { orderNumber: { contains: filters.search, mode: 'insensitive' } },
-        { customerName: { contains: filters.search, mode: 'insensitive' } },
-        { address: { contains: filters.search, mode: 'insensitive' } },
-        { phone: { contains: filters.search } },
-      ];
-    }
     if (filters.sentToWms) {
       where.exportedToCsv = true;
     }
     if (filters.sentToChecker) {
       where.sentToChecker = true;
+    }
+
+    const andConditions: Prisma.OrderWhereInput[] = [];
+    if (filters.scopedDepartments && filters.scopedDepartments.length > 0) {
+      andConditions.push({
+        OR: [
+          { department: { in: filters.scopedDepartments as any[] } },
+          { department: null },
+        ],
+      });
+    }
+    if (filters.search) {
+      andConditions.push({
+        OR: [
+          { orderNumber: { contains: filters.search, mode: 'insensitive' } },
+          { customerName: { contains: filters.search, mode: 'insensitive' } },
+          { address: { contains: filters.search, mode: 'insensitive' } },
+          { phone: { contains: filters.search } },
+        ],
+      });
+    }
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const [orders, total] = await Promise.all([
@@ -106,19 +122,34 @@ export class OrdersService {
     if (filters.department && filters.department.length > 0) {
       where.department = { in: filters.department as any[] };
     }
-    if (filters.search) {
-      where.OR = [
-        { orderNumber: { contains: filters.search, mode: 'insensitive' } },
-        { customerName: { contains: filters.search, mode: 'insensitive' } },
-        { address: { contains: filters.search } },
-        { phone: { contains: filters.search } },
-      ];
-    }
     if (filters.sentToWms) {
       where.exportedToCsv = true;
     }
     if (filters.sentToChecker) {
       where.sentToChecker = true;
+    }
+
+    const andConditions: Prisma.OrderWhereInput[] = [];
+    if (filters.scopedDepartments && filters.scopedDepartments.length > 0) {
+      andConditions.push({
+        OR: [
+          { department: { in: filters.scopedDepartments as any[] } },
+          { department: null },
+        ],
+      });
+    }
+    if (filters.search) {
+      andConditions.push({
+        OR: [
+          { orderNumber: { contains: filters.search, mode: 'insensitive' } },
+          { customerName: { contains: filters.search, mode: 'insensitive' } },
+          { address: { contains: filters.search } },
+          { phone: { contains: filters.search } },
+        ],
+      });
+    }
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const orders = await prisma.order.findMany({

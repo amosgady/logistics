@@ -28,9 +28,9 @@ export const ordersController = {
       pageSize: req.query.pageSize ? parseInt(req.query.pageSize as string) : 50,
     };
 
-    // Enforce department scoping for non-ADMIN users
+    // Enforce department scoping for non-ADMIN users (includes unassigned null orders)
     if (authUser.role !== 'ADMIN' && authUser.department) {
-      filters.department = [authUser.department];
+      filters.scopedDepartments = [authUser.department];
     }
     // Enforce zone scoping for non-ADMIN users
     if (authUser.role !== 'ADMIN' && authUser.zoneIds && authUser.zoneIds.length > 0) {
@@ -58,7 +58,7 @@ export const ordersController = {
     };
 
     if (authUser.role !== 'ADMIN' && authUser.department) {
-      filters.department = [authUser.department];
+      filters.scopedDepartments = [authUser.department];
     }
     if (authUser.role !== 'ADMIN' && authUser.zoneIds && authUser.zoneIds.length > 0) {
       filters.userZoneIds = authUser.zoneIds;
