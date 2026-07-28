@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { importOrderFromJson } from './tafnit.service';
+import { importOrderFromJson, getLogs } from './tafnit.service';
 
 export const tafnitController = {
   importOrder: asyncHandler(async (req: Request, res: Response) => {
@@ -9,7 +9,14 @@ export const tafnitController = {
       res.status(400).json({ success: false, error: 'JSON body required' });
       return;
     }
-    const result = await importOrderFromJson(body);
+    const ip = (req.ip || '').replace(/^::ffff:/, '');
+    const result = await importOrderFromJson(body, ip);
     res.json({ success: true, data: result });
+  }),
+
+  getLogs: asyncHandler(async (req: Request, res: Response) => {
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const logs = await getLogs(limit);
+    res.json({ success: true, data: logs });
   }),
 };

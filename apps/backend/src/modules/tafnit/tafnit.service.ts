@@ -51,11 +51,27 @@ function mapDepartment(val: unknown): Department | null {
   return DEPARTMENT_MAP[s] ?? null;
 }
 
-export async function importOrderFromJson(body: TafnitOrder) {
+export async function getLogs(limit = 100) {
+  return prisma.tafnitLog.findMany({
+    orderBy: { receivedAt: 'desc' },
+    take: limit,
+  });
+}
+
+export async function importOrderFromJson(body: TafnitOrder, ip = '') {
   const orderNumber = str(body.OrderNumber);
   if (!orderNumber) {
     return { created: [], skipped: [], failed: [{ orderNumber: '(unknown)', error: 'Missing OrderNumber' }] };
   }
+
+  // Save raw log before processing
+  await prisma.tafnitLog.create({
+    data: {
+      ip,
+      orderNumber: orderNumber || null,
+      rawBody: JSON.stringify(body, null, 2),
+    },
+  });
 
   const deliveryDate = body.DeliveryDate ? new Date(body.DeliveryDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const orderDate = body.OrderDate ? new Date(body.OrderDate) : new Date();
@@ -117,5 +133,13 @@ export async function importOrderFromJson(body: TafnitOrder) {
     created.push(`${orderNumber}${department ? `/${department}` : ''}`);
   }
 
-  return { created, skipped, failed: [] };
+  const result = { created, skipped, failed: [] as string[] };
+
+  // Update log with result
+  await prisma.tafnitLog.updateMany({
+    where: { orderNumber, result: { equals: null as any } },
+    data: { result: result as any },
+  });
+
+  return result;
 }

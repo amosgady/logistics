@@ -21,6 +21,7 @@ import InstallersPage from './pages/InstallersPage';
 import InstallerFieldPage from './pages/InstallerFieldPage';
 import ConfirmationPage from './pages/ConfirmationPage';
 import CheckerPage from './pages/CheckerPage';
+import TafnitLogsPage from './pages/TafnitLogsPage';
 import { useAuthStore } from './store/authStore';
 import { ReactNode, useEffect } from 'react';
 import api from './services/api';
@@ -125,6 +126,7 @@ export default function App() {
                 <Route path="/users" element={<UsersPage />} />
                 <Route path="/drivers" element={<DriversManagementPage />} />
                 <Route path="/installers" element={<InstallersPage />} />
+                <Route path="/tafnit-logs" element={<TafnitLogsPage />} />
               </Route>
             </Routes>
           </BrowserRouter>

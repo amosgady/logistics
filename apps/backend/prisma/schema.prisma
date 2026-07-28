@@ -591,3 +591,15 @@ model TrustedDevice {
   @@index([userId])
   @@map("trusted_devices")
 }
+
+model TafnitLog {
+  id          Int      @id @default(autoincrement())
+  receivedAt  DateTime @default(now()) @map("received_at")
+  ip          String
+  orderNumber String?  @map("order_number")
+  rawBody     String   @map("raw_body") @db.Text
+  result      Json?
+
+  @@index([receivedAt])
+  @@map("tafnit_logs")
+}

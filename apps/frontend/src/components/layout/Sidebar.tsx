@@ -21,6 +21,7 @@ import {
   People as PeopleIcon,
   PersonPin as DriverIcon,
   Build as InstallerIcon,
+  ReceiptLong as TafnitLogsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
@@ -50,6 +51,7 @@ const managementMenuItems: MenuItem[] = [
   { path: '/users', label: 'משתמשים', icon: <PeopleIcon />, roles: ['ADMIN'] },
   { path: '/drivers', label: 'נהגים', icon: <DriverIcon />, roles: ['ADMIN'] },
   { path: '/installers', label: 'מתקינים', icon: <InstallerIcon />, roles: ['ADMIN'] },
+  { path: '/tafnit-logs', label: 'לוג תפנית', icon: <TafnitLogsIcon />, roles: ['ADMIN', 'COORDINATOR'] },
 ];
 
 export default function Sidebar() {
