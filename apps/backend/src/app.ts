@@ -69,10 +69,7 @@ app.use(cors({
   credentials: true,
   exposedHeaders: ['Content-Disposition'],
 }));
-app.use((req, _res, next) => {
-  if (req.path.startsWith('/api/v1/tafnit')) { next(); return; }
-  express.json({ limit: '10mb' })(req, _res, next);
-});
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', apiLimiter);
 
