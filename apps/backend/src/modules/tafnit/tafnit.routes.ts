@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { requireApiKey } from '../../middleware/apiKey';
+import { requireTafnitIp } from '../../middleware/tafnitIp';
 import { tafnitController } from './tafnit.controller';
 
 const router = Router();
 
-router.use(requireApiKey);
+router.use(requireTafnitIp);
 
 router.post('/orders', tafnitController.importOrder);
 
