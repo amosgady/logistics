@@ -1,10 +1,12 @@
 export const DEPARTMENT_LABELS: Record<string, string> = {
-  GENERAL_TRANSPORT: 'הובלה כללית',
+  GENERAL_TRANSPORT: 'הובלה למדרכה',
   KITCHEN_TRANSPORT: 'הובלת מטבחים',
   INTERIOR_DOOR_TRANSPORT: 'הובלת דלתות פנים',
-  SHOWER_INSTALLATION: 'התקנת מקלחונים',
+  SHOWER_INSTALLATION: 'התקנת מקלחונים וארונות אמבטיה',
   INTERIOR_DOOR_INSTALLATION: 'התקנת דלתות פנים',
   KITCHEN_INSTALLATION: 'התקנת מטבחים',
+  BRANCH_TRANSPORT: 'הובלה לסניף',
+  ASHDOD_PICKUP: 'איסוף מאשדוד',
 };
 
 export const DEPARTMENT_OPTIONS = Object.entries(DEPARTMENT_LABELS).map(
