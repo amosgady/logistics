@@ -1003,21 +1003,6 @@ function renderCellContent(
       return (
         <>
           {order.customerName}
-          {order.customerId && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              ת.ז.: {order.customerId}
-            </Typography>
-          )}
-          {order.branchName && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              סניף: {order.branchName}
-            </Typography>
-          )}
-          {order.salesPerson && (
-            <Typography variant="caption" color="text.secondary" display="block">
-              מוכר: {order.salesPerson}
-            </Typography>
-          )}
           {order.contactPerson && (
             <Typography variant="caption" color="text.secondary" display="block">
               איש קשר: {order.contactPerson}
@@ -1262,6 +1247,25 @@ function OrderRow({
       <TableRow>
         <TableCell colSpan={totalCols} sx={{ p: 0, border: expanded ? undefined : 'none' }}>
           <Collapse in={expanded} timeout="auto" unmountOnExit>
+            {(order.customerId || order.branchName || order.salesPerson) && (
+              <Box sx={{ px: 2, pt: 1.5, pb: 0.5, bgcolor: '#f8f9fa', display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                {order.customerId && (
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>ת.ז.:</strong> {order.customerId}
+                  </Typography>
+                )}
+                {order.branchName && (
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>סניף:</strong> {order.branchName}
+                  </Typography>
+                )}
+                {order.salesPerson && (
+                  <Typography variant="caption" color="text.secondary">
+                    <strong>מוכר:</strong> {order.salesPerson}
+                  </Typography>
+                )}
+              </Box>
+            )}
             <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
         </TableCell>
