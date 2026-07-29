@@ -1003,6 +1003,21 @@ function renderCellContent(
       return (
         <>
           {order.customerName}
+          {order.customerId && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              ת.ז.: {order.customerId}
+            </Typography>
+          )}
+          {order.branchName && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              סניף: {order.branchName}
+            </Typography>
+          )}
+          {order.salesPerson && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              מוכר: {order.salesPerson}
+            </Typography>
+          )}
           {order.contactPerson && (
             <Typography variant="caption" color="text.secondary" display="block">
               איש קשר: {order.contactPerson}
