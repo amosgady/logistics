@@ -12,11 +12,17 @@ interface TafnitLine {
   StockQuantity?: string | number;
   Weight?: string | number;
   Department?: string;
+  Status?: string;
+  Remark?: string;
+  Batch?: string;
 }
 
 interface TafnitOrder {
   OrderNumber?: string | number;
   CustomerName?: string;
+  CustomerID?: string;
+  BranchName?: string;
+  SalesPerson?: string;
   Address?: string;
   City?: string;
   Phone1?: string;
@@ -108,6 +114,9 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
         orderDate,
         deliveryDate,
         customerName: str(body.CustomerName) || 'לא צוין',
+        customerId: str(body.CustomerID) || null,
+        branchName: str(body.BranchName) || null,
+        salesPerson: str(body.SalesPerson) || null,
         address: str(body.Address) || 'לא צוין',
         city: str(body.City) || 'לא צוינה',
         phone: str(body.Phone1),
@@ -125,6 +134,9 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
             weight: num(line.Weight),
             currentStock: num(line.StockQuantity),
             department: department ?? null,
+            lineStatus: str(line.Status) || null,
+            lineRemark: str(line.Remark) || null,
+            batch: str(line.Batch) || null,
           })),
         },
       },

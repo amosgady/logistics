@@ -60,6 +60,9 @@ interface OrderLine {
   currentStock: number | string;
   checkerNote: string | null;
   unitMeasure: string | null;
+  lineStatus: string | null;
+  lineRemark: string | null;
+  batch: string | null;
 }
 
 interface DeliveryPhoto {
@@ -87,6 +90,9 @@ interface Order {
   city: string;
   phone: string;
   phone2: string | null;
+  customerId: string | null;
+  branchName: string | null;
+  salesPerson: string | null;
   contactPerson: string | null;
   floor: number | null;
   elevator: boolean | null;
@@ -845,6 +851,9 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
             <TableCell align="center">מלאי</TableCell>
             <TableCell align="center">יח' מידה</TableCell>
             <TableCell align="center">קרטונים</TableCell>
+            <TableCell>סטטוס שורה</TableCell>
+            <TableCell>הערת שורה</TableCell>
+            <TableCell>אצווה</TableCell>
             <TableCell>הערת בודק</TableCell>
             {isPending && <TableCell align="center">פעולות</TableCell>}
           </TableRow>
@@ -873,6 +882,9 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
               <TableCell align="center">{parseFloat(String(line.currentStock)) % 1 === 0 ? Math.floor(parseFloat(String(line.currentStock))) : parseFloat(String(line.currentStock)).toFixed(2)}</TableCell>
               <TableCell align="center">{line.unitMeasure ? Number(line.unitMeasure).toFixed(2) : '-'}</TableCell>
               <TableCell align="center">{line.unitMeasure && Number(line.unitMeasure) > 0 ? Math.ceil(line.quantity / Number(line.unitMeasure)) : '-'}</TableCell>
+              <TableCell>{line.lineStatus || '-'}</TableCell>
+              <TableCell>{line.lineRemark || '-'}</TableCell>
+              <TableCell>{line.batch || '-'}</TableCell>
               <TableCell sx={{ color: line.checkerNote ? 'warning.main' : 'text.secondary', fontStyle: line.checkerNote ? 'normal' : 'italic' }}>
                 {line.checkerNote || '-'}
               </TableCell>

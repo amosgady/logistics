@@ -190,6 +190,9 @@ model Order {
   elevator      Boolean?
   phone2        String?
   department    Department?
+  customerId    String?  @map("customer_id")
+  branchName    String?  @map("branch_name")
+  salesPerson   String?  @map("sales_person")
 
   // Geocoding
   latitude           Float?
@@ -297,6 +300,10 @@ model OrderLine {
   checkedByInspector Boolean  @default(false) @map("checked_by_inspector")
   checkedAt          DateTime? @map("checked_at")
   checkerNote        String?  @map("checker_note")
+
+  lineStatus  String?  @map("line_status")
+  lineRemark  String?  @map("line_remark")
+  batch       String?
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 

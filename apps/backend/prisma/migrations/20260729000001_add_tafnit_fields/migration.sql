@@ -1,0 +1,7 @@
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "customer_id" TEXT;
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "branch_name" TEXT;
+ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "sales_person" TEXT;
+
+ALTER TABLE "order_lines" ADD COLUMN IF NOT EXISTS "line_status" TEXT;
+ALTER TABLE "order_lines" ADD COLUMN IF NOT EXISTS "line_remark" TEXT;
+ALTER TABLE "order_lines" ADD COLUMN IF NOT EXISTS "batch" TEXT;
