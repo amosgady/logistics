@@ -284,7 +284,7 @@ model OrderLine {
   discount     Decimal? @db.Decimal(10, 2)
   totalPrice   Decimal? @db.Decimal(10, 2) @map("total_price")
   weight       Decimal  @db.Decimal(10, 2)
-  currentStock Int     @map("current_stock")
+  currentStock Decimal @db.Decimal(10, 2) @map("current_stock")
   palletCount  Int     @default(1) @map("pallet_count")
 
   department     Department?

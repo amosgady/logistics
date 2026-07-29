@@ -57,7 +57,7 @@ interface OrderLine {
   discount: string | null;
   totalPrice: string | null;
   weight: string;
-  currentStock: number;
+  currentStock: number | string;
   checkerNote: string | null;
   unitMeasure: string | null;
 }
@@ -870,7 +870,7 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
                   : '-'}
               </TableCell>
               <TableCell>{Number(line.weight)} ק"ג</TableCell>
-              <TableCell align="center">{line.currentStock}</TableCell>
+              <TableCell align="center">{parseFloat(String(line.currentStock)) % 1 === 0 ? Math.floor(parseFloat(String(line.currentStock))) : parseFloat(String(line.currentStock)).toFixed(2)}</TableCell>
               <TableCell align="center">{line.unitMeasure ? Number(line.unitMeasure).toFixed(2) : '-'}</TableCell>
               <TableCell align="center">{line.unitMeasure && Number(line.unitMeasure) > 0 ? Math.ceil(line.quantity / Number(line.unitMeasure)) : '-'}</TableCell>
               <TableCell sx={{ color: line.checkerNote ? 'warning.main' : 'text.secondary', fontStyle: line.checkerNote ? 'normal' : 'italic' }}>

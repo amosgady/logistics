@@ -123,7 +123,7 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
             discount: num(line.DiscountPercent) || null,
             totalPrice: num(line.TotalAfterDiscount) || null,
             weight: num(line.Weight),
-            currentStock: Math.round(num(line.StockQuantity)),
+            currentStock: num(line.StockQuantity),
             department: department ?? null,
           })),
         },
