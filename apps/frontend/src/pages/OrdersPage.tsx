@@ -79,7 +79,15 @@ export default function OrdersPage() {
       queryClient.invalidateQueries({ queryKey: ['frozenOrders'] });
     },
     onError: (err: any) => {
-      setFreezeError(err?.response?.data?.error || err?.message || 'שגיאה לא ידועה');
+      const raw = err?.response?.data?.error || err?.message || 'שגיאה לא ידועה';
+      // Decode JSON-encoded Unicode if the error contains a WordPress REST JSON blob
+      let msg = raw;
+      try {
+        const jsonStart = typeof raw === 'string' ? raw.indexOf('{') : -1;
+        const parsed = jsonStart >= 0 ? JSON.parse(raw.slice(jsonStart)) : null;
+        if (parsed?.message) msg = `שגיאת proxy: ${parsed.message}`;
+      } catch { /* keep original */ }
+      setFreezeError(msg);
     },
   });
 
