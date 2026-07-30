@@ -57,6 +57,49 @@ function mapDepartment(val: unknown): Department | null {
   return DEPARTMENT_MAP[s] ?? null;
 }
 
+const PROXY_URL = process.env.TAFNIT_PROXY_URL || '';
+const PROXY_SECRET = process.env.TAFNIT_PROXY_SECRET || '';
+const COMPANY_CODE = process.env.TAFNIT_COMPANY_CODE || '1';
+
+export async function freezeOrder(orderNumber: string): Promise<{ success: boolean; raw?: string; error?: string }> {
+  if (!PROXY_URL || !PROXY_SECRET) {
+    return { success: false, error: 'TAFNIT_PROXY_URL / TAFNIT_PROXY_SECRET not configured' };
+  }
+
+  // TODO: verify the method name and element names against the WSDL at
+  //       http://172.18.41.5/csp/bil/Hovalot.Webservices.cls?WSDL
+  const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <UpdateOrderStatus xmlns="http://tempuri.org">
+      <Company>${COMPANY_CODE}</Company>
+      <OrderNumber>${orderNumber}</OrderNumber>
+      <StatusCode>3</StatusCode>
+    </UpdateOrderStatus>
+  </soap:Body>
+</soap:Envelope>`;
+
+  try {
+    const res = await fetch(PROXY_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'X-Tafnit-Proxy-Secret': PROXY_SECRET,
+      },
+      body: envelope,
+    });
+
+    const raw = await res.text();
+    if (!res.ok) {
+      return { success: false, error: `HTTP ${res.status}: ${raw.slice(0, 300)}`, raw };
+    }
+
+    return { success: true, raw };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Request failed' };
+  }
+}
+
 export async function getLogs(limit = 100) {
   return prisma.tafnitLog.findMany({
     orderBy: { receivedAt: 'desc' },
