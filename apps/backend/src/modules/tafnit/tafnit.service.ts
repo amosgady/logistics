@@ -66,16 +66,18 @@ export async function freezeOrder(orderNumber: string, frozenBy?: string): Promi
     return { success: false, error: 'TAFNIT_PROXY_URL / TAFNIT_PROXY_SECRET not configured' };
   }
 
-  // TODO: verify the method name and element names against the WSDL at
-  //       http://172.18.41.5/csp/bil/Hovalot.Webservices.cls?WSDL
+  // Verified against the Hovalot.Webservices WSDL (host 147.235.45.98):
+  //   method  SetHovalaSTT (namespace http://tempuri.org)
+  //   params  HEV = company, HZM = order number, STT = status (3 = frozen)
+  //   returns boolean SetHovalaSTTResult
   const envelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <UpdateOrderStatus xmlns="http://tempuri.org">
-      <Company>${COMPANY_CODE}</Company>
-      <OrderNumber>${orderNumber}</OrderNumber>
-      <StatusCode>3</StatusCode>
-    </UpdateOrderStatus>
+    <SetHovalaSTT xmlns="http://tempuri.org">
+      <HEV>${COMPANY_CODE}</HEV>
+      <HZM>${orderNumber}</HZM>
+      <STT>3</STT>
+    </SetHovalaSTT>
   </soap:Body>
 </soap:Envelope>`;
 
@@ -89,6 +91,7 @@ export async function freezeOrder(orderNumber: string, frozenBy?: string): Promi
       headers: {
         'Content-Type': 'application/octet-stream',
         'X-Tafnit-Proxy-Secret': PROXY_SECRET,
+        'X-Tafnit-Soapaction': 'http://tempuri.org/Hovalot.Webservices.SetHovalaSTT',
       },
       body: envelope,
     });
@@ -97,7 +100,22 @@ export async function freezeOrder(orderNumber: string, frozenBy?: string): Promi
     if (!res.ok) {
       error = `HTTP ${res.status}: ${raw.slice(0, 300)}`;
     } else {
-      success = true;
+      // Even on HTTP 200 the SOAP result may be a fault or a boolean false
+      // (e.g. order not found / wrong company) — parse before declaring success.
+      const fault = raw.match(/<faultstring[^>]*>([\s\S]*?)<\/faultstring>/i);
+      const result = raw.match(/<SetHovalaSTTResult>([\s\S]*?)<\/SetHovalaSTTResult>/i);
+      if (fault) {
+        error = `SOAP Fault: ${fault[1].trim()}`;
+      } else if (result) {
+        const v = result[1].trim().toLowerCase();
+        if (v === 'true' || v === '1') {
+          success = true;
+        } else {
+          error = 'Tafnit החזירה false — ההזמנה לא הוקפאה (ייתכן שמספר ההזמנה או קוד החברה שגויים)';
+        }
+      } else {
+        error = `תשובה לא צפויה מ-Tafnit: ${raw.slice(0, 300)}`;
+      }
     }
   } catch (e) {
     error = e instanceof Error ? e.message : 'Request failed';
