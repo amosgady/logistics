@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
-import { importOrderFromJson, getLogs, freezeOrder } from './tafnit.service';
+import { AuthRequest } from '../../middleware/auth';
+import prisma from '../../utils/prisma';
+import { importOrderFromJson, getLogs, freezeOrder, getFrozenOrders } from './tafnit.service';
 
 export const tafnitController = {
   importOrder: asyncHandler(async (req: Request, res: Response) => {
@@ -20,17 +22,28 @@ export const tafnitController = {
     res.json({ success: true, data: logs });
   }),
 
-  freezeOrder: asyncHandler(async (req: Request, res: Response) => {
+  freezeOrder: asyncHandler(async (req: AuthRequest, res: Response) => {
     const { orderNumber } = req.body as { orderNumber?: string };
     if (!orderNumber) {
       res.status(400).json({ success: false, error: 'orderNumber required' });
       return;
     }
-    const result = await freezeOrder(orderNumber);
+    // Resolve user's full name for the audit record
+    let frozenBy: string | undefined;
+    if (req.user?.userId) {
+      const user = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true, email: true } });
+      frozenBy = user?.fullName || user?.email || String(req.user.userId);
+    }
+    const result = await freezeOrder(orderNumber, frozenBy);
     if (!result.success) {
       res.status(502).json({ success: false, error: result.error, raw: result.raw });
       return;
     }
     res.json({ success: true, raw: result.raw });
+  }),
+
+  getFrozenOrders: asyncHandler(async (_req: Request, res: Response) => {
+    const orders = await getFrozenOrders();
+    res.json({ success: true, data: orders });
   }),
 };

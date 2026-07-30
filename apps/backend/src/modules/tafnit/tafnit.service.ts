@@ -61,7 +61,7 @@ const PROXY_URL = process.env.TAFNIT_PROXY_URL || '';
 const PROXY_SECRET = process.env.TAFNIT_PROXY_SECRET || '';
 const COMPANY_CODE = process.env.TAFNIT_COMPANY_CODE || '1';
 
-export async function freezeOrder(orderNumber: string): Promise<{ success: boolean; raw?: string; error?: string }> {
+export async function freezeOrder(orderNumber: string, frozenBy?: string): Promise<{ success: boolean; raw?: string; error?: string }> {
   if (!PROXY_URL || !PROXY_SECRET) {
     return { success: false, error: 'TAFNIT_PROXY_URL / TAFNIT_PROXY_SECRET not configured' };
   }
@@ -79,6 +79,10 @@ export async function freezeOrder(orderNumber: string): Promise<{ success: boole
   </soap:Body>
 </soap:Envelope>`;
 
+  let success = false;
+  let error: string | undefined;
+  let raw: string | undefined;
+
   try {
     const res = await fetch(PROXY_URL, {
       method: 'POST',
@@ -89,15 +93,37 @@ export async function freezeOrder(orderNumber: string): Promise<{ success: boole
       body: envelope,
     });
 
-    const raw = await res.text();
+    raw = await res.text();
     if (!res.ok) {
-      return { success: false, error: `HTTP ${res.status}: ${raw.slice(0, 300)}`, raw };
+      error = `HTTP ${res.status}: ${raw.slice(0, 300)}`;
+    } else {
+      success = true;
     }
-
-    return { success: true, raw };
   } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : 'Request failed' };
+    error = e instanceof Error ? e.message : 'Request failed';
   }
+
+  // Record the freeze attempt
+  await prisma.frozenOrder.create({
+    data: { orderNumber, frozenBy: frozenBy || null, success, error: error || null },
+  });
+
+  // If successful, update all matching orders to FROZEN status in our system
+  if (success) {
+    await prisma.order.updateMany({
+      where: { orderNumber },
+      data: { status: 'FROZEN' },
+    });
+  }
+
+  return { success, raw, error };
+}
+
+export async function getFrozenOrders(limit = 200) {
+  return prisma.frozenOrder.findMany({
+    orderBy: { frozenAt: 'desc' },
+    take: limit,
+  });
 }
 
 export async function getLogs(limit = 100) {

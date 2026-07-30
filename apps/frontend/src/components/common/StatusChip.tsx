@@ -10,6 +10,7 @@ const STATUS_CONFIG: Record<string, { label: string; bgcolor: string; color: str
   SENT_TO_DRIVER: { label: 'נשלח לנהג', bgcolor: '#5c35a4', color: '#fff' },
   COMPLETED: { label: 'הושלם', bgcolor: '#2e7d32', color: '#fff' },
   CANCELLED: { label: 'בוטל', bgcolor: '#d32f2f', color: '#fff' },
+  FROZEN:    { label: 'מוקפא', bgcolor: '#0288d1', color: '#fff' },
 };
 
 export default function StatusChip({ status }: { status: string }) {

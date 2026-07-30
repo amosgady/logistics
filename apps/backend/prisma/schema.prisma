@@ -27,6 +27,7 @@ enum OrderStatus {
   SENT_TO_DRIVER
   COMPLETED
   CANCELLED
+  FROZEN
 }
 
 enum TruckSize {
@@ -609,4 +610,16 @@ model TafnitLog {
 
   @@index([receivedAt])
   @@map("tafnit_logs")
+}
+
+model FrozenOrder {
+  id          Int      @id @default(autoincrement())
+  frozenAt    DateTime @default(now()) @map("frozen_at")
+  orderNumber String   @map("order_number")
+  frozenBy    String?  @map("frozen_by")
+  success     Boolean
+  error       String?
+
+  @@index([frozenAt])
+  @@map("frozen_orders")
 }

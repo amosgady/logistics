@@ -12,6 +12,13 @@ import {
   TextField,
   Paper,
   LinearProgress,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Chip,
+  CircularProgress,
 } from '@mui/material';
 import {
   Upload as ImportIcon,
@@ -23,6 +30,8 @@ import {
   LocationOn as LocationIcon,
   WarningAmber as WarningIcon,
   Print as PrintIcon,
+  AcUnit as FreezeIcon,
+  List as FrozenListIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
@@ -32,7 +41,9 @@ import { useOrders, useBulkChangeStatus, useBulkDelete, useUpdateDeliveryDate, u
 import { useOrderStore } from '../store/orderStore';
 import { zoneApi } from '../services/zoneApi';
 import { orderApi } from '../services/orderApi';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { tafnitApi } from '../services/tafnitApi';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 
 export default function OrdersPage() {
   const [importOpen, setImportOpen] = useState(false);
@@ -44,6 +55,10 @@ export default function OrdersPage() {
   const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' | 'warning' } | null>(null);
   const [showSuspiciousOnly, setShowSuspiciousOnly] = useState(false);
   const [showNoZoneOnly, setShowNoZoneOnly] = useState(false);
+  const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
+  const [freezeOrderNumber, setFreezeOrderNumber] = useState('');
+  const [freezeError, setFreezeError] = useState<string | null>(null);
+  const [frozenListOpen, setFrozenListOpen] = useState(false);
   const { data, isLoading, error } = useOrders();
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
@@ -52,6 +67,27 @@ export default function OrdersPage() {
   const deliveryDateMutation = useUpdateDeliveryDate();
   const selectedOrderIds = useOrderStore((s) => s.selectedOrderIds);
   const queryClient = useQueryClient();
+
+  const freezeMutation = useMutation({
+    mutationFn: () => tafnitApi.freezeOrder(freezeOrderNumber.trim()),
+    onSuccess: () => {
+      setFreezeDialogOpen(false);
+      setFreezeOrderNumber('');
+      setFreezeError(null);
+      setSnackbar({ message: `הזמנה ${freezeOrderNumber} הוקפאה בהצלחה`, severity: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['frozenOrders'] });
+    },
+    onError: (err: any) => {
+      setFreezeError(err?.response?.data?.error || err?.message || 'שגיאה לא ידועה');
+    },
+  });
+
+  const { data: frozenOrdersData, isLoading: frozenLoading } = useQuery({
+    queryKey: ['frozenOrders'],
+    queryFn: () => tafnitApi.getFrozenOrders(),
+    enabled: frozenListOpen,
+  });
 
   const reassignZonesMutation = useMutation({
     mutationFn: () => zoneApi.reassignZonesPending(),
@@ -377,6 +413,36 @@ export default function OrdersPage() {
         <Button
           variant="contained"
           size="small"
+          startIcon={<FreezeIcon />}
+          onClick={() => { setFreezeError(null); setFreezeOrderNumber(''); setFreezeDialogOpen(true); }}
+          sx={{
+            bgcolor: '#0288d1',
+            color: 'white',
+            '&:hover': { bgcolor: '#0277bd' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          הקפא הזמנה
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<FrozenListIcon />}
+          onClick={() => setFrozenListOpen(true)}
+          sx={{
+            bgcolor: '#455a64',
+            color: 'white',
+            '&:hover': { bgcolor: '#37474f' },
+            textTransform: 'none',
+            borderRadius: 2,
+          }}
+        >
+          הזמנות בהקפאה
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
           startIcon={<ImportIcon />}
           onClick={() => setImportOpen(true)}
           sx={{
@@ -605,6 +671,101 @@ export default function OrdersPage() {
           </Alert>
         ) : undefined}
       </Snackbar>
+
+      {/* Freeze order dialog */}
+      <Dialog open={freezeDialogOpen} onClose={() => !freezeMutation.isPending && setFreezeDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FreezeIcon sx={{ color: '#0288d1' }} />
+          הקפאת הזמנה בתפנית
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            label="מספר הזמנה"
+            value={freezeOrderNumber}
+            onChange={(e) => setFreezeOrderNumber(e.target.value)}
+            fullWidth
+            autoFocus
+            sx={{ mt: 1 }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && freezeOrderNumber.trim()) freezeMutation.mutate(); }}
+          />
+          {freezeError && <Alert severity="error" sx={{ mt: 1.5 }}>{freezeError}</Alert>}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFreezeDialogOpen(false)} disabled={freezeMutation.isPending}>ביטול</Button>
+          <Button
+            variant="contained"
+            sx={{ bgcolor: '#0288d1', '&:hover': { bgcolor: '#0277bd' } }}
+            onClick={() => freezeMutation.mutate()}
+            disabled={freezeMutation.isPending || !freezeOrderNumber.trim()}
+            startIcon={freezeMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <FreezeIcon />}
+          >
+            {freezeMutation.isPending ? 'שולח...' : 'הקפא'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Frozen orders list dialog */}
+      <Dialog open={frozenListOpen} onClose={() => setFrozenListOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <FrozenListIcon />
+          הזמנות שנשלחו להקפאה
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          {frozenLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>תאריך</TableCell>
+                  <TableCell>מספר הזמנה</TableCell>
+                  <TableCell>הוקפא ע"י</TableCell>
+                  <TableCell>תוצאה</TableCell>
+                  <TableCell>שגיאה</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(frozenOrdersData?.data ?? []).length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                      אין הזמנות מוקפאות
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  (frozenOrdersData?.data ?? []).map((row: any) => (
+                    <TableRow key={row.id}>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        {format(new Date(row.frozenAt), 'dd/MM/yyyy HH:mm')}
+                      </TableCell>
+                      <TableCell>{row.orderNumber}</TableCell>
+                      <TableCell>{row.frozenBy || '-'}</TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={row.success ? 'הצליח' : 'נכשל'}
+                          sx={{
+                            bgcolor: row.success ? '#e8f5e9' : '#ffebee',
+                            color: row.success ? '#2e7d32' : '#c62828',
+                            fontWeight: 600,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: 'error.main', fontSize: '0.75rem', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {row.error || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFrozenListOpen(false)}>סגור</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

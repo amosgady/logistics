@@ -34,7 +34,6 @@ import {
   DragIndicator as DragIcon,
   StickyNote2 as NoteIcon,
   LocationOn as CoordIcon,
-  AcUnit as FreezeIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -45,7 +44,6 @@ import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
 import { DEPARTMENT_LABELS, DEPARTMENT_OPTIONS } from '../../constants/departments';
 import { orderApi } from '../../services/orderApi';
-import { tafnitApi } from '../../services/tafnitApi';
 import { zoneApi } from '../../services/zoneApi';
 import { useSortable, SortConfig } from '../../hooks/useSortable';
 
@@ -1189,27 +1187,12 @@ function OrderRow({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
-  const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
-  const [freezeError, setFreezeError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
   const isSelected = selectedOrderIds.has(order.id);
 
   const hasMedia = order.delivery && (order.delivery.signatureUrl || order.delivery.photos?.length > 0);
   const hasCheckerNotes = order.orderLines?.some((l) => l.checkerNote);
   const colMap = Object.fromEntries(ALL_COLUMNS.map((c) => [c.id, c]));
   const totalCols = columnOrder.length + 2; // +2 for checkbox and expand
-
-  const freezeMutation = useMutation({
-    mutationFn: () => tafnitApi.freezeOrder(order.orderNumber),
-    onSuccess: () => {
-      setFreezeDialogOpen(false);
-      setFreezeError(null);
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
-    },
-    onError: (err: any) => {
-      setFreezeError(err?.response?.data?.error || err?.message || 'שגיאה לא ידועה');
-    },
-  });
 
   return (
     <Fragment>
@@ -1283,42 +1266,6 @@ function OrderRow({
                 )}
               </Box>
             )}
-            {order.status === 'PENDING' && (
-              <Box sx={{ px: 2, py: 1, bgcolor: '#f0f4ff', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Tooltip title="הקפא הזמנה בתפנית (סטטוס 3)">
-                  <span>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="info"
-                      startIcon={<FreezeIcon />}
-                      onClick={() => { setFreezeError(null); setFreezeDialogOpen(true); }}
-                    >
-                      הקפא הזמנה
-                    </Button>
-                  </span>
-                </Tooltip>
-              </Box>
-            )}
-            <Dialog open={freezeDialogOpen} onClose={() => !freezeMutation.isPending && setFreezeDialogOpen(false)} maxWidth="xs" fullWidth>
-              <DialogTitle>הקפאת הזמנה {order.orderNumber}</DialogTitle>
-              <DialogContent>
-                <Typography>האם לשלוח לתפנית בקשה להקפאת הזמנה {order.orderNumber} (סטטוס 3)?</Typography>
-                {freezeError && <Alert severity="error" sx={{ mt: 1 }}>{freezeError}</Alert>}
-              </DialogContent>
-              <DialogActions>
-                <Button onClick={() => setFreezeDialogOpen(false)} disabled={freezeMutation.isPending}>ביטול</Button>
-                <Button
-                  variant="contained"
-                  color="info"
-                  onClick={() => freezeMutation.mutate()}
-                  disabled={freezeMutation.isPending}
-                  startIcon={freezeMutation.isPending ? <CircularProgress size={16} /> : <FreezeIcon />}
-                >
-                  {freezeMutation.isPending ? 'שולח...' : 'הקפא'}
-                </Button>
-              </DialogActions>
-            </Dialog>
             <OrderLineDetails orderLines={order.orderLines} orderStatus={order.status} />
           </Collapse>
         </TableCell>
