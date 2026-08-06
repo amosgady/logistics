@@ -1,5 +1,6 @@
 import { Department } from '@prisma/client';
 import prisma from '../../utils/prisma';
+import { AppError } from '../../middleware/errorHandler';
 
 interface TafnitLine {
   LineNumber?: string | number;
@@ -55,6 +56,72 @@ const DEPARTMENT_MAP: Record<string, Department> = {
 function mapDepartment(val: unknown): Department | null {
   const s = str(val);
   return DEPARTMENT_MAP[s] ?? null;
+}
+
+// Build a Prisma orderLine create object from a raw Tafnit line.
+function buildLineData(line: TafnitLine, idx: number, department: Department | null) {
+  return {
+    lineNumber: parseInt(str(line.LineNumber)) || idx + 1,
+    product: str(line.ItemCode),
+    description: str(line.Description) || null,
+    quantity: Math.max(1, Math.round(num(line.Quantity))),
+    price: num(line.Price),
+    discount: num(line.DiscountPercent) || null,
+    totalPrice: num(line.TotalAfterDiscount) || null,
+    weight: num(line.Weight),
+    currentStock: num(line.StockQuantity),
+    department: department ?? null,
+    lineStatus: str(line.Status) || null,
+    lineRemark: str(line.Remark) || null,
+    batch: str(line.Batch) || null,
+  };
+}
+
+export type LineDiffType = 'ADDED' | 'REMOVED' | 'CHANGED';
+export interface LineDiffEntry {
+  type: LineDiffType;
+  product: string;
+  description: string | null;
+  oldQty: number;
+  newQty: number;
+}
+
+// Compare existing order lines against a new Tafnit payload, aggregating
+// quantity per product code. Returns only the products that differ.
+function computeLineDiff(
+  existingLines: { product: string; description: string | null; quantity: number }[],
+  newLines: TafnitLine[],
+): LineDiffEntry[] {
+  const oldMap = new Map<string, { description: string | null; quantity: number }>();
+  for (const l of existingLines) {
+    const key = str(l.product);
+    const cur = oldMap.get(key) || { description: l.description ?? null, quantity: 0 };
+    cur.quantity += l.quantity;
+    oldMap.set(key, cur);
+  }
+  const newMap = new Map<string, { description: string | null; quantity: number }>();
+  for (const l of newLines) {
+    const key = str(l.ItemCode);
+    const cur = newMap.get(key) || { description: str(l.Description) || null, quantity: 0 };
+    cur.quantity += Math.max(1, Math.round(num(l.Quantity)));
+    newMap.set(key, cur);
+  }
+
+  const diff: LineDiffEntry[] = [];
+  for (const [product, nv] of newMap) {
+    const ov = oldMap.get(product);
+    if (!ov) {
+      diff.push({ type: 'ADDED', product, description: nv.description, oldQty: 0, newQty: nv.quantity });
+    } else if (ov.quantity !== nv.quantity) {
+      diff.push({ type: 'CHANGED', product, description: nv.description ?? ov.description, oldQty: ov.quantity, newQty: nv.quantity });
+    }
+  }
+  for (const [product, ov] of oldMap) {
+    if (!newMap.has(product)) {
+      diff.push({ type: 'REMOVED', product, description: ov.description, oldQty: ov.quantity, newQty: 0 });
+    }
+  }
+  return diff;
 }
 
 const PROXY_URL = process.env.TAFNIT_PROXY_URL || '';
@@ -166,6 +233,47 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
   const orderDate = body.OrderDate ? new Date(body.OrderDate) : new Date();
   const lines = Array.isArray(body.Lines) ? body.Lines : [];
 
+  // If the order already exists in the system and is FROZEN, do NOT touch it.
+  // Instead compute the line/quantity differences and hold them as a pending
+  // update for a user to review and approve.
+  const existingRows = await prisma.order.findMany({
+    where: { orderNumber },
+    include: { orderLines: true },
+  });
+  const isFrozen = existingRows.some((o) => o.status === 'FROZEN');
+
+  if (isFrozen) {
+    const existingLines = existingRows.flatMap((o) =>
+      o.orderLines.map((l) => ({ product: l.product, description: l.description, quantity: l.quantity })),
+    );
+    const diff = computeLineDiff(existingLines, lines);
+
+    let pendingUpdate: string | null = null;
+    if (diff.length > 0) {
+      const existingPU = await prisma.pendingOrderUpdate.findFirst({
+        where: { orderNumber, status: 'PENDING' },
+      });
+      if (existingPU) {
+        await prisma.pendingOrderUpdate.update({
+          where: { id: existingPU.id },
+          data: { rawPayload: body as any, diff: diff as any, receivedAt: new Date() },
+        });
+      } else {
+        await prisma.pendingOrderUpdate.create({
+          data: { orderNumber, rawPayload: body as any, diff: diff as any },
+        });
+      }
+      pendingUpdate = orderNumber;
+    }
+
+    const result = { created: [], skipped: diff.length === 0 ? [orderNumber] : [], failed: [] as string[], frozen: true, pendingUpdate };
+    await prisma.tafnitLog.updateMany({
+      where: { orderNumber, result: { equals: null as any } },
+      data: { result: result as any },
+    });
+    return result;
+  }
+
   // Group lines by mapped department
   const groups = new Map<Department | null, TafnitLine[]>();
   for (const line of lines) {
@@ -206,21 +314,7 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
         phone2: str(body.Phone2) || null,
         status: 'PENDING',
         orderLines: {
-          create: deptLines.map((line, idx) => ({
-            lineNumber: parseInt(str(line.LineNumber)) || idx + 1,
-            product: str(line.ItemCode),
-            description: str(line.Description) || null,
-            quantity: Math.max(1, Math.round(num(line.Quantity))),
-            price: num(line.Price),
-            discount: num(line.DiscountPercent) || null,
-            totalPrice: num(line.TotalAfterDiscount) || null,
-            weight: num(line.Weight),
-            currentStock: num(line.StockQuantity),
-            department: department ?? null,
-            lineStatus: str(line.Status) || null,
-            lineRemark: str(line.Remark) || null,
-            batch: str(line.Batch) || null,
-          })),
+          create: deptLines.map((line, idx) => buildLineData(line, idx, department)),
         },
       },
     });
@@ -237,4 +331,104 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
   });
 
   return result;
+}
+
+// ---- Pending updates (re-send of a frozen order) --------------------------
+
+export async function getPendingUpdates(status: string = 'PENDING') {
+  return prisma.pendingOrderUpdate.findMany({
+    where: { status },
+    orderBy: { receivedAt: 'desc' },
+  });
+}
+
+// Apply an approved update: re-sync the order's lines to match the new Tafnit
+// payload and release the order back to PENDING. We update lines per existing
+// department row (no row deletion — other relations aren't cascade-safe).
+export async function approvePendingUpdate(id: number, reviewedBy?: string) {
+  const pu = await prisma.pendingOrderUpdate.findUnique({ where: { id } });
+  if (!pu) throw new AppError(404, 'NOT_FOUND', 'עדכון לא נמצא');
+  if (pu.status !== 'PENDING') throw new AppError(400, 'ALREADY_HANDLED', 'העדכון כבר טופל');
+
+  const body = pu.rawPayload as unknown as TafnitOrder;
+  const orderNumber = pu.orderNumber;
+  const lines = Array.isArray(body.Lines) ? body.Lines : [];
+  const deliveryDate = body.DeliveryDate ? new Date(body.DeliveryDate) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const orderDate = body.OrderDate ? new Date(body.OrderDate) : new Date();
+
+  // Group new lines by department
+  const groups = new Map<Department | null, TafnitLine[]>();
+  for (const line of lines) {
+    const dept = mapDepartment(line.Department);
+    if (!groups.has(dept)) groups.set(dept, []);
+    groups.get(dept)!.push(line);
+  }
+
+  const existing = await prisma.order.findMany({ where: { orderNumber } });
+
+  await prisma.$transaction(async (tx) => {
+    const handled = new Set<string>();
+    for (const [department, deptLines] of groups) {
+      const key = String(department ?? '__null__');
+      handled.add(key);
+      const row = existing.find((o) => (o.department ?? null) === (department ?? null));
+      if (row) {
+        await tx.orderLine.deleteMany({ where: { orderId: row.id } });
+        await tx.order.update({
+          where: { id: row.id },
+          data: {
+            status: 'PENDING',
+            orderLines: { create: deptLines.map((l, i) => buildLineData(l, i, department)) },
+          },
+        });
+      } else {
+        await tx.order.create({
+          data: {
+            orderNumber,
+            department: department ?? null,
+            orderDate,
+            deliveryDate,
+            customerName: str(body.CustomerName) || 'לא צוין',
+            customerId: str(body.CustomerID) || null,
+            branchName: str(body.BranchName) || null,
+            salesPerson: str(body.SalesPerson) || null,
+            address: str(body.Address) || 'לא צוין',
+            city: str(body.City) || 'לא צוינה',
+            phone: str(body.Phone1),
+            phone2: str(body.Phone2) || null,
+            status: 'PENDING',
+            orderLines: { create: deptLines.map((l, i) => buildLineData(l, i, department)) },
+          },
+        });
+      }
+    }
+
+    // Departments that no longer appear in the new payload: clear their lines
+    // and release to PENDING (we keep the row — deletion isn't cascade-safe).
+    for (const row of existing) {
+      const key = String(row.department ?? '__null__');
+      if (!handled.has(key)) {
+        await tx.orderLine.deleteMany({ where: { orderId: row.id } });
+        await tx.order.update({ where: { id: row.id }, data: { status: 'PENDING' } });
+      }
+    }
+
+    await tx.pendingOrderUpdate.update({
+      where: { id },
+      data: { status: 'APPROVED', reviewedBy: reviewedBy || null, reviewedAt: new Date() },
+    });
+  });
+
+  return { orderNumber };
+}
+
+export async function rejectPendingUpdate(id: number, reviewedBy?: string) {
+  const pu = await prisma.pendingOrderUpdate.findUnique({ where: { id } });
+  if (!pu) throw new AppError(404, 'NOT_FOUND', 'עדכון לא נמצא');
+  if (pu.status !== 'PENDING') throw new AppError(400, 'ALREADY_HANDLED', 'העדכון כבר טופל');
+  await prisma.pendingOrderUpdate.update({
+    where: { id },
+    data: { status: 'REJECTED', reviewedBy: reviewedBy || null, reviewedAt: new Date() },
+  });
+  return { orderNumber: pu.orderNumber };
 }

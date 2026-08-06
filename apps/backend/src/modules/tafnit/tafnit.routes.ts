@@ -12,5 +12,8 @@ router.post('/orders', requireTafnitIp, tafnitController.importOrder);
 router.get('/logs', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.getLogs);
 router.post('/freeze', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.freezeOrder);
 router.get('/frozen-orders', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.getFrozenOrders);
+router.get('/pending-updates', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.getPendingUpdates);
+router.post('/pending-updates/:id/approve', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.approvePendingUpdate);
+router.post('/pending-updates/:id/reject', authMiddleware, requireRole('COORDINATOR', 'ADMIN'), tafnitController.rejectPendingUpdate);
 
 export default router;

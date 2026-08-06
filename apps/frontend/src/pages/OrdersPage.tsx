@@ -19,6 +19,7 @@ import {
   TableBody,
   Chip,
   CircularProgress,
+  Badge,
 } from '@mui/material';
 import {
   Upload as ImportIcon,
@@ -32,6 +33,7 @@ import {
   Print as PrintIcon,
   AcUnit as FreezeIcon,
   List as FrozenListIcon,
+  Sync as UpdateIcon,
 } from '@mui/icons-material';
 import OrdersTable from '../components/orders/OrdersTable';
 import OrderFilters from '../components/orders/OrderFilters';
@@ -58,8 +60,11 @@ export default function OrdersPage() {
   const [freezeDialogOpen, setFreezeDialogOpen] = useState(false);
   const [freezeOrderNumber, setFreezeOrderNumber] = useState('');
   const [freezeError, setFreezeError] = useState<string | null>(null);
-  const [frozenListOpen, setFrozenListOpen] = useState(false);
+  const [frozenView, setFrozenView] = useState(false);
+  const [pendingListOpen, setPendingListOpen] = useState(false);
+  const [reviewUpdate, setReviewUpdate] = useState<any | null>(null);
   const { data, isLoading, error } = useOrders();
+  const setFilters = useOrderStore((s) => s.setFilters);
   const bulkStatusMutation = useBulkChangeStatus();
   const bulkDeleteMutation = useBulkDelete();
   const bulkDeliveryDateMutation = useBulkUpdateDeliveryDate();
@@ -91,10 +96,42 @@ export default function OrdersPage() {
     },
   });
 
-  const { data: frozenOrdersData, isLoading: frozenLoading } = useQuery({
-    queryKey: ['frozenOrders'],
-    queryFn: () => tafnitApi.getFrozenOrders(),
-    enabled: frozenListOpen,
+  const { data: pendingUpdatesData } = useQuery({
+    queryKey: ['pendingUpdates'],
+    queryFn: () => tafnitApi.getPendingUpdates(),
+    refetchInterval: 60_000,
+  });
+  const pendingUpdates: any[] = pendingUpdatesData?.data ?? [];
+  const pendingUpdateOrderNumbers = new Set<string>(pendingUpdates.map((u) => u.orderNumber));
+
+  const toggleFrozenView = () => {
+    const next = !frozenView;
+    setFrozenView(next);
+    setShowSuspiciousOnly(false);
+    setShowNoZoneOnly(false);
+    setFilters({ status: next ? ['FROZEN'] : ['PENDING'], page: 1 });
+  };
+
+  const approveUpdateMutation = useMutation({
+    mutationFn: (id: number) => tafnitApi.approvePendingUpdate(id),
+    onSuccess: (_res, id) => {
+      const upd = pendingUpdates.find((u) => u.id === id);
+      setReviewUpdate(null);
+      setSnackbar({ message: `העדכון להזמנה ${upd?.orderNumber ?? ''} אושר וההזמנה חזרה לבהמתנה`, severity: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingUpdates'] });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה באישור העדכון', severity: 'error' }),
+  });
+
+  const rejectUpdateMutation = useMutation({
+    mutationFn: (id: number) => tafnitApi.rejectPendingUpdate(id),
+    onSuccess: () => {
+      setReviewUpdate(null);
+      setSnackbar({ message: 'העדכון נדחה', severity: 'success' });
+      queryClient.invalidateQueries({ queryKey: ['pendingUpdates'] });
+    },
+    onError: () => setSnackbar({ message: 'שגיאה בדחיית העדכון', severity: 'error' }),
   });
 
   const reassignZonesMutation = useMutation({
@@ -337,7 +374,7 @@ export default function OrdersPage() {
         }}
       >
         <Typography variant="h6" sx={{ fontWeight: 700, color: 'white', ml: 1 }}>
-          הזמנות בהמתנה
+          {frozenView ? 'הזמנות בהקפאה' : 'הזמנות בהמתנה'}
         </Typography>
         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', ml: 1 }}>
           ({showSuspiciousOnly ? `${orders.filter((o: any) => o.geocodeValid === false).length} חשודות` : showNoZoneOnly ? `${orders.filter((o: any) => !o.zoneId).length} ללא אזור` : total})
@@ -437,17 +474,36 @@ export default function OrdersPage() {
           variant="contained"
           size="small"
           startIcon={<FrozenListIcon />}
-          onClick={() => setFrozenListOpen(true)}
+          onClick={toggleFrozenView}
           sx={{
-            bgcolor: '#455a64',
+            bgcolor: frozenView ? '#0288d1' : '#455a64',
             color: 'white',
-            '&:hover': { bgcolor: '#37474f' },
+            fontWeight: frozenView ? 700 : 400,
+            border: frozenView ? '2px solid #fff' : 'none',
+            '&:hover': { bgcolor: frozenView ? '#0277bd' : '#37474f' },
             textTransform: 'none',
             borderRadius: 2,
           }}
         >
-          הזמנות בהקפאה
+          {frozenView ? '⬅ חזרה לבהמתנה' : 'הזמנות בהקפאה'}
         </Button>
+        <Badge badgeContent={pendingUpdates.length} color="error" sx={{ '& .MuiBadge-badge': { top: 6, right: 6 } }}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<UpdateIcon />}
+            onClick={() => setPendingListOpen(true)}
+            sx={{
+              bgcolor: pendingUpdates.length > 0 ? '#ef6c00' : 'rgba(255,255,255,0.15)',
+              color: 'white',
+              '&:hover': { bgcolor: pendingUpdates.length > 0 ? '#e65100' : 'rgba(255,255,255,0.25)' },
+              textTransform: 'none',
+              borderRadius: 2,
+            }}
+          >
+            עדכונים ממתינים
+          </Button>
+        </Badge>
         <Button
           variant="contained"
           size="small"
@@ -588,6 +644,11 @@ export default function OrdersPage() {
             onError: () => setSnackbar({ message: 'שגיאה בעדכון תאריך אספקה', severity: 'error' }),
           });
         }}
+        pendingUpdateOrderNumbers={pendingUpdateOrderNumbers}
+        onReviewUpdate={(orderNumber) => {
+          const u = pendingUpdates.find((p) => p.orderNumber === orderNumber);
+          if (u) setReviewUpdate(u);
+        }}
       />
 
       <CsvImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
@@ -712,66 +773,128 @@ export default function OrdersPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Frozen orders list dialog */}
-      <Dialog open={frozenListOpen} onClose={() => setFrozenListOpen(false)} maxWidth="md" fullWidth>
+      {/* Pending Tafnit updates list (for frozen orders) */}
+      <Dialog open={pendingListOpen} onClose={() => setPendingListOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <FrozenListIcon />
-          הזמנות שנשלחו להקפאה
+          <UpdateIcon sx={{ color: '#ef6c00' }} />
+          עדכונים ממתינים מתפנית
         </DialogTitle>
         <DialogContent sx={{ p: 0 }}>
-          {frozenLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : (
-            <Table size="small" stickyHeader>
-              <TableHead>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell>מספר הזמנה</TableCell>
+                <TableCell>התקבל</TableCell>
+                <TableCell align="center">שינויים</TableCell>
+                <TableCell align="center">פעולה</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pendingUpdates.length === 0 ? (
                 <TableRow>
-                  <TableCell>תאריך</TableCell>
-                  <TableCell>מספר הזמנה</TableCell>
-                  <TableCell>הוקפא ע"י</TableCell>
-                  <TableCell>תוצאה</TableCell>
-                  <TableCell>שגיאה</TableCell>
+                  <TableCell colSpan={4} align="center" sx={{ color: 'text.secondary', py: 3 }}>
+                    אין עדכונים ממתינים
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {(frozenOrdersData?.data ?? []).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 3 }}>
-                      אין הזמנות מוקפאות
+              ) : (
+                pendingUpdates.map((row: any) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell sx={{ fontWeight: 600 }}>{row.orderNumber}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {format(new Date(row.receivedAt), 'dd/MM/yyyy HH:mm')}
+                    </TableCell>
+                    <TableCell align="center">{(row.diff ?? []).length}</TableCell>
+                    <TableCell align="center">
+                      <Button size="small" variant="outlined" onClick={() => { setPendingListOpen(false); setReviewUpdate(row); }}>
+                        צפה בשינויים
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  (frozenOrdersData?.data ?? []).map((row: any) => (
-                    <TableRow key={row.id}>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        {format(new Date(row.frozenAt), 'dd/MM/yyyy HH:mm')}
-                      </TableCell>
-                      <TableCell>{row.orderNumber}</TableCell>
-                      <TableCell>{row.frozenBy || '-'}</TableCell>
-                      <TableCell>
-                        <Chip
-                          size="small"
-                          label={row.success ? 'הצליח' : 'נכשל'}
-                          sx={{
-                            bgcolor: row.success ? '#e8f5e9' : '#ffebee',
-                            color: row.success ? '#2e7d32' : '#c62828',
-                            fontWeight: 600,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: 'error.main', fontSize: '0.75rem', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {row.error || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          )}
+                ))
+              )}
+            </TableBody>
+          </Table>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setFrozenListOpen(false)}>סגור</Button>
+          <Button onClick={() => setPendingListOpen(false)}>סגור</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diff review dialog */}
+      <Dialog open={!!reviewUpdate} onClose={() => setReviewUpdate(null)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <UpdateIcon sx={{ color: '#ef6c00' }} />
+          שינויים בהזמנה {reviewUpdate?.orderNumber}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            התקבלה מתפנית שליחה חדשה להזמנה המוקפאת. השינויים מול ההזמנה הקיימת:
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>שינוי</TableCell>
+                <TableCell>פריט</TableCell>
+                <TableCell>תיאור</TableCell>
+                <TableCell align="center">כמות ישנה</TableCell>
+                <TableCell align="center">כמות חדשה</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {(reviewUpdate?.diff ?? []).map((d: any, i: number) => {
+                const cfg: Record<string, { label: string; bg: string; color: string }> = {
+                  ADDED: { label: 'נוסף', bg: '#e8f5e9', color: '#2e7d32' },
+                  REMOVED: { label: 'הוסר', bg: '#ffebee', color: '#c62828' },
+                  CHANGED: { label: 'שונה', bg: '#fff8e1', color: '#ef6c00' },
+                };
+                const c = cfg[d.type] || { label: d.type, bg: '#eee', color: '#333' };
+                return (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Chip size="small" label={c.label} sx={{ bgcolor: c.bg, color: c.color, fontWeight: 600 }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{d.product}</TableCell>
+                    <TableCell>{d.description || '-'}</TableCell>
+                    <TableCell align="center" sx={{ color: d.type === 'ADDED' ? 'text.disabled' : undefined }}>
+                      {d.type === 'ADDED' ? '-' : d.oldQty}
+                    </TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: d.type === 'REMOVED' ? 'error.main' : 'success.main' }}>
+                      {d.type === 'REMOVED' ? '0' : d.newQty}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {(reviewUpdate?.diff ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ color: 'text.secondary', py: 2 }}>אין הבדלים</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            באישור, שורות ההזמנה יעודכנו לפי השליחה החדשה וההזמנה תחזור לסטטוס "בהמתנה".
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            color="error"
+            onClick={() => reviewUpdate && rejectUpdateMutation.mutate(reviewUpdate.id)}
+            disabled={approveUpdateMutation.isPending || rejectUpdateMutation.isPending}
+          >
+            דחה
+          </Button>
+          <Button onClick={() => setReviewUpdate(null)} disabled={approveUpdateMutation.isPending || rejectUpdateMutation.isPending}>
+            סגור
+          </Button>
+          <Button
+            variant="contained"
+            sx={{ bgcolor: '#2e7d32', '&:hover': { bgcolor: '#1b5e20' } }}
+            onClick={() => reviewUpdate && approveUpdateMutation.mutate(reviewUpdate.id)}
+            disabled={approveUpdateMutation.isPending || rejectUpdateMutation.isPending}
+            startIcon={approveUpdateMutation.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}
+          >
+            {approveUpdateMutation.isPending ? 'מעדכן...' : 'אשר ועדכן'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

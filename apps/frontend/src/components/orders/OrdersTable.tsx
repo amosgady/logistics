@@ -34,6 +34,7 @@ import {
   DragIndicator as DragIcon,
   StickyNote2 as NoteIcon,
   LocationOn as CoordIcon,
+  Sync as UpdateIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -127,6 +128,10 @@ interface Props {
   total: number;
   loading: boolean;
   onUpdateDeliveryDate?: (id: number, deliveryDate: string) => void;
+  // Order numbers that have a pending Tafnit update awaiting review, plus a
+  // callback to open the diff review for a given order number.
+  pendingUpdateOrderNumbers?: Set<string>;
+  onReviewUpdate?: (orderNumber: string) => void;
   useStore?: () => {
     selectedOrderIds: Set<number>;
     toggleSelect: (id: number) => void;
@@ -1178,12 +1183,16 @@ function OrderRow({
   onUpdateDeliveryDate,
   selectedOrderIds,
   toggleSelect,
+  hasPendingUpdate,
+  onReviewUpdate,
 }: {
   order: Order;
   columnOrder: string[];
   onUpdateDeliveryDate?: (id: number, date: string) => void;
   selectedOrderIds: Set<number>;
   toggleSelect: (id: number) => void;
+  hasPendingUpdate?: boolean;
+  onReviewUpdate?: (orderNumber: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
@@ -1215,6 +1224,17 @@ function OrderRow({
             {hasCheckerNotes && (
               <Tooltip title="יש הערות בודק בשורות">
                 <NoteIcon sx={{ fontSize: 16, color: 'warning.main' }} />
+              </Tooltip>
+            )}
+            {hasPendingUpdate && (
+              <Tooltip title="התקבל עדכון מתפנית — צפה בשינויים">
+                <IconButton
+                  size="small"
+                  color="warning"
+                  onClick={() => onReviewUpdate?.(order.orderNumber)}
+                >
+                  <UpdateIcon sx={{ fontSize: 18 }} />
+                </IconButton>
               </Tooltip>
             )}
           </Box>
@@ -1287,7 +1307,7 @@ function OrderRow({
 }
 
 // --- Main table ---
-export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDate, useStore }: Props) {
+export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDate, useStore, pendingUpdateOrderNumbers, onReviewUpdate }: Props) {
   const { selectedOrderIds, toggleSelect, selectAll, clearSelection, filters, setFilters } = (useStore || useOrderStore)();
   const userId = useAuthStore((s) => s.user?.id);
   const { sortedItems, sortConfig, handleSort } = useSortable(orders);
@@ -1414,6 +1434,8 @@ export default function OrdersTable({ orders, total, loading, onUpdateDeliveryDa
                   onUpdateDeliveryDate={onUpdateDeliveryDate}
                   selectedOrderIds={selectedOrderIds}
                   toggleSelect={toggleSelect}
+                  hasPendingUpdate={pendingUpdateOrderNumbers?.has(order.orderNumber)}
+                  onReviewUpdate={onReviewUpdate}
                 />
               ))
             )}

@@ -2,7 +2,24 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { AuthRequest } from '../../middleware/auth';
 import prisma from '../../utils/prisma';
-import { importOrderFromJson, getLogs, freezeOrder, getFrozenOrders } from './tafnit.service';
+import {
+  importOrderFromJson,
+  getLogs,
+  freezeOrder,
+  getFrozenOrders,
+  getPendingUpdates,
+  approvePendingUpdate,
+  rejectPendingUpdate,
+} from './tafnit.service';
+
+async function resolveUserName(req: AuthRequest): Promise<string | undefined> {
+  if (!req.user?.userId) return undefined;
+  const user = await prisma.user.findUnique({
+    where: { id: req.user.userId },
+    select: { fullName: true, email: true },
+  });
+  return user?.fullName || user?.email || String(req.user.userId);
+}
 
 export const tafnitController = {
   importOrder: asyncHandler(async (req: Request, res: Response) => {
@@ -45,5 +62,32 @@ export const tafnitController = {
   getFrozenOrders: asyncHandler(async (_req: Request, res: Response) => {
     const orders = await getFrozenOrders();
     res.json({ success: true, data: orders });
+  }),
+
+  getPendingUpdates: asyncHandler(async (_req: Request, res: Response) => {
+    const updates = await getPendingUpdates();
+    res.json({ success: true, data: updates });
+  }),
+
+  approvePendingUpdate: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ success: false, error: 'invalid id' });
+      return;
+    }
+    const reviewedBy = await resolveUserName(req);
+    const result = await approvePendingUpdate(id, reviewedBy);
+    res.json({ success: true, data: result });
+  }),
+
+  rejectPendingUpdate: asyncHandler(async (req: AuthRequest, res: Response) => {
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ success: false, error: 'invalid id' });
+      return;
+    }
+    const reviewedBy = await resolveUserName(req);
+    const result = await rejectPendingUpdate(id, reviewedBy);
+    res.json({ success: true, data: result });
   }),
 };

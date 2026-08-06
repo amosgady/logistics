@@ -623,3 +623,20 @@ model FrozenOrder {
   @@index([frozenAt])
   @@map("frozen_orders")
 }
+
+// A new Tafnit send for an order that is currently FROZEN. Held for the user
+// to review the line/quantity differences before it is applied to the order.
+model PendingOrderUpdate {
+  id          Int       @id @default(autoincrement())
+  orderNumber String    @map("order_number")
+  receivedAt  DateTime  @default(now()) @map("received_at")
+  rawPayload  Json      @map("raw_payload")   // the incoming Tafnit order JSON
+  diff        Json?                            // computed line/qty differences
+  status      String    @default("PENDING")    // PENDING | APPROVED | REJECTED
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+
+  @@index([orderNumber])
+  @@index([status])
+  @@map("pending_order_updates")
+}
