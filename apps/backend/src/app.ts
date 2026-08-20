@@ -28,8 +28,10 @@ import tafnitRoutes from './modules/tafnit/tafnit.routes';
 
 const app = express();
 
-// Trust reverse proxy (Nginx) – required for correct IP and protocol detection
-app.set('trust proxy', 1);
+// Trust reverse proxy (Nginx) – required for correct IP and protocol detection.
+// Hops are configurable: 1 for a single nginx (cloud), 2 when traffic also
+// passes through a second nginx via the on-prem reverse tunnel.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS) || 1);
 
 // Security headers
 app.use(helmet({
