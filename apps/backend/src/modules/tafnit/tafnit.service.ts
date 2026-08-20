@@ -127,37 +127,56 @@ function computeLineDiff(
 const PROXY_URL = process.env.TAFNIT_PROXY_URL || '';
 const PROXY_SECRET = process.env.TAFNIT_PROXY_SECRET || '';
 const COMPANY_CODE = process.env.TAFNIT_COMPANY_CODE || '1';
+// When set (e.g. on the on-prem server that can reach Tafnit's network
+// directly), freeze calls the Hovalot web service straight — no perfectline
+// proxy, no WAF/Check Point in the path. Example:
+//   TAFNIT_HOVALOT_DIRECT_URL=http://147.235.45.98/csp/bil/Hovalot.Webservices.cls
+const HOVALOT_DIRECT_URL = process.env.TAFNIT_HOVALOT_DIRECT_URL || '';
 
 export async function freezeOrder(orderNumber: string, frozenBy?: string): Promise<{ success: boolean; raw?: string; error?: string }> {
-  if (!PROXY_URL || !PROXY_SECRET) {
-    return { success: false, error: 'TAFNIT_PROXY_URL / TAFNIT_PROXY_SECRET not configured' };
+  if (!HOVALOT_DIRECT_URL && (!PROXY_URL || !PROXY_SECRET)) {
+    return { success: false, error: 'Tafnit freeze not configured (need TAFNIT_HOVALOT_DIRECT_URL or TAFNIT_PROXY_URL+SECRET)' };
   }
 
-  // We POST a compact "FREEZE|company|order|status" token to the proxy's
-  // /send route — NOT a raw SOAP envelope. Two reasons:
-  //   1. uPress's WAF whitelists /send but 301-blocks newer routes.
-  //   2. uPress's adaptive WAF fingerprinted the literal string
-  //      "SetHovalaSTT" and now 301-blocks any request body containing it.
-  // The proxy rebuilds the real SetHovalaSTT envelope server-side (where the
-  // WAF never inspects) and forwards it to the Hovalot service on .98.
   // Params: HEV = company, HZM = order number, STT = status (3 = frozen);
   // Tafnit replies with boolean SetHovalaSTTResult.
   const orderNum = String(orderNumber).replace(/[^0-9]/g, '');
-  const body = `FREEZE|${COMPANY_CODE}|${orderNum}|3`;
 
   let success = false;
   let error: string | undefined;
   let raw: string | undefined;
 
   try {
-    const res = await fetch(PROXY_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/octet-stream',
-        'X-Tafnit-Proxy-Secret': PROXY_SECRET,
-      },
-      body,
-    });
+    let res: Response;
+    if (HOVALOT_DIRECT_URL) {
+      // Direct SOAP call to the Hovalot web service (no proxy).
+      const envelope = `<?xml version="1.0" encoding="utf-8"?>` +
+        `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">` +
+        `<soap:Body><SetHovalaSTT xmlns="http://tempuri.org">` +
+        `<HEV>${COMPANY_CODE}</HEV><HZM>${orderNum}</HZM><STT>3</STT>` +
+        `</SetHovalaSTT></soap:Body></soap:Envelope>`;
+      res = await fetch(HOVALOT_DIRECT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'SOAPAction': 'http://tempuri.org/Hovalot.Webservices.SetHovalaSTT',
+        },
+        body: envelope,
+      });
+    } else {
+      // Via perfectline proxy: POST a compact "FREEZE|company|order|status"
+      // token to the /send route. The proxy rebuilds the real SetHovalaSTT
+      // envelope server-side (its WAF fingerprinted that string) and forwards
+      // it to the Hovalot service on .98.
+      res = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'X-Tafnit-Proxy-Secret': PROXY_SECRET,
+        },
+        body: `FREEZE|${COMPANY_CODE}|${orderNum}|3`,
+      });
+    }
 
     raw = await res.text();
     if (!res.ok) {
