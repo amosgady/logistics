@@ -268,6 +268,7 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
     const diff = computeLineDiff(existingLines, lines);
 
     let pendingUpdate: string | null = null;
+    let released = false;
     if (diff.length > 0) {
       const existingPU = await prisma.pendingOrderUpdate.findFirst({
         where: { orderNumber, status: 'PENDING' },
@@ -283,9 +284,22 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
         });
       }
       pendingUpdate = orderNumber;
+    } else {
+      // Identical re-send of a frozen order = Tafnit re-confirmed it unchanged.
+      // Release it from freeze back to PENDING automatically (no review needed),
+      // and supersede any pending review that was open for it.
+      await prisma.order.updateMany({
+        where: { orderNumber, status: 'FROZEN' },
+        data: { status: 'PENDING' },
+      });
+      await prisma.pendingOrderUpdate.updateMany({
+        where: { orderNumber, status: 'PENDING' },
+        data: { status: 'REJECTED', reviewedBy: 'אוטומטי (התקבלה זהה — שוחררה)', reviewedAt: new Date() },
+      });
+      released = true;
     }
 
-    const result = { created: [], skipped: diff.length === 0 ? [orderNumber] : [], failed: [] as string[], frozen: true, pendingUpdate };
+    const result = { created: [], skipped: [] as string[], failed: [] as string[], frozen: true, pendingUpdate, released };
     await prisma.tafnitLog.updateMany({
       where: { orderNumber, result: { equals: null as any } },
       data: { result: result as any },
