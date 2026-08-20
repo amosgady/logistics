@@ -20,6 +20,11 @@ app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   console.log(`Environment: ${env.NODE_ENV}`);
 
-  // Start the SMS reminder scheduler
-  smsScheduler.start();
+  // Start the SMS reminder scheduler unless disabled (e.g. a parallel/standby
+  // instance that must not send duplicate reminders to real customers).
+  if (process.env.DISABLE_SCHEDULERS === 'true') {
+    console.log('[Scheduler] DISABLED via DISABLE_SCHEDULERS=true');
+  } else {
+    smsScheduler.start();
+  }
 });
