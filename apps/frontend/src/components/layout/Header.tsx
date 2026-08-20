@@ -10,6 +10,10 @@ const ROLE_LABELS: Record<string, string> = {
   INSTALLER: 'מתקין',
 };
 
+// On the DEV/TEST build the top bar turns orange so it's obvious you're not
+// on the live system. Enabled via VITE_APP_ENV=dev at build time.
+const IS_TEST = import.meta.env.VITE_APP_ENV === 'dev';
+
 export default function Header() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
@@ -22,11 +26,11 @@ export default function Header() {
   return (
     <AppBar
       position="fixed"
-      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}
+      sx={{ zIndex: (theme) => theme.zIndex.drawer + 1, ...(IS_TEST ? { bgcolor: '#ef6c00' } : {}) }}
     >
       <Toolbar>
         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-          מערכת ניהול הובלות והתקנות
+          מערכת ניהול הובלות והתקנות{IS_TEST ? ' — טסט' : ''}
         </Typography>
         {user && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
