@@ -77,16 +77,20 @@ class GeoSortService {
       }
     }
 
-    // Split into orders with and without valid coordinates
+    // Split into orders that have coordinates and those that don't. We sort by
+    // any available coordinates — even ones flagged "suspicious"
+    // (geocodeValid === false) — since rough coordinates still give a usable
+    // order, and failing the whole sort is worse. Only orders with no
+    // coordinates at all are appended at the end.
     const withCoords = orders.filter(
-      (o) => o.latitude != null && o.longitude != null && o.geocodeValid !== false
+      (o) => o.latitude != null && o.longitude != null
     );
     const noCoordinates = orders
-      .filter((o) => o.latitude == null || o.longitude == null || o.geocodeValid === false)
+      .filter((o) => o.latitude == null || o.longitude == null)
       .map((o) => o.id);
 
     if (withCoords.length === 0) {
-      throw new AppError(400, 'VALIDATION_ERROR', 'אין הזמנות עם קואורדינטות תקינות');
+      throw new AppError(400, 'VALIDATION_ERROR', 'אין הזמנות עם קואורדינטות — נסה "אימות כתובות" תחילה');
     }
 
     // Nearest-neighbor algorithm starting from warehouse
