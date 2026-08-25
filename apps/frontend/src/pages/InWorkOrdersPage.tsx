@@ -480,7 +480,12 @@ export default function InWorkOrdersPage() {
         useStore={useStore}
         onUpdateDeliveryDate={(id, deliveryDate) => {
           deliveryDateMutation.mutate({ id, deliveryDate }, {
-            onSuccess: () => setSnackbar({ message: 'תאריך אספקה עודכן', severity: 'success' }),
+            onSuccess: () => {
+              setSnackbar({ message: 'תאריך אספקה עודכן', severity: 'success' });
+              // This page's data lives under ['inWorkOrders']; the shared
+              // mutation only invalidates ['orders'], so refresh it here too.
+              queryClient.invalidateQueries({ queryKey: ['inWorkOrders'] });
+            },
             onError: () => setSnackbar({ message: 'שגיאה בעדכון תאריך אספקה', severity: 'error' }),
           });
         }}

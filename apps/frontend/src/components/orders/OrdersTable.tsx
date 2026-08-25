@@ -219,7 +219,7 @@ function EditablePalletCount({ order }: { order: Order }) {
 
   const mutation = useMutation({
     mutationFn: (palletCount: number) => orderApi.updatePalletCount(order.id, palletCount),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -276,7 +276,7 @@ function EditablePhone({ order }: { order: Order }) {
 
   const mutation = useMutation({
     mutationFn: () => orderApi.updatePhone(order.id, phone1.trim(), phone2.trim() || null),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -341,7 +341,7 @@ function EditablePrice({ order }: { order: Order }) {
 
   const mutation = useMutation({
     mutationFn: (price: string) => orderApi.updatePrice(order.id, price),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -387,7 +387,7 @@ function CoordinateEditor({ order }: { order: Order }) {
   const mutation = useMutation({
     mutationFn: ({ lat, lng }: { lat: number; lng: number }) => orderApi.updateCoordinates(order.id, lat, lng),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' });
       setOpen(false);
     },
   });
@@ -464,7 +464,7 @@ function EditableOptionalCount({ order, field, updateFn }: { order: Order; field
 
   const mutation = useMutation({
     mutationFn: (val: number | null) => updateFn(order.id, val),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -535,12 +535,12 @@ function EditableAddress({ order }: { order: Order }) {
 
   const addressMutation = useMutation({
     mutationFn: (address: string) => orderApi.updateAddress(order.id, address),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const cityMutation = useMutation({
     mutationFn: (city: string) => orderApi.updateCity(order.id, city),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const saveAddress = () => {
@@ -638,7 +638,7 @@ function EditableDepartment({ order }: { order: Order }) {
   const mutation = useMutation({
     mutationFn: (department: string) => orderApi.updateDepartment(order.id, department),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' });
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
     },
   });
@@ -671,7 +671,7 @@ function EditableZone({ order }: { order: Order }) {
   const zoneMutation = useMutation({
     mutationFn: (zoneId: number) => orderApi.updateZone(order.id, zoneId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' });
       queryClient.invalidateQueries({ queryKey: ['planning-board'] });
     },
   });
@@ -711,7 +711,7 @@ function EditableDriverNote({ order }: { order: Order }) {
 
   const mutation = useMutation({
     mutationFn: (driverNote: string) => orderApi.updateDriverNote(order.id, driverNote),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -775,7 +775,7 @@ function EditableLineQuantity({ line, orderStatus }: { line: OrderLine; orderSta
 
   const mutation = useMutation({
     mutationFn: (quantity: number) => orderApi.updateLineQuantity(line.id, quantity),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const save = () => {
@@ -824,7 +824,7 @@ function OrderLineDetails({ orderLines, orderStatus }: { orderLines: OrderLine[]
 
   const deleteMutation = useMutation({
     mutationFn: (lineId: number) => orderApi.deleteOrderLine(lineId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
+    onSuccess: () => queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'orders' || q.queryKey[0] === 'inWorkOrders' }),
   });
 
   const handleDelete = (lineId: number, product: string) => {
