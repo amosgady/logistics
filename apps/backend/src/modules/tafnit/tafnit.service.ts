@@ -239,8 +239,9 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
     return { created: [], skipped: [], failed: [{ orderNumber: '(unknown)', error: 'Missing OrderNumber' }] };
   }
 
-  // Save raw log before processing
-  await prisma.tafnitLog.create({
+  // Save raw log before processing (keep the id so we can attach the result
+  // to THIS row — a Json `{ equals: null }` filter doesn't match SQL NULL).
+  const logEntry = await prisma.tafnitLog.create({
     data: {
       ip,
       orderNumber: orderNumber || null,
@@ -300,8 +301,8 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
     }
 
     const result = { created: [], skipped: [] as string[], failed: [] as string[], frozen: true, pendingUpdate, released };
-    await prisma.tafnitLog.updateMany({
-      where: { orderNumber, result: { equals: null as any } },
+    await prisma.tafnitLog.update({
+      where: { id: logEntry.id },
       data: { result: result as any },
     });
     return result;
@@ -358,8 +359,8 @@ export async function importOrderFromJson(body: TafnitOrder, ip = '') {
   const result = { created, skipped, failed: [] as string[] };
 
   // Update log with result
-  await prisma.tafnitLog.updateMany({
-    where: { orderNumber, result: { equals: null as any } },
+  await prisma.tafnitLog.update({
+    where: { id: logEntry.id },
     data: { result: result as any },
   });
 
